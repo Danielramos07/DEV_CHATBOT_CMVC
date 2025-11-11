@@ -1,0 +1,14 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:16
+    container_name: chatbot_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 29344
+      POSTGRES_DB: AI4Governance
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql

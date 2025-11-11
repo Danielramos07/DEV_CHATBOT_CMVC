@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>CMIA - Centro de Monitorização e Interpretação Ambiental de Viana do Castelo</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" href="{{ url_for('static', filename='images/centromonitorizacao.png') }}" type="image/png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/modal.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+  <style>
+    body {
+      min-height: 100vh;
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: url('{{ url_for('static', filename='images/image.png') }}') no-repeat center center fixed;
+      background-size: cover;
+    }
+  </style>
+</head>
+<body>
+  <!-- Chatbot Sidebar -->
+  <div class="chat-sidebar" id="chatSidebar" style="display: none;">
+    <div class="chat-header">
+      <button class="chat-close-btn" onclick="fecharChat()">×</button>
+      <img src="{{ url_for('static', filename='images/chatbot-icon.png') }}" alt="Chatbot" class="chat-header-avatar">
+      <div class="chat-header-info">
+        <h3 id="chatHeaderNomeBot">Assistente Virtual Municipal</h3>
+        <div id="chatFonteBadge"></div>
+      </div>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-input">
+      <input type="text" placeholder="Digite uma mensagem..." id="chatInput" onkeydown="if(event.key==='Enter') enviarPergunta()">
+      <button onclick="enviarPergunta()" title="Enviar">➤</button>
+    </div>
+  </div>
+
+  <div class="chat-toggle-container">
+    <button id="chatToggleBtn" class="chat-toggle-btn" aria-label="Abrir chatbot">
+      <img src="{{ url_for('static', filename='images/icon-botao.png') }}" alt="Chatbot" />
+    </button>
+    <div class="chat-toggle-card">
+      <div class="bold">Fale connosco</div>
+      <div>Precisa de ajuda?</div>
+    </div>
+  </div>
+
+  <script>
+    localStorage.setItem("chatbotAtivo", "2");
+  </script>
+
+  <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/toggleChat.js') }}"></script>
+</body>
+</html>

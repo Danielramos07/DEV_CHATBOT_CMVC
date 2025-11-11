@@ -1,0 +1,331 @@
+from flask import Blueprint, request, jsonify
+from .db import get_conn
+from .services.text import detectar_saudacao
+from .services.retreival import build_faiss_index
+from .services.retreival import obter_faq_mais_semelhante
+from .services.retreival import pesquisar_faiss
+from .services.rag import pesquisar_pdf_ollama, get_pdfs_from_db, obter_mensagem_sem_resposta
+import traceback
+
+app = Blueprint('api', __name__)
+
+
+@app.route("/obter-resposta", methods=["POST"])
+def obter_resposta():
+    conn = get_conn()
+    cur = conn.cursor()
+    dados = request.get_json()
+    pergunta = dados.get("pergunta", "").strip()
+    chatbot_id = dados.get("chatbot_id")
+    fonte = dados.get("fonte", "faq")
+    idioma = dados.get("idioma", "pt")
+    feedback = dados.get("feedback", None)
+    print("DEBUG /obter-resposta:", {
+        "pergunta": pergunta,
+        "chatbot_id": chatbot_id,
+        "fonte": fonte,
+        "feedback": feedback,
+        "type_feedback": type(feedback)
+    })
+    try:
+        chatbot_id = int(chatbot_id)
+    except Exception:
+        return jsonify({"success": False, "erro": "Chatbot ID inválido."}), 400
+    saudacao = detectar_saudacao(pergunta)
+    if saudacao:
+        return jsonify({
+            "success": True,
+            "fonte": "SAUDACAO",
+            "resposta": saudacao,
+            "faq_id": None,
+            "categoria_id": None,
+            "pergunta_faq": None,
+            "documentos": []
+        })
+    if not pergunta or (len(pergunta) < 4 and not any(char.isalpha() for char in pergunta)):
+        return jsonify({
+            "success": False,
+            "erro": "Pergunta demasiado curta ou não reconhecida como válida."
+        })
+    if fonte == "faq+raga" and (feedback is None or feedback == "") and pergunta.lower() in ["sim", "yes"]:
+        return jsonify({
+            "success": False,
+            "erro": "Por favor utilize os botões abaixo para confirmar.",
+            "prompt_rag": True
+        })
+    try:
+        if fonte == "faq":
+            resultado = obter_faq_mais_semelhante(pergunta, chatbot_id)
+            if resultado:
+                cur.execute("""
+                    SELECT faq_id, categoria_id FROM FAQ
+                    WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
+                """, (resultado["pergunta"], chatbot_id))
+                row = cur.fetchone()
+                faq_id, categoria_id = row if row else (None, None)
+                cur.execute("SELECT link FROM FAQ_Documento WHERE faq_id = %s", (faq_id,))
+                docs = [r[0] for r in cur.fetchall()]
+                return jsonify({
+                    "success": True,
+                    "fonte": "FAQ",
+                    "resposta": resultado["resposta"],
+                    "faq_id": faq_id,
+                    "categoria_id": categoria_id,
+                    "score": resultado["score"],
+                    "pergunta_faq": resultado["pergunta"],
+                    "documentos": docs
+                })
+            return jsonify({
+                "success": False,
+                "erro": obter_mensagem_sem_resposta(chatbot_id)
+            })
+        elif fonte == "faiss":
+            faiss_resultados = pesquisar_faiss(pergunta, chatbot_id=chatbot_id, k=1, min_sim=0.7)
+            if faiss_resultados:
+                faq_id = faiss_resultados[0]['faq_id']
+                cur.execute("SELECT link FROM FAQ_Documento WHERE faq_id = %s", (faq_id,))
+                docs = [r[0] for r in cur.fetchall()]
+                return jsonify({
+                    "success": True,
+                    "fonte": "FAISS",
+                    "resposta": faiss_resultados[0]['resposta'],
+                    "faq_id": faq_id,
+                    "score": faiss_resultados[0]['score'],
+                    "pergunta_faq": faiss_resultados[0]['pergunta'],
+                    "documentos": docs
+                })
+            else:
+                resultado = obter_faq_mais_semelhante(pergunta, chatbot_id, threshold=80)
+                if resultado:
+                    cur.execute("""
+                        SELECT faq_id, categoria_id FROM FAQ
+                        WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
+                    """, (resultado["pergunta"], chatbot_id))
+                    row = cur.fetchone()
+                    faq_id, categoria_id = row if row else (None, None)
+                    cur.execute("SELECT link FROM FAQ_Documento WHERE faq_id = %s", (faq_id,))
+                    docs = [r[0] for r in cur.fetchall()]
+                    return jsonify({
+                        "success": True,
+                        "fonte": "FUZZY",
+                        "resposta": resultado["resposta"],
+                        "faq_id": faq_id,
+                        "categoria_id": categoria_id,
+                        "score": resultado["score"],
+                        "pergunta_faq": resultado["pergunta"],
+                        "documentos": docs
+                    })
+                return jsonify({
+                    "success": False,
+                    "erro": "Não encontrei nenhuma resposta suficientemente semelhante na base de dados."
+                })
+        elif fonte == "faq+raga":
+            resultado = obter_faq_mais_semelhante(pergunta, chatbot_id)
+            if resultado:
+                cur.execute("""
+                    SELECT faq_id, categoria_id FROM FAQ
+                    WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
+                """, (resultado["pergunta"], chatbot_id))
+                row = cur.fetchone()
+                faq_id, categoria_id = row if row else (None, None)
+                cur.execute("SELECT link FROM FAQ_Documento WHERE faq_id = %s", (faq_id,))
+                docs = [r[0] for r in cur.fetchall()]
+                return jsonify({
+                    "success": True,
+                    "fonte": "FAQ",
+                    "resposta": resultado["resposta"],
+                    "faq_id": faq_id,
+                    "categoria_id": categoria_id,
+                    "score": resultado["score"],
+                    "pergunta_faq": resultado["pergunta"],
+                    "documentos": docs
+                })
+            elif feedback and feedback.strip().lower() == "try_rag":
+                print("DEBUG: A tentar responder via RAG (PDF) via Ollama")
+                resposta_ollama = pesquisar_pdf_ollama(pergunta, chatbot_id=chatbot_id)
+                if resposta_ollama:
+                    pdfs = get_pdfs_from_db(chatbot_id)
+                    file_path = pdfs[0][1] if pdfs else None
+                    return jsonify({
+                        "success": True,
+                        "fonte": "RAG-OLLAMA",
+                        "resposta": resposta_ollama,
+                        "faq_id": None,
+                        "categoria_id": None,
+                        "score": None,
+                        "pergunta_faq": None,
+                        "documentos": [file_path] if file_path else []
+                    })
+                else:
+                    return jsonify({
+                        "success": False,
+                        "erro": "Não foi possível encontrar uma resposta nos documentos PDF usando Ollama."
+                    })
+            else:
+                print("DEBUG: feedback != 'try_rag' -> devolve prompt_rag")
+                return jsonify({
+                    "success": False,
+                    "erro": "Pergunta não encontrada nas FAQs. Deseja tentar encontrar uma resposta nos documentos PDF? Isso pode levar alguns segundos.",
+                    "prompt_rag": True
+                })
+        else:
+            return jsonify({"success": False, "erro": "Fonte inválida."}), 400
+    except Exception as e:
+        print(traceback.format_exc())
+        return jsonify({"success": False, "erro": str(e)}), 500
+    finally:
+        cur.close()
+
+@app.route("/perguntas-semelhantes", methods=["POST"])
+def perguntas_semelhantes():
+    conn = get_conn()
+    cur = conn.cursor()
+    dados = request.get_json()
+    pergunta_atual = dados.get("pergunta", "")
+    chatbot_id = dados.get("chatbot_id")
+    idioma = dados.get("idioma", "pt")
+    try:
+        cur.execute("""
+            SELECT categoria_id
+            FROM FAQ
+            WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s AND idioma = %s
+        """, (pergunta_atual.strip().lower(), chatbot_id, idioma))
+        categoria_row = cur.fetchone()
+        if not categoria_row or categoria_row[0] is None:
+            return jsonify({"success": True, "sugestoes": []})
+        categoria_id = categoria_row[0]
+        cur.execute("""
+            SELECT pergunta
+            FROM FAQ
+            WHERE categoria_id = %s
+              AND recomendado = TRUE
+              AND LOWER(pergunta) != LOWER(%s)
+              AND chatbot_id = %s
+              AND idioma = %s
+            ORDER BY RANDOM()
+            LIMIT 2
+        """, (categoria_id, pergunta_atual.strip().lower(), chatbot_id, idioma))
+        sugestoes = [row[0] for row in cur.fetchall()]
+        return jsonify({"success": True, "sugestoes": sugestoes})
+    except Exception as e:
+        return jsonify({"success": False, "erro": str(e)}), 500
+
+@app.route("/faqs-aleatorias", methods=["POST"])
+def faqs_aleatorias():
+    conn = get_conn()
+    cur = conn.cursor()
+    dados = request.get_json()
+    idioma = dados.get("idioma", "pt")
+    n = int(dados.get("n", 3))
+    chatbot_id = dados.get("chatbot_id")
+    try:
+        if chatbot_id:
+            cur.execute("""
+                SELECT pergunta
+                FROM FAQ
+                WHERE idioma = %s AND chatbot_id = %s
+                ORDER BY RANDOM()
+                LIMIT %s
+            """, (idioma, chatbot_id, n))
+        else:
+            cur.execute("""
+                SELECT pergunta
+                FROM FAQ
+                WHERE idioma = %s
+                ORDER BY RANDOM()
+                LIMIT %s
+            """, (idioma, n))
+        faqs = [row[0] for row in cur.fetchall()]
+        return jsonify({"success": True, "faqs": [{"pergunta": p} for p in faqs]})
+    except Exception as e:
+        return jsonify({"success": False, "erro": str(e)}), 500
+
+@app.route("/chatbot/<int:chatbot_id>", methods=["GET"])
+def obter_nome_chatbot(chatbot_id):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT nome, cor, icon_path FROM Chatbot WHERE chatbot_id = %s", (chatbot_id,))
+        row = cur.fetchone()
+        if row:
+            return jsonify({"success": True, "nome": row[0], "cor": row[1] or "#d4af37", "icon": row[2] or "/static/images/chatbot-icon.png"})
+        return jsonify({"success": False, "erro": "Chatbot não encontrado."}), 404
+    except Exception as e:
+        return jsonify({"success": False, "erro": str(e)}), 500
+
+@app.route("/rebuild-faiss", methods=["POST"])
+def rebuild_faiss():
+    build_faiss_index()
+    # Note: The global variables in retreival.py will be reloaded on next import
+    # For immediate effect, we'd need to reload the module, but that's complex
+    # The index will be reloaded on next request that uses it
+    return jsonify({"success": True, "msg": "FAISS index rebuilt."})
+
+@app.route("/fonte/<int:chatbot_id>", methods=["GET"])
+def obter_fonte_chatbot(chatbot_id):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT fonte FROM FonteResposta WHERE chatbot_id = %s", (chatbot_id,))
+        row = cur.fetchone()
+        if row:
+            fonte = row[0] if row[0] else "faq"
+            return jsonify({"success": True, "fonte": fonte})
+        return jsonify({"success": False, "erro": "Chatbot não encontrado."}), 404
+    except Exception as e:
+        return jsonify({"success": False, "erro": str(e)}), 500
+
+@app.route("/fonte", methods=["POST"])
+def definir_fonte_chatbot():
+    conn = get_conn()
+    cur = conn.cursor()
+    data = request.get_json()
+    chatbot_id = data.get("chatbot_id")
+    fonte = data.get("fonte")
+    if fonte not in ["faq", "faiss", "faq+raga"]:
+        return jsonify({"success": False, "erro": "Fonte inválida."}), 400
+    try:
+        cur.execute("SELECT 1 FROM FonteResposta WHERE chatbot_id = %s", (chatbot_id,))
+        if not cur.fetchone():
+            cur.execute("INSERT INTO FonteResposta (chatbot_id, fonte) VALUES (%s, %s)", (chatbot_id, fonte))
+        else:
+            cur.execute("UPDATE FonteResposta SET fonte = %s WHERE chatbot_id = %s", (fonte, chatbot_id))
+        conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"success": False, "erro": str(e)}), 500
+
+@app.route("/faq-categoria/<categoria>", methods=["GET"])
+def obter_faq_por_categoria(categoria):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        chatbot_id = request.args.get("chatbot_id")
+        if not chatbot_id:
+            return jsonify({"success": False, "erro": "chatbot_id não fornecido."}), 400
+        cur.execute("""
+            SELECT f.faq_id, f.pergunta, f.resposta
+            FROM FAQ f
+            INNER JOIN Categoria c ON f.categoria_id = c.categoria_id
+            WHERE LOWER(c.nome) = LOWER(%s) AND f.chatbot_id = %s
+            ORDER BY RANDOM()
+            LIMIT 1
+        """, (categoria, chatbot_id))
+        resultado = cur.fetchone()
+        if resultado:
+            return jsonify({
+                "success": True,
+                "faq_id": resultado[0],
+                "pergunta": resultado[1],
+                "resposta": resultado[2]
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "erro": f"Nenhuma FAQ encontrada para a categoria '{categoria}'."
+            }), 404
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"success": False, "erro": str(e)}), 500
+

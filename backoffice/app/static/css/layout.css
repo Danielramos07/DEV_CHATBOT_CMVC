@@ -1,0 +1,64 @@
+.layout {
+  display: flex;
+  flex: 1;
+}
+
+aside {
+  width: 220px;
+  background: #1f2937;
+  padding: 20px;
+  color: white;
+  display: flex;
+  flex-direction: column;
+}
+
+aside h2 {
+  font-size: 16px;
+  margin-bottom: 20px;
+}
+
+aside ul {
+  list-style: none;
+  padding: 0;
+  flex: 1;
+}
+
+aside li {
+  padding: 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-bottom: 5px;
+  transition: background 0.3s;
+}
+
+aside li:hover {
+  background: #374151;
+}
+
+aside li.active {
+  background: #d4af37 !important; 
+  color: black !important;
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.panel {
+  padding: 30px;
+  flex: 1;
+  display: flex;
+  gap: 30px;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.left-content,
+#secaoRecursos,
+#secaoRespostas {
+  flex: 1;
+  overflow-y: auto;
+}
