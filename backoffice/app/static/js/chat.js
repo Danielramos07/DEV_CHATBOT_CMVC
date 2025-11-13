@@ -74,7 +74,7 @@ async function atualizarNomeChatHeader() {
   const chatbotId = parseInt(localStorage.getItem("chatbotAtivo"));
   if (chatbotId && !isNaN(chatbotId)) {
     try {
-      const res = await fetch(`/chatbot/${chatbotId}`);
+      const res = await fetch(`/chatbots/${chatbotId}`);
       const data = await res.json();
       if (data.success && data.nome) {
         nomeBot = data.nome;
@@ -392,7 +392,7 @@ async function apresentarMensagemInicial() {
   const chatbotId = parseInt(localStorage.getItem("chatbotAtivo"));
   if (chatbotId && !isNaN(chatbotId)) {
     try {
-      const res = await fetch(`/chatbot/${chatbotId}`);
+      const res = await fetch(`/chatbots/${chatbotId}`);
       const data = await res.json();
       nomeBot = data.success && data.nome ? data.nome : "Assistente Municipal";
       corBot = data.success && data.cor ? data.cor : "#d4af37";

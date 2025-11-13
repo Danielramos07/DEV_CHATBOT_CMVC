@@ -18,12 +18,12 @@ def init_pool(app):
 def get_conn():
     if "db_conn" not in g:
         g.db_conn = _pool.getconn()
-    return _pool.getconn()
+    return g.db_conn   
 
-def close_conn():
+def close_conn(e=None): 
     conn = g.pop("db_conn", None)
-    if conn:    
-        _pool.putconn(conn)
+    if conn:
+        _pool.putconn(conn)  
 
 
 

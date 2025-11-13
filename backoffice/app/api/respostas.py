@@ -1,13 +1,11 @@
 from flask import Blueprint, request, jsonify
-from .db import get_conn
-from .services.text import detectar_saudacao
-from .services.retreival import build_faiss_index
-from .services.retreival import obter_faq_mais_semelhante
-from .services.retreival import pesquisar_faiss
-from .services.rag import pesquisar_pdf_ollama, get_pdfs_from_db, obter_mensagem_sem_resposta
+from ..db import get_conn
+from ..services.text import detectar_saudacao
+from ..services.retreival import obter_faq_mais_semelhante, pesquisar_faiss, build_faiss_index
+from ..services.rag import pesquisar_pdf_ollama, get_pdfs_from_db, obter_mensagem_sem_resposta
 import traceback
 
-app = Blueprint('api', __name__)
+app = Blueprint('respostas', __name__)
 
 
 @app.route("/obter-resposta", methods=["POST"])
@@ -175,6 +173,7 @@ def obter_resposta():
         return jsonify({"success": False, "erro": str(e)}), 500
     finally:
         cur.close()
+        conn.close()
 
 @app.route("/perguntas-semelhantes", methods=["POST"])
 def perguntas_semelhantes():
@@ -209,6 +208,9 @@ def perguntas_semelhantes():
         return jsonify({"success": True, "sugestoes": sugestoes})
     except Exception as e:
         return jsonify({"success": False, "erro": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
 
 @app.route("/faqs-aleatorias", methods=["POST"])
 def faqs_aleatorias():
@@ -239,62 +241,14 @@ def faqs_aleatorias():
         return jsonify({"success": True, "faqs": [{"pergunta": p} for p in faqs]})
     except Exception as e:
         return jsonify({"success": False, "erro": str(e)}), 500
-
-@app.route("/chatbot/<int:chatbot_id>", methods=["GET"])
-def obter_nome_chatbot(chatbot_id):
-    conn = get_conn()
-    cur = conn.cursor()
-    try:
-        cur.execute("SELECT nome, cor, icon_path FROM Chatbot WHERE chatbot_id = %s", (chatbot_id,))
-        row = cur.fetchone()
-        if row:
-            return jsonify({"success": True, "nome": row[0], "cor": row[1] or "#d4af37", "icon": row[2] or "/static/images/chatbot-icon.png"})
-        return jsonify({"success": False, "erro": "Chatbot não encontrado."}), 404
-    except Exception as e:
-        return jsonify({"success": False, "erro": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
 
 @app.route("/rebuild-faiss", methods=["POST"])
 def rebuild_faiss():
     build_faiss_index()
-    # Note: The global variables in retreival.py will be reloaded on next import
-    # For immediate effect, we'd need to reload the module, but that's complex
-    # The index will be reloaded on next request that uses it
     return jsonify({"success": True, "msg": "FAISS index rebuilt."})
-
-@app.route("/fonte/<int:chatbot_id>", methods=["GET"])
-def obter_fonte_chatbot(chatbot_id):
-    conn = get_conn()
-    cur = conn.cursor()
-    try:
-        cur.execute("SELECT fonte FROM FonteResposta WHERE chatbot_id = %s", (chatbot_id,))
-        row = cur.fetchone()
-        if row:
-            fonte = row[0] if row[0] else "faq"
-            return jsonify({"success": True, "fonte": fonte})
-        return jsonify({"success": False, "erro": "Chatbot não encontrado."}), 404
-    except Exception as e:
-        return jsonify({"success": False, "erro": str(e)}), 500
-
-@app.route("/fonte", methods=["POST"])
-def definir_fonte_chatbot():
-    conn = get_conn()
-    cur = conn.cursor()
-    data = request.get_json()
-    chatbot_id = data.get("chatbot_id")
-    fonte = data.get("fonte")
-    if fonte not in ["faq", "faiss", "faq+raga"]:
-        return jsonify({"success": False, "erro": "Fonte inválida."}), 400
-    try:
-        cur.execute("SELECT 1 FROM FonteResposta WHERE chatbot_id = %s", (chatbot_id,))
-        if not cur.fetchone():
-            cur.execute("INSERT INTO FonteResposta (chatbot_id, fonte) VALUES (%s, %s)", (chatbot_id, fonte))
-        else:
-            cur.execute("UPDATE FonteResposta SET fonte = %s WHERE chatbot_id = %s", (fonte, chatbot_id))
-        conn.commit()
-        return jsonify({"success": True})
-    except Exception as e:
-        conn.rollback()
-        return jsonify({"success": False, "erro": str(e)}), 500
 
 @app.route("/faq-categoria/<categoria>", methods=["GET"])
 def obter_faq_por_categoria(categoria):
@@ -328,4 +282,7 @@ def obter_faq_por_categoria(categoria):
     except Exception as e:
         conn.rollback()
         return jsonify({"success": False, "erro": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
 

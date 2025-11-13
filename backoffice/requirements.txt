@@ -1,12 +1,14 @@
 flask
 flask-cors
 psycopg2
-python-docx
+python-dotenv
 PyPDF2
-fuzzywuzzy
+python-docx
+rapidwuzz
 faiss-cpu
 sentence-transformers
 numpy
-pickle-mixin
 unidecode
 requests
+rapidfuzz
+sympy

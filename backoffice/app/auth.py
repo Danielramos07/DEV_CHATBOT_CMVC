@@ -27,7 +27,7 @@ def login():
             cur.execute("SELECT admin_id, password FROM Administrador WHERE username = %s", (username,))
             admin = cur.fetchone()
             cur.close()
-            
+            conn.close()
             if admin and admin[1] and check_password_hash(admin[1], password):
                 session['admin_id'] = admin[0]
                 flash('Login realizado com sucesso!', 'success')
@@ -41,4 +41,4 @@ def login():
 def logout():
     session.pop('admin_id', None)
     flash('Logout realizado com sucesso!', 'success')
-    return redirect(url_for('login'))
+    return redirect(url_for('auth.login'))

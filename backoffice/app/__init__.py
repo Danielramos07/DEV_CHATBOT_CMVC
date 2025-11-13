@@ -5,7 +5,7 @@ from .config import Config
 from .db import init_pool, close_conn
 from .auth import app as auth
 from .admin import app as admin
-from .api import app as api
+from .api import api
 
 def create_app():
     logging.basicConfig(level=logging.DEBUG)

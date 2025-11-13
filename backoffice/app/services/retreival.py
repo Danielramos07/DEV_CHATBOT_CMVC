@@ -8,6 +8,13 @@ from ..config import Config
 import os
 from .text import preprocess_text
 
+embedding_model = SentenceTransformer('all-MiniLM-L12-v2')
+PDF_STORAGE_PATH = Config.PDF_STORAGE_PATH
+ICON_STORAGE_PATH = Config.ICON_STORAGE_PATH
+os.makedirs(PDF_STORAGE_PATH, exist_ok=True)
+os.makedirs(ICON_STORAGE_PATH, exist_ok=True)
+
+
 def build_faiss_index(chatbot_id=None):
     conn = get_conn()
     cur = conn.cursor()
@@ -137,15 +144,3 @@ def obter_faq_mais_semelhante(pergunta, chatbot_id, threshold=70):
         return None
     finally:
         cur.close()
-
-
-
-PDF_STORAGE_PATH = "pdfs/"
-ICON_STORAGE_PATH = "static/icons/"
-
-
-embedding_model = SentenceTransformer('all-MiniLM-L12-v2')
-if not os.path.exists(PDF_STORAGE_PATH):
-    os.makedirs(PDF_STORAGE_PATH)
-if not os.path.exists(ICON_STORAGE_PATH):
-    os.makedirs(ICON_STORAGE_PATH)

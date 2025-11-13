@@ -26,9 +26,9 @@
     <aside>
       <h2>Menu</h2>
       <ul>
-        <li id="menuContexto" onclick="window.location.href='{{ url_for('contexto') }}'">Contexto</li>
-        <li id="menuRecursos" onclick="window.location.href='{{ url_for('index') }}'">Recursos</li>
-        <li id="menuRespostas" class="active" onclick="window.location.href='{{ url_for('respostas') }}'">FAQs</li>
+        <li id="menuContexto" onclick="window.location.href='{{ url_for('admin.contexto') }}'">Contexto</li>
+        <li id="menuRecursos" onclick="window.location.href='{{ url_for('admin.index') }}'">Recursos</li>
+        <li id="menuRespostas" class="active" onclick="window.location.href='{{ url_for('admin.respostas') }}'">FAQs</li>
       </ul>
     </aside>
     <div class="content">
@@ -40,7 +40,7 @@
             <div class="bot-subtext">Chatbot Municipal</div>
           </div>
         </div>
-        <button id="publicarBtn" onclick="window.location.href='{{ url_for('logout') }}'">Sair</button>
+        <button id="publicarBtn" onclick="window.location.href='{{ url_for('auth.logout') }}'">Sair</button>
       </header>
       <div class="panel">
         <div id="indicadorAtivo" style="display: none;" class="ativo-indicador"></div>

@@ -1,4 +1,4 @@
-from sympy import re
+import re
 from unidecode import unidecode
 from rapidfuzz import fuzz
 
@@ -53,3 +53,14 @@ def detectar_feedback_negativo(pergunta):
         if fuzz.ratio(texto, preprocess_text(feedback)) > 80:
             return True
     return False
+
+
+def normalizar_idioma(valor):
+    if not valor:
+        return "pt"
+    valor = valor.strip().lower()
+    if valor.startswith("port"):
+        return "pt"
+    if valor.startswith("ingl"):
+        return "en"
+    return valor[:2]

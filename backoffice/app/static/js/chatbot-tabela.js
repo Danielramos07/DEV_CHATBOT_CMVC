@@ -210,7 +210,7 @@ async function carregarTabelaBots() {
                 <button class="btn-editar" onclick="abrirModalAtualizar(${bot.chatbot_id})">Atualizar</button>
                 <button class="btn-categorias" onclick="abrirModalCategorias(${bot.chatbot_id})">Categorias</button>
                 <button class="btn-eliminar" onclick="abrirModalEliminarBot(${bot.chatbot_id})">Eliminar</button>
-                <button class="btn-adicionar-faq" onclick="abrirModalAdicionarFAQ(${bot.chatbot_id})">Ad+</button>
+                <button class="btn-adicionar-faq" onclick="abrirModalAdicionarFAQ(${bot.chatbot_id})">Adicionar FAQ</button>
               </td>
             </tr>
           `).join("")}
