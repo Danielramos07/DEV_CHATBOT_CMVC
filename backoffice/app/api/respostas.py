@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from ..db import get_conn
-from ..services.text import detectar_saudacao
+from ..services.text import detectar_saudacao, registar_pergunta_nao_respondida
 from ..services.retreival import obter_faq_mais_semelhante, pesquisar_faiss, build_faiss_index
 from ..services.rag import pesquisar_pdf_ollama, get_pdfs_from_db, obter_mensagem_sem_resposta
 import traceback
@@ -73,6 +73,7 @@ def obter_resposta():
                     "pergunta_faq": resultado["pergunta"],
                     "documentos": docs
                 })
+            registar_pergunta_nao_respondida(chatbot_id, pergunta, "faq")
             return jsonify({
                 "success": False,
                 "erro": obter_mensagem_sem_resposta(chatbot_id)
@@ -286,3 +287,43 @@ def obter_faq_por_categoria(categoria):
         cur.close()
         conn.close()
 
+@app.route("/perguntas-nao-respondidas", methods=["GET"])
+def nao_respondidas():
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT id,
+                   chatbot_id,
+                   pergunta,
+                   fonte,
+                   max_score,
+                   estado,
+                   criado_em
+            FROM perguntanaorespondida
+            ORDER BY criado_em DESC
+        """)
+        rows = cur.fetchall()
+
+        data = [
+            {
+                "id": row[0],
+                "chatbot_id": row[1],
+                "pergunta": row[2],
+                "fonte": row[3],
+                "max_score": row[4],
+                "estado": row[5],
+                "criado_em": row[6],  
+            }
+            for row in rows
+        ]
+
+        return jsonify(data)
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"success": False, "erro": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+                

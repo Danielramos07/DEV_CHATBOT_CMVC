@@ -25,3 +25,8 @@ def landing_2():
 @login_required
 def respostas():
     return render_template("respostas.html")
+
+@app.route("/nao-respondidas")
+@login_required
+def nao_respondidas():
+    return render_template("nao-respondidas.html")

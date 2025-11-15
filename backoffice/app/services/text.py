@@ -1,7 +1,7 @@
 import re
 from unidecode import unidecode
 from rapidfuzz import fuzz
-
+from ..db import get_conn
 
 
 SAUDACOES_PT = ["olá", "ola", "oi", "bom dia", "boa tarde", "boa noite"]
@@ -64,3 +64,16 @@ def normalizar_idioma(valor):
     if valor.startswith("ingl"):
         return "en"
     return valor[:2]
+
+
+def registar_pergunta_nao_respondida(chatbot_id, pergunta, fonte=None , max_score=None):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("INSERT INTO perguntanaorespondida (chatbot_id, pergunta, fonte, max_score) VALUES (%s, %s, %s, %s)", (chatbot_id, pergunta, fonte, max_score))
+        conn.commit()
+    except Exception as e:
+        print(f"Erro ao registar pergunta nao respondida: {e}")
+    finally:
+        cur.close()
+        
