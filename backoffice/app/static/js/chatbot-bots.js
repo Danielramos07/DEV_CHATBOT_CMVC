@@ -19,6 +19,47 @@ async function carregarBots() {
   }
 }
 
+function carregarFAQsRelacionadas(chatbotId) {
+  const selectId = `#faqRelacionadasSelect-${chatbotId}`;
+  const $select = $(selectId);
+
+  if (!$select.length) return;
+
+  fetch(`/faqs/chatbot/${chatbotId}`)
+    .then(resp => resp.json())
+    .then(data => {
+      if ($select.hasClass('select2-hidden-accessible')) {
+        $select.select2('destroy');
+      }
+      
+      $select.empty();
+
+      data.forEach(faq => {
+        // Truncar a pergunta para evitar overflow
+        const pergunta = faq.pergunta || `FAQ ${faq.faq_id}`;
+        const truncatedPergunta = pergunta.length > 60 ? pergunta.substring(0, 60) + '...' : pergunta;
+        const option = new Option(truncatedPergunta, faq.faq_id, false, false);
+        option.title = pergunta; // Mostrar texto completo no hover
+        $select.append(option);
+      });
+
+      const $modal = $select.closest('.bot-dropdown').closest('.bot-wrapper').find('.bot-dropdown');
+      const dropdownParent = $modal.length ? $modal : $('body');
+      
+      $select.select2({
+        placeholder: 'Escolha uma ou mais FAQs relacionadas',
+        width: '100%',
+        allowClear: true,
+        dropdownParent: dropdownParent
+      });
+    })
+    .catch(err => {
+      console.error('Erro ao carregar FAQs relacionadas:', err);
+    });
+}
+
+
+
 function gerarOptionsChatbotSelect(allBots) {
   let options = `<option value="" disabled selected hidden>Escolha o chatbot</option>`;
   options += `<option value="todos">Todos os Chatbots</option>`;
@@ -98,7 +139,18 @@ function criarBotHTML(bot, allBots) {
               <option value="6">Ambiente</option>
             </select>
             <input type="text" name="links_documentos" placeholder="Links de Documentos (separados por vírgula)">
-            <input type="text" name="relacionadas" placeholder="IDs de FAQs relacionadas (separados por vírgula)">
+            <label style="display:block; margin-top:6px; font-size: 0.9rem;">
+  FAQs relacionadas
+</label>
+<select id="faqRelacionadasSelect-${bot.chatbot_id}"
+        name="relacionadas[]"
+        class="faq-relacionadas-select"
+        multiple
+        style="width: 100%;">
+</select>
+<small style="font-size: 0.8rem; color: #666;">
+  Pode selecionar várias FAQs e escrever para pesquisar.
+</small>
             <button type="submit">Adicionar FAQ</button>
             <div id="mensagemFAQ"></div>
           </form>
@@ -124,19 +176,26 @@ function toggleBotDropdown(botItem) {
   const chatbotId = parseInt(botItem.getAttribute("data-chatbot-id"));
   const dropdown = botItem.parentElement.querySelector(".bot-dropdown");
   const isCurrentlyOpen = botItem.classList.contains("expanded");
+
   document.querySelectorAll(".bot-dropdown").forEach(el => el.style.display = "none");
   document.querySelectorAll(".bot-item").forEach(el => el.classList.remove("expanded"));
+
   if (isCurrentlyOpen) {
     window.chatbotSelecionado = null;
     localStorage.removeItem("chatbotSelecionado");
   } else {
     botItem.classList.add("expanded");
     dropdown.style.display = "block";
+
+    // ← AQUI: carregar FAQs relacionadas para este bot
+    carregarFAQsRelacionadas(chatbotId);
+
     requestAnimationFrame(() => {
       if (typeof carregarChatbots === "function") {
         carregarChatbots();
       }
     });
+
     window.chatbotSelecionado = chatbotId;
     localStorage.setItem("chatbotSelecionado", chatbotId);
     const fonteSalva = localStorage.getItem(`fonteSelecionada_bot${chatbotId}`) || "faq";
@@ -149,6 +208,7 @@ function toggleBotDropdown(botItem) {
     if (ativoBtn) ativoBtn.style.display = "inline-block";
   }
 }
+
 
 function selecionarFonte(fonte, dropdown = null) { 
   window.fonteSelecionada = fonte;

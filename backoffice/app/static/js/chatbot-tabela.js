@@ -464,13 +464,22 @@ async function atualizarCategoriasDoChatbot(chatbot_id) {
 
 window.abrirModalAdicionarFAQ = async function(chatbot_id) {
   const modal = document.getElementById("modalAdicionarFAQ");
-  if (!modal) return;
+  if (!modal) {
+    console.error("Modal not found");
+    return;
+  }
+  
   modal.setAttribute("data-chatbot-id", chatbot_id);
   document.getElementById("faqChatbotId").value = chatbot_id;
   document.getElementById("docxChatbotId").value = chatbot_id;
   document.getElementById("pdfChatbotId").value = chatbot_id;
-  await atualizarCategoriasFAQForm(chatbot_id);
+  
   modal.style.display = "flex";
+  
+  await new Promise(resolve => setTimeout(resolve, 50));
+  
+  await atualizarCategoriasFAQForm(chatbot_id);
+  await carregarFAQsRelacionadasModal(chatbot_id);
   document.getElementById("mensagemFAQ").textContent = "";
 };
 
@@ -493,6 +502,106 @@ async function atualizarCategoriasFAQForm(chatbot_id) {
   }
 }
 
+async function carregarFAQsRelacionadasModal(chatbot_id) {
+  const select = document.getElementById("faqRelacionadasSelect");
+  if (!select) {
+    console.error("Select element #faqRelacionadasSelect not found");
+    return;
+  }
+
+  try {
+    if (!chatbot_id) {
+      console.error("No chatbot_id provided");
+      return;
+    }
+    
+    console.log("Loading FAQs for chatbot:", chatbot_id);
+    const response = await fetch(`/faqs/chatbot/${chatbot_id}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const faqs = await response.json();
+    console.log("FAQs loaded:", faqs);
+    
+    if (!Array.isArray(faqs)) {
+      console.error("Expected array but got:", typeof faqs, faqs);
+      return;
+    }
+    
+    let wasInitialized = false;
+    if (typeof $ !== 'undefined' && $(select).length) {
+      const $select = $(select);
+      if ($select.hasClass('select2-hidden-accessible')) {
+        wasInitialized = true;
+        $select.select2('destroy');
+        console.log("Select2 destroyed before updating options");
+      }
+    }
+    
+    select.innerHTML = '';
+
+    // Adicionar FAQs como opções
+    if (faqs.length === 0) {
+      console.log("No FAQs found for this chatbot");
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "Nenhuma FAQ disponível";
+      option.disabled = true;
+      select.appendChild(option);
+    } else {
+      faqs.forEach(faq => {
+        const option = document.createElement("option");
+        option.value = faq.faq_id;
+        // Truncar a pergunta para evitar overflow
+        const pergunta = faq.pergunta || `FAQ ${faq.faq_id}`;
+        const truncatedPergunta = pergunta.length > 60 ? pergunta.substring(0, 60) + '...' : pergunta;
+        option.textContent = truncatedPergunta;
+        option.title = pergunta; 
+        select.appendChild(option);
+      });
+      console.log(`Added ${faqs.length} FAQ options to select`);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Inicializar Select2 (sempre reinicializar para garantir que está atualizado)
+    if (typeof $ !== 'undefined') {
+      const $select = $(select);
+      if ($select.length) {
+        try {
+          const $modal = $('#modalAdicionarFAQ');
+          $select.select2({
+            placeholder: 'Escolha uma ou mais FAQs relacionadas',
+            width: '100%',
+            allowClear: true,
+            dropdownParent: $modal.length ? $modal : $('body'),
+            language: {
+              noResults: function() {
+                return "Nenhum resultado encontrado";
+              }
+            }
+          });
+          console.log("Select2 initialized successfully");
+        } catch (select2Error) {
+          console.error("Error initializing Select2:", select2Error);
+        }
+      } else {
+        console.error("jQuery selector returned no elements");
+      }
+    } else {
+      console.error("jQuery is not defined");
+    }
+  } catch (err) {
+    console.error("Erro ao carregar FAQs relacionadas para modal:", err);
+    const select = document.getElementById("faqRelacionadasSelect");
+    if (select) {
+      select.innerHTML = '<option value="">Erro ao carregar FAQs</option>';
+    }
+  }
+}
+
 document.getElementById("formAdicionarFAQ").onsubmit = async function(e) {
   e.preventDefault();
   const chatbot_id = document.getElementById("faqChatbotId").value;
@@ -502,7 +611,14 @@ document.getElementById("formAdicionarFAQ").onsubmit = async function(e) {
   const categoria_id = this.elements["categoria_id"].value;
   const idioma = this.elements["idioma"].value;
   const links_documentos = this.elements["links_documentos"].value.trim();
-  const relacionadas = this.elements["relacionadas"].value.trim();
+  
+  // Obter valores selecionados do select múltiplo
+  const relacionadasSelect = this.elements["relacionadas[]"];
+  let relacionadas = "";
+  if (relacionadasSelect && relacionadasSelect.selectedOptions) {
+    const selectedValues = Array.from(relacionadasSelect.selectedOptions).map(opt => opt.value);
+    relacionadas = selectedValues.join(',');
+  }
 
   if (!designacao || !pergunta || !resposta || !categoria_id || !idioma) {
     document.getElementById("mensagemFAQ").textContent = "Preencha todos os campos obrigatórios!";

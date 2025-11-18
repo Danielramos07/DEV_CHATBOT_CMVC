@@ -7,7 +7,28 @@ function adicionarListenersFormulariosFAQ(allBots = []) {
     form.onsubmit = async function(event) {
       event.preventDefault();
       const data = {};
-      new FormData(form).forEach((value, key) => data[key] = value);
+      const formData = new FormData(form);
+      
+      for (const [key, value] of formData.entries()) {
+        if (key.endsWith('[]')) {
+          const baseKey = key.slice(0, -2);
+          if (!data[baseKey]) {
+            data[baseKey] = [];
+          }
+          data[baseKey].push(value);
+        } else {
+          data[key] = value;
+        }
+      }
+      
+      // Converter relacionadas de array para string separada por vírgulas
+      if (data.relacionadas && Array.isArray(data.relacionadas)) {
+        data.relacionadas = data.relacionadas.join(',');
+      } else if (data.relacionadas) {
+        data.relacionadas = String(data.relacionadas);
+      } else {
+        data.relacionadas = "";
+      }
 
       data.idioma = data.idioma?.trim() || "pt";
       const msgDiv = form.querySelector("#mensagemFAQ") || document.getElementById("mensagemFAQ");

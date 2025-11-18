@@ -5,6 +5,7 @@
   <title>Chatbot Municipal - Recursos</title>
   <link rel="icon" href="{{ url_for('static', filename='images/chatbot-icon.png') }}" type="image/png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
@@ -166,7 +167,17 @@
               <option value="en">Inglês</option>
             </select>
             <input type="text" name="links_documentos" placeholder="Links de Documentos (separados por vírgula)">
-            <input type="text" name="relacionadas" placeholder="IDs de FAQs relacionadas (separados por vírgula)">
+            <div class="form-group">
+              <label for="faqRelacionadasSelect">FAQs relacionadas</label>
+              <select id="faqRelacionadasSelect"
+                name="relacionadas[]"
+                class="form-select"
+                multiple>
+              </select>
+              <small class="form-text">
+                Pode selecionar várias FAQs e escrever para pesquisar.
+              </small>
+            </div>
             <button type="submit" class="btn-adicionar-faq-modal" style="margin-bottom: 8px;">Adicionar FAQ</button>
             <div id="mensagemFAQ" style="font-weight: 500; margin-bottom: 8px; text-align: center;"></div>
           </form>
@@ -241,6 +252,8 @@
       </div>
     </div>
   </footer>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <script src="{{ url_for('static', filename='js/globals.js') }}"></script>
   <script src="{{ url_for('static', filename='js/faq.js') }}"></script>
   <script src="{{ url_for('static', filename='js/chat.js') }}"></script>

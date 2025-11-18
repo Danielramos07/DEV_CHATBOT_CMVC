@@ -68,6 +68,8 @@
 .modal-box textarea {
   resize: vertical;
   min-height: 64px;
+  position: relative;
+  z-index: 1;
 }
 
 .modal-box .btn-novo-bot,
@@ -191,6 +193,9 @@
 .form-group {
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1;
+  overflow: visible;
 }
 .form-group-descricao input[type="text"] {
   min-width: 330px;
@@ -329,6 +334,9 @@
 .form-container,
 .upload-container {
   padding: 10px;
+  overflow: visible;
+  position: relative;
+  z-index: 1;
 }
 
 .form-container .faqForm,
@@ -336,6 +344,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  overflow: visible;
 }
 
 .upload-container {
@@ -363,6 +372,48 @@
 .btn-adicionar-faq-modal:hover,
 .btn-adicionar-docx-modal:hover {
   background: #e0c565;
+}
+
+/* Fix Select2 dropdown z-index in modals */
+.modal-overlay .select2-container--open .select2-dropdown {
+  z-index: 10000 !important;
+}
+
+.modal-overlay .select2-dropdown {
+  z-index: 10000 !important;
+}
+
+.modal-overlay .select2-container {
+  z-index: 10000 !important;
+}
+
+/* Ensure Select2 dropdown appears above all form elements */
+.modal-overlay .select2-container--open {
+  z-index: 10001 !important;
+}
+
+.modal-overlay .form-group {
+  position: relative;
+  z-index: 1;
+}
+
+.modal-overlay .form-group .select2-container {
+  z-index: 10002 !important;
+}
+
+.modal-overlay .form-group .select2-container--open {
+  z-index: 10003 !important;
+}
+
+.modal-overlay .form-group .select2-dropdown {
+  z-index: 10004 !important;
+}
+
+/* Prevent textarea and other inputs from overlapping Select2 */
+.modal-overlay .form-container textarea,
+.modal-overlay .form-container input {
+  position: relative;
+  z-index: 1;
 }
 
 .section-title {
