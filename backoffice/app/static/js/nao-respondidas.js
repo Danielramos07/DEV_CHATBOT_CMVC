@@ -70,7 +70,6 @@ async function carregarTabelaNaoRespondidas() {
     document.getElementById("filtroEstadoNaoResp")?.value || "";
 
   try {
-    // 👉 endpoint definido no Flask: @app.route("/nao-respondidas", methods=["GET"])
     const res = await fetch("/perguntas-nao-respondidas");
     const json = await res.json();
 
@@ -84,7 +83,6 @@ async function carregarTabelaNaoRespondidas() {
 
     let perguntas = json;
 
-    // Filtros em memória
     let filtradas = perguntas.filter((p) => {
       let okPesquisa = true;
       if (textoPesquisa) {
@@ -132,9 +130,9 @@ async function carregarTabelaNaoRespondidas() {
             <th>Chatbot</th>
             <th>Pergunta</th>
             <th>Fonte</th>
-            <th>Score máx.</th>
             <th>Estado</th>
             <th>Criada em</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -162,9 +160,12 @@ async function carregarTabelaNaoRespondidas() {
                 <td>${nomeBot}</td>
                 <td>${p.pergunta || "-"}</td>
                 <td>${fonte}</td>
-                <td style="text-align:center;">${score}</td>
                 <td style="text-align:center;">${estadoLabel}</td>
                 <td>${criadoEm || "-"}</td>
+                <td>
+                  <button class="btn-remover" onclick="removerPergunta(${p.id})">Remover</button>
+                  <button class="btn-editar" onclick="editarEstado(${p.id})">Editar</button>
+                </td>
               </tr>
             `;
             })
@@ -173,17 +174,41 @@ async function carregarTabelaNaoRespondidas() {
       </table>
     `;
   } catch (err) {
-    console.error("❌ Erro ao carregar perguntas não respondidas:", err);
+    console.error(" Erro ao carregar perguntas não respondidas:", err);
     lista.innerHTML =
       "<p style='color:red;'>Erro ao carregar perguntas não respondidas.</p>";
   }
 }
 
-// Expor funções se precisares delas noutra parte
+async function editarEstado(perguntaId) {
+  const res = await fetch(`/perguntas-nao-respondidas/${perguntaId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      estado: "tratada",
+    }),
+  });
+  const json = await res.json();
+  if (json.success) {
+    carregarTabelaNaoRespondidas();
+  }
+}
+
+async function removerPergunta(perguntaId) {
+  const res = await fetch(`/perguntas-nao-respondidas/${perguntaId}`, {
+    method: "DELETE",
+  });
+  const json = await res.json();
+  if (json.success) {
+    carregarTabelaNaoRespondidas();
+  }
+}
+
 window.carregarChatbotsNaoRespondidas = carregarChatbotsNaoRespondidas;
 window.carregarTabelaNaoRespondidas = carregarTabelaNaoRespondidas;
 
-// Inicialização ao carregar a página
 document.addEventListener("DOMContentLoaded", () => {
   carregarChatbotsNaoRespondidas().then(() => {
     carregarTabelaNaoRespondidas();

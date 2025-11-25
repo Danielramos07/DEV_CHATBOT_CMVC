@@ -326,4 +326,48 @@ def nao_respondidas():
         cur.close()
         conn.close()
 
-                
+@app.route("/perguntas-nao-respondidas/<int:pergunta_id>", methods=["DELETE"]) 
+def delete_pergunta_nao_respondida(pergunta_id):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM perguntanaorespondida WHERE id = %s", (pergunta_id,))
+        if cur.rowcount == 0:
+            conn.rollback()
+            return jsonify({"success": False, "error": "Pergunta nao encontrada."}), 404
+        conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+@app.route("/perguntas-nao-respondidas/<int:pergunta_id>", methods=["PUT"])
+def update_pergunta_nao_respondida(pergunta_id):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        dados = request.get_json(silent=True) or {}
+        novo_estado = (dados.get("estado") or "tratada").strip().lower()
+
+        estados_validos = {"pendente", "tratada", "ignorada"}
+        if novo_estado not in estados_validos:
+            return jsonify({"success": False, "error": "Estado invalido."}), 400
+
+        cur.execute(
+            "UPDATE perguntanaorespondida SET estado = %s WHERE id = %s",
+            (novo_estado, pergunta_id),
+        )
+        if cur.rowcount == 0:
+            conn.rollback()
+            return jsonify({"success": False, "error": "Pergunta nao encontrada."}), 404
+        conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()                
