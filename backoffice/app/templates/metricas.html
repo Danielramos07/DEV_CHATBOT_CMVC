@@ -2,7 +2,7 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <title>Chatbot Municipal - Perguntas não respondidas</title>
+  <title>Chatbot Municipal - Métricas</title>
   <link rel="icon" href="{{ url_for('static', filename='images/chatbot-icon.png') }}" type="image/png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
@@ -11,9 +11,29 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/modal.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/footer.css') }}">
+  <style>
+    .metric-card {
+      flex: 1;
+      min-width: 220px;
+      padding: 14px;
+      border: 1px solid #e6e6e6;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+    }
+    .metric-title {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 6px;
+    }
+    .metric-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #2a2a2a;
+    }
+  </style>
 </head>
 
-{# Proteção simples de sessão admin #}
 {% if 'admin_id' not in session %}
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -32,10 +52,10 @@
         <li id="menuContexto" onclick="window.location.href='{{ url_for('admin.contexto') }}'">Contexto</li>
         <li id="menuRecursos" onclick="window.location.href='{{ url_for('admin.index') }}'">Recursos</li>
         <li id="menuRespostas" onclick="window.location.href='{{ url_for('admin.respostas') }}'">FAQs</li>
-        <li id="menuNaoRespondidas" class="active" onclick="window.location.href='{{ url_for('admin.nao_respondidas') }}'">
+        <li id="menuNaoRespondidas" onclick="window.location.href='{{ url_for('admin.nao_respondidas') }}'">
           Não respondidas
         </li>
-        <li id="menuMetricas" onclick="window.location.href='{{ url_for('admin.metricas') }}'">Métricas</li>
+        <li id="menuMetricas" class="active" onclick="window.location.href='{{ url_for('admin.metricas') }}'">Métricas</li>
       </ul>
     </aside>
 
@@ -44,7 +64,7 @@
         <div class="bot-info">
           <img src="{{ url_for('static', filename='images/chatbot-icon.png') }}" alt="bot">
           <div>
-            <strong>AI4APGovernance - Inteligência Artificial para a Governança da Administração Pública</strong>
+            <strong>AI4APGovernance - Inteligência Artificial para a Governação da Administração Pública</strong>
             <div class="bot-subtext">Chatbot Municipal</div>
           </div>
         </div>
@@ -54,42 +74,39 @@
       <div class="panel">
         <div id="indicadorAtivo" style="display: none;" class="ativo-indicador"></div>
 
-        <div id="secaoNaoRespondidas" class="secao left-content" style="display: block !important;">
-          <h2>Perguntas não respondidas</h2>
+        <div id="secaoMetricas" class="secao left-content" style="display: block !important;">
+          <h2>Métricas de perguntas não respondidas</h2>
+          <p style="color:#4b4b4b; margin-bottom:14px;">
+            Acompanhe o volume de perguntas não respondidas por chatbot e o estado do tratamento.
+          </p>
 
-          <!-- Filtros -->
-          <div id="filtrosNaoRespondidas" style="display: flex; gap: 16px; align-items: center; margin-bottom: 16px;">
-            <input
-              type="text"
-              id="pesquisaNaoRespondida"
-              placeholder="Pesquisar pela pergunta..."
-              style="flex: 2; max-width: 340px;"
-            >
-
-            <select id="filtroChatbotNaoResp" style="flex: 1; max-width: 200px;">
-              <option value="">Todos os Chatbots</option>
-            </select>
-
-            <select id="filtroEstadoNaoResp" style="flex: 1; max-width: 180px;">
-              <option value="">Todos os estados</option>
-              <option value="pendente">Pendentes</option>
-              <option value="tratada">Tratadas</option>
-              <option value="ignorada">Ignoradas</option>
-            </select>
+          <div id="resumoMetricas" style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:16px;">
+            <div class="metric-card">
+              <div class="metric-title">Total</div>
+              <div class="metric-value" id="resumoTotal">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-title">Pendentes</div>
+              <div class="metric-value" id="resumoPendentes">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-title">Tratadas</div>
+              <div class="metric-value" id="resumoTratadas">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-title">Ignoradas</div>
+              <div class="metric-value" id="resumoIgnoradas">-</div>
+            </div>
           </div>
 
-          <div id="tituloNaoRespondidas" style="margin-bottom: 12px; color: #4b4b4b;">
-          </div>
-
-          <div id="listaNaoRespondidas" style="margin-top: 20px;">
-            {# O JS vai preencher esta div com cartões/linhas de perguntas #}
+          <div id="tabelaMetricas" style="margin-top: 12px;">
+            <p>A carregar métricas...</p>
           </div>
         </div>
       </div>
     </div>
   </div>
 
- 
   <div class="chat-sidebar" id="chatSidebar" style="display: none;">
     <div class="chat-header">
       <button class="chat-close-btn" onclick="fecharChat()">×</button>
@@ -101,12 +118,7 @@
     </div>
     <div class="chat-body" id="chatBody"></div>
     <div class="chat-input">
-      <input
-        type="text"
-        placeholder="Digite uma mensagem..."
-        id="chatInput"
-        onkeydown="if(event.key==='Enter') enviarPergunta()"
-      >
+      <input type="text" placeholder="Digite uma mensagem..." id="chatInput" onkeydown="if(event.key==='Enter') enviarPergunta()">
       <button onclick="enviarPergunta()" title="Enviar">➤</button>
     </div>
   </div>
@@ -114,25 +126,6 @@
   <button id="chatToggleBtn" class="chat-toggle-btn">
     <img src="{{ url_for('static', filename='images/icon-botao.png') }}" alt="Chatbot">
   </button>
-
-  <div id="modalTratarPergunta" class="modal-overlay" style="display: none;">
-    <div class="modal-box">
-      <h2>Tratar pergunta não respondida</h2>
-      <p id="perguntaSelecionadaTexto" style="margin-bottom: 12px;"></p>
-
-      <label for="acaoPergunta" style="display:block;margin-bottom:8px;">Ação</label>
-      <select id="acaoPergunta" class="input-lg" style="width:100%;max-width:100%;">
-        <option value="criar_faq">Criar nova FAQ</option>
-        <option value="marcar_tratada">Marcar como tratada</option>
-        <option value="marcar_ignorada">Marcar como ignorada</option>
-      </select>
-
-      <div class="btn-bar" style="margin-top: 20px;">
-        <button id="confirmarTratarPergunta">Confirmar</button>
-        <button id="cancelarTratarPergunta" class="btn-cancelar">Cancelar</button>
-      </div>
-    </div>
-  </div>
 
   <footer class="rodape">
     <div class="rodape-content">
@@ -153,6 +146,6 @@
   <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
   <script src="{{ url_for('static', filename='js/toggleChat.js') }}"></script>
 
-  <script src="{{ url_for('static', filename='js/nao-respondidas.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/metricas.js') }}"></script>
 </body>
 </html>

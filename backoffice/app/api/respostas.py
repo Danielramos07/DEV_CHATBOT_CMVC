@@ -326,6 +326,59 @@ def nao_respondidas():
         cur.close()
         conn.close()
 
+@app.route("/perguntas-nao-respondidas/metricas", methods=["GET"])
+def metricas_nao_respondidas():
+    """
+    Devolve contagens agregadas de perguntas não respondidas por chatbot,
+    separadas por estado e incluindo o último registo.
+    """
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT
+                c.chatbot_id,
+                c.nome,
+                COALESCE(p.total, 0) AS total,
+                COALESCE(p.pendentes, 0) AS pendentes,
+                COALESCE(p.tratadas, 0) AS tratadas,
+                COALESCE(p.ignoradas, 0) AS ignoradas,
+                p.ultimo_registo
+            FROM Chatbot c
+            LEFT JOIN (
+                SELECT
+                    chatbot_id,
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN LOWER(estado) = 'pendente' THEN 1 ELSE 0 END) AS pendentes,
+                    SUM(CASE WHEN LOWER(estado) = 'tratada' THEN 1 ELSE 0 END) AS tratadas,
+                    SUM(CASE WHEN LOWER(estado) = 'ignorada' THEN 1 ELSE 0 END) AS ignoradas,
+                    MAX(criado_em) AS ultimo_registo
+                FROM perguntanaorespondida
+                GROUP BY chatbot_id
+            ) p ON p.chatbot_id = c.chatbot_id
+            ORDER BY total DESC, c.nome ASC
+        """)
+        rows = cur.fetchall()
+        data = [
+            {
+                "chatbot_id": row[0],
+                "nome": row[1],
+                "total": row[2],
+                "pendentes": row[3],
+                "tratadas": row[4],
+                "ignoradas": row[5],
+                "ultimo_registo": row[6],
+            }
+            for row in rows
+        ]
+        return jsonify({"success": True, "metricas": data})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"success": False, "erro": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
 @app.route("/perguntas-nao-respondidas/<int:pergunta_id>", methods=["DELETE"]) 
 def delete_pergunta_nao_respondida(pergunta_id):
     conn = get_conn()

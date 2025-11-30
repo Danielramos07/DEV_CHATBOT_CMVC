@@ -30,3 +30,8 @@ def respostas():
 @login_required
 def nao_respondidas():
     return render_template("nao-respondidas.html")
+
+@app.route("/metricas")
+@login_required
+def metricas():
+    return render_template("metricas.html")

@@ -25,13 +25,14 @@
   <div class="layout">
     <aside>
       <h2>Menu</h2>
-      <ul>
+            <ul>
         <li id="menuContexto" onclick="window.location.href='{{ url_for('admin.contexto') }}'">Contexto</li>
         <li id="menuRecursos" onclick="window.location.href='{{ url_for('admin.index') }}'">Recursos</li>
         <li id="menuRespostas" class="active" onclick="window.location.href='{{ url_for('admin.respostas') }}'">FAQs</li>
         <li id="menuNaoRespondidas" onclick="window.location.href='{{ url_for('admin.nao_respondidas') }}'">
           Não respondidas
         </li>
+        <li id="menuMetricas" onclick="window.location.href='{{ url_for('admin.metricas') }}'">Métricas</li>
       </ul>
     </aside>
     <div class="content">
