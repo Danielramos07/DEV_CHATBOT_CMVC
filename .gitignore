@@ -1,0 +1,19 @@
+.venv
+__pycache__/
+backoffice/**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.sqlite3
+*~
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Python packaging / build
+build/
+dist/
+*.egg-info/

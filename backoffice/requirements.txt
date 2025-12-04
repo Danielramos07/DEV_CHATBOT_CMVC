@@ -4,7 +4,6 @@ psycopg2
 python-dotenv
 PyPDF2
 python-docx
-rapidwuzz
 faiss-cpu
 sentence-transformers
 numpy
