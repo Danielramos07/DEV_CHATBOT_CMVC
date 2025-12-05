@@ -60,14 +60,20 @@ def criar_chatbot():
     if not nome:
         return jsonify({"success": False, "error": "Nome obrigatório."}), 400
     try:
-        cur.execute("SELECT chatbot_id FROM chatbot WHERE LOWER(nome) = LOWER(%s)", (nome,))
-        if cur.fetchone():
-            return jsonify({"success": False, "error": "Já existe um chatbot com esse nome."}), 409
         cur.execute(
-            "INSERT INTO chatbot (nome, descricao, cor, icon_path, mensagem_sem_resposta) VALUES (%s, %s, %s, %s, %s) RETURNING chatbot_id",
+            """
+            INSERT INTO chatbot (nome, descricao, cor, icon_path, mensagem_sem_resposta)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (nome) DO NOTHING
+            RETURNING chatbot_id
+            """,
             (nome, descricao, cor, icon_path, mensagem_sem_resposta)
         )
-        chatbot_id = cur.fetchone()[0]
+        row = cur.fetchone()
+        if not row:
+            conn.rollback()
+            return jsonify({"success": False, "error": "Já existe um chatbot com esse nome."}), 409
+        chatbot_id = row[0]
         for categoria_id in categorias:
             cur.execute(
                 "INSERT INTO chatbot_categoria (chatbot_id, categoria_id) VALUES (%s, %s)",
