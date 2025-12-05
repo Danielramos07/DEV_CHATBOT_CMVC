@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS chatbot (
     descricao TEXT,
     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     cor VARCHAR(16) NOT NULL DEFAULT '#d4af37',
+    icon_path TEXT,
     mensagem_sem_resposta TEXT
 );
 
