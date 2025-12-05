@@ -56,12 +56,12 @@ def obter_resposta():
             resultado = obter_faq_mais_semelhante(pergunta, chatbot_id)
             if resultado:
                 cur.execute("""
-                    SELECT faq_id, categoria_id FROM FAQ
+                    SELECT faq_id, categoria_id FROM faq
                     WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
                 """, (resultado["pergunta"], chatbot_id))
                 row = cur.fetchone()
                 faq_id, categoria_id = row if row else (None, None)
-                cur.execute("SELECT link FROM FAQ_Documento WHERE faq_id = %s", (faq_id,))
+                cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
                 docs = [r[0] for r in cur.fetchall()]
                 return jsonify({
                     "success": True,
@@ -97,12 +97,12 @@ def obter_resposta():
                 resultado = obter_faq_mais_semelhante(pergunta, chatbot_id, threshold=80)
                 if resultado:
                     cur.execute("""
-                        SELECT faq_id, categoria_id FROM FAQ
+                        SELECT faq_id, categoria_id FROM faq
                         WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
                     """, (resultado["pergunta"], chatbot_id))
                     row = cur.fetchone()
                     faq_id, categoria_id = row if row else (None, None)
-                    cur.execute("SELECT link FROM FAQ_Documento WHERE faq_id = %s", (faq_id,))
+                    cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
                     docs = [r[0] for r in cur.fetchall()]
                     return jsonify({
                         "success": True,
@@ -122,12 +122,12 @@ def obter_resposta():
             resultado = obter_faq_mais_semelhante(pergunta, chatbot_id)
             if resultado:
                 cur.execute("""
-                    SELECT faq_id, categoria_id FROM FAQ
+                    SELECT faq_id, categoria_id FROM faq
                     WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
                 """, (resultado["pergunta"], chatbot_id))
                 row = cur.fetchone()
                 faq_id, categoria_id = row if row else (None, None)
-                cur.execute("SELECT link FROM FAQ_Documento WHERE faq_id = %s", (faq_id,))
+                cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
                 docs = [r[0] for r in cur.fetchall()]
                 return jsonify({
                     "success": True,
@@ -187,7 +187,7 @@ def perguntas_semelhantes():
     try:
         cur.execute("""
             SELECT categoria_id
-            FROM FAQ
+            FROM faq
             WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s AND idioma = %s
         """, (pergunta_atual.strip().lower(), chatbot_id, idioma))
         categoria_row = cur.fetchone()
@@ -196,7 +196,7 @@ def perguntas_semelhantes():
         categoria_id = categoria_row[0]
         cur.execute("""
             SELECT pergunta
-            FROM FAQ
+            FROM faq
             WHERE categoria_id = %s
               AND recomendado = TRUE
               AND LOWER(pergunta) != LOWER(%s)
@@ -225,7 +225,7 @@ def faqs_aleatorias():
         if chatbot_id:
             cur.execute("""
                 SELECT pergunta
-                FROM FAQ
+                FROM faq
                 WHERE idioma = %s AND chatbot_id = %s
                 ORDER BY RANDOM()
                 LIMIT %s
@@ -233,7 +233,7 @@ def faqs_aleatorias():
         else:
             cur.execute("""
                 SELECT pergunta
-                FROM FAQ
+                FROM faq
                 WHERE idioma = %s
                 ORDER BY RANDOM()
                 LIMIT %s
@@ -261,8 +261,8 @@ def obter_faq_por_categoria(categoria):
             return jsonify({"success": False, "erro": "chatbot_id não fornecido."}), 400
         cur.execute("""
             SELECT f.faq_id, f.pergunta, f.resposta
-            FROM FAQ f
-            INNER JOIN Categoria c ON f.categoria_id = c.categoria_id
+            FROM faq f
+            INNER JOIN categoria c ON f.categoria_id = c.categoria_id
             WHERE LOWER(c.nome) = LOWER(%s) AND f.chatbot_id = %s
             ORDER BY RANDOM()
             LIMIT 1

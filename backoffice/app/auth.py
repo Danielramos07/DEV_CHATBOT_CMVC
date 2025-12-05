@@ -24,7 +24,7 @@ def login():
             password = request.form['password']
             conn = get_conn()
             cur = conn.cursor()
-            cur.execute("SELECT admin_id, password FROM Administrador WHERE username = %s", (username,))
+            cur.execute("SELECT admin_id, password FROM administrador WHERE username = %s", (username,))
             admin = cur.fetchone()
             cur.close()
             conn.close()

@@ -28,13 +28,13 @@ Adjust the path if your clone is elsewhere.
 2. Create the database `AI4Governance`:
 
    ```zsh
-   psql -U postgres -c "CREATE DATABASE "AI4Governance";
+   psql -U postgres -c "CREATE DATABASE ai4governance";
    ```
 
 3. Import the schema and initial data from `backoffice/db/init.sql`:
 
    ```bash
-   psql -U postgres -d AI4Governance -f backoffice/db/init.sql
+   psql -U postgres -d ai4governance -f backoffice/db/init.sql
    ```
 
    - You may need `-h localhost -p 5432` depending on your setup.
@@ -48,7 +48,7 @@ At the project root there is a `.env` file. Example contents:
 ```dotenv
 PG_HOST=localhost
 PG_PORT=5432
-PG_DB=AI4Governance
+PG_DB=ai4governance
 PG_USER=postgres
 PG_PASS=admin
 

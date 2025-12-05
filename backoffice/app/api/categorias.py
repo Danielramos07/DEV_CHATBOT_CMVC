@@ -9,7 +9,7 @@ def get_categorias():
     conn = get_conn()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT categoria_id, nome FROM Categoria")
+        cur.execute("SELECT categoria_id, nome FROM categoria")
         data = cur.fetchall()
         return jsonify([{"categoria_id": c[0], "nome": c[1]} for c in data])
     except Exception as e:
@@ -28,11 +28,11 @@ def criar_categoria():
     if not nome:
         return jsonify({"success": False, "error": "Nome da categoria é obrigatório."}), 400
     try:
-        cur.execute("SELECT categoria_id FROM Categoria WHERE LOWER(nome) = LOWER(%s)", (nome,))
+        cur.execute("SELECT categoria_id FROM categoria WHERE LOWER(nome) = LOWER(%s)", (nome,))
         if cur.fetchone():
             return jsonify({"success": False, "error": "Já existe uma categoria com esse nome."}), 409
         cur.execute(
-            "INSERT INTO Categoria (nome) VALUES (%s) RETURNING categoria_id",
+            "INSERT INTO categoria (nome) VALUES (%s) RETURNING categoria_id",
             (nome,)
         )
         categoria_id = cur.fetchone()[0]

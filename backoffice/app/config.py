@@ -6,7 +6,7 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change")
     PG_HOST = os.getenv("PG_HOST", "localhost")
     PG_PORT = int(os.getenv("PG_PORT", "5432"))
-    PG_DB   = os.getenv("PG_DB", "AI4Governance")
+    PG_DB   = os.getenv("PG_DB", "ai4governance")
     PG_USER = os.getenv("PG_USER", "postgres")
     PG_PASS = os.getenv("PG_PASS", "admin")
     INDEX_PATH = os.getenv("INDEX_PATH", "data/vectorstore/faiss.index")

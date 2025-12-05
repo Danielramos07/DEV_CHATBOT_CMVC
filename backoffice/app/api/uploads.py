@@ -52,8 +52,8 @@ def upload_pdf():
                     return jsonify({"success": False, "error": f"O PDF '{filename}' está protegido por senha."}), 400
                 if not reader.pages:
                     return jsonify({"success": False, "error": f"O PDF '{filename}' está vazio ou corrompido."}), 400
-            cur.execute(
-                "INSERT INTO PDF_Documents (chatbot_id, filename, file_path) VALUES (%s, %s, %s) RETURNING pdf_id",
+                cur.execute(
+                    "INSERT INTO pdf_documents (chatbot_id, filename, file_path) VALUES (%s, %s, %s) RETURNING pdf_id",
                 (chatbot_id, filename, file_path)
             )
             pdf_id = cur.fetchone()[0]
@@ -108,34 +108,34 @@ def upload_faq_docx():
                 break
         chatbot_ids = []
         if chatbot_id_raw == "todos":
-            cur.execute("SELECT chatbot_id FROM Chatbot")
+            cur.execute("SELECT chatbot_id FROM chatbot")
             chatbot_ids = [row[0] for row in cur.fetchall()]
         else:
             chatbot_ids = [int(chatbot_id_raw)]
         for chatbot_id in chatbot_ids:
             cur.execute("""
-                SELECT faq_id FROM FAQ
+                SELECT faq_id FROM faq
                 WHERE chatbot_id = %s AND designacao = %s AND pergunta = %s AND resposta = %s AND idioma = %s
             """, (chatbot_id, designacao, pergunta, resposta, idioma))
             if cur.fetchone():
                 continue
             cur.execute("""
-                INSERT INTO FAQ (chatbot_id, designacao, pergunta, resposta, idioma, links_documentos)
+                INSERT INTO faq (chatbot_id, designacao, pergunta, resposta, idioma, links_documentos)
                 VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING faq_id
             """, (chatbot_id, designacao, pergunta, resposta, idioma, links_documentos))
             faq_id = cur.fetchone()[0]
             if categoria:
-                cur.execute("SELECT categoria_id FROM Categoria WHERE nome ILIKE %s", (categoria,))
+                cur.execute("SELECT categoria_id FROM categoria WHERE nome ILIKE %s", (categoria,))
                 result = cur.fetchone()
                 if result:
-                    cur.execute("UPDATE FAQ SET categoria_id = %s WHERE faq_id = %s", (result[0], faq_id))
+                    cur.execute("UPDATE faq SET categoria_id = %s WHERE faq_id = %s", (result[0], faq_id))
             if links_documentos:
                 for link in links_documentos.split(','):
                     link = link.strip()
                     if link:
                         cur.execute(
-                            "INSERT INTO FAQ_Documento (faq_id, link) VALUES (%s, %s)",
+                            "INSERT INTO faq_documento (faq_id, link) VALUES (%s, %s)",
                             (faq_id, link)
                         )
         conn.commit()

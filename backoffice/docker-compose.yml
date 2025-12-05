@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 29344
-      POSTGRES_DB: AI4Governance
+      POSTGRES_DB: ai4governance
     ports:
       - "5433:5432"
     volumes:

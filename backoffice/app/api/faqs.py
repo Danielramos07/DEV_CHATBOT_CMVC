@@ -10,7 +10,7 @@ def get_faqs():
     conn = get_conn()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT faq_id, chatbot_id, designacao, pergunta, resposta FROM FAQ")
+        cur.execute("SELECT faq_id, chatbot_id, designacao, pergunta, resposta FROM faq")
         data = cur.fetchall()
         return jsonify([
             {"faq_id": f[0], "chatbot_id": f[1], "designacao": f[2], "pergunta": f[3], "resposta": f[4]} for f in data
@@ -30,8 +30,8 @@ def get_faq_by_id(faq_id):
         cur.execute("""
             SELECT f.faq_id, f.chatbot_id, f.categoria_id, f.designacao, f.pergunta, f.resposta, f.idioma, f.links_documentos,
                    c.nome as categoria_nome, f.recomendado
-            FROM FAQ f
-            LEFT JOIN Categoria c ON f.categoria_id = c.categoria_id
+            FROM faq f
+            LEFT JOIN categoria c ON f.categoria_id = c.categoria_id
             WHERE f.faq_id = %s
         """, (faq_id,))
         faq = cur.fetchone()
@@ -66,8 +66,8 @@ def get_faqs_por_chatbot(chatbot_id):
     try:
         cur.execute("""
             SELECT f.faq_id, c.nome, f.pergunta, f.resposta
-            FROM FAQ f
-            LEFT JOIN Categoria c ON f.categoria_id = c.categoria_id
+            FROM faq f
+            LEFT JOIN categoria c ON f.categoria_id = c.categoria_id
             WHERE f.chatbot_id = %s
         """, (chatbot_id,))
         data = cur.fetchall()
@@ -100,7 +100,7 @@ def update_faq(faq_id):
         recomendado = data.get("recomendado", False)
         categoria_id = categorias[0] if categorias else None
         cur.execute("""
-            UPDATE FAQ SET pergunta=%s, resposta=%s, idioma=%s, categoria_id=%s, recomendado=%s
+            UPDATE faq SET pergunta=%s, resposta=%s, idioma=%s, categoria_id=%s, recomendado=%s
             WHERE faq_id=%s
         """, (pergunta, resposta, idioma, categoria_id, recomendado, faq_id))
         conn.commit()
@@ -125,13 +125,13 @@ def add_faq():
         links_documentos = data.get("links_documentos", "").strip()
         recomendado = data.get("recomendado", False)
         cur.execute("""
-            SELECT faq_id FROM FAQ
+            SELECT faq_id FROM faq
             WHERE chatbot_id = %s AND designacao = %s AND pergunta = %s AND resposta = %s AND idioma = %s
         """, (data["chatbot_id"], data["designacao"], data["pergunta"], data["resposta"], idioma))
         if cur.fetchone():
             return jsonify({"success": False, "error": "Esta FAQ já está inserida."}), 409
         cur.execute("""
-            INSERT INTO FAQ (chatbot_id, categoria_id, designacao, pergunta, resposta, idioma, links_documentos, recomendado)
+            INSERT INTO faq (chatbot_id, categoria_id, designacao, pergunta, resposta, idioma, links_documentos, recomendado)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING faq_id
         """, (
@@ -150,12 +150,12 @@ def add_faq():
                 link = link.strip()
                 if link:
                     cur.execute(
-                        "INSERT INTO FAQ_Documento (faq_id, link) VALUES (%s, %s)",
+                        "INSERT INTO faq_documento (faq_id, link) VALUES (%s, %s)",
                         (faq_id, link)
                     )
         if "relacionadas" in data and data["relacionadas"].strip():
             for rel_id in data["relacionadas"].split(','):
-                cur.execute("INSERT INTO FAQ_Relacionadas (faq_id, faq_relacionada_id) VALUES (%s, %s)", (faq_id, int(rel_id.strip())))
+                cur.execute("INSERT INTO faq_relacionadas (faq_id, faq_relacionada_id) VALUES (%s, %s)", (faq_id, int(rel_id.strip())))
         conn.commit()
         build_faiss_index()
         return jsonify({"success": True, "faq_id": faq_id})
@@ -171,7 +171,7 @@ def delete_faq(faq_id):
     conn = get_conn()
     cur = conn.cursor()
     try:
-        cur.execute("DELETE FROM FAQ WHERE faq_id = %s", (faq_id,))
+        cur.execute("DELETE FROM faq WHERE faq_id = %s", (faq_id,))
         conn.commit()
         build_faiss_index()
         return jsonify({"success": True})
@@ -190,9 +190,9 @@ def get_faqs_detalhes():
         cur.execute("""
             SELECT f.faq_id, f.chatbot_id, f.designacao, f.pergunta, f.resposta, f.idioma, f.links_documentos,
                    f.categoria_id, c.nome AS categoria_nome, ch.nome AS chatbot_nome, f.recomendado
-            FROM FAQ f
-            LEFT JOIN Categoria c ON f.categoria_id = c.categoria_id
-            LEFT JOIN Chatbot ch ON f.chatbot_id = ch.chatbot_id
+            FROM faq f
+            LEFT JOIN categoria c ON f.categoria_id = c.categoria_id
+            LEFT JOIN chatbot ch ON f.chatbot_id = ch.chatbot_id
             ORDER BY f.faq_id
         """)
         data = cur.fetchall()
