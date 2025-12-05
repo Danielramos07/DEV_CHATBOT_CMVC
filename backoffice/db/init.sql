@@ -76,6 +76,17 @@ CREATE TABLE IF NOT EXISTS fonte_resposta (
     UNIQUE(chatbot_id)
 );
 
+-- Tabela: perguntanaorespondida
+CREATE TABLE IF NOT EXISTS perguntanaorespondida (
+    id SERIAL PRIMARY KEY,
+    chatbot_id INT REFERENCES chatbot(chatbot_id) ON DELETE CASCADE,
+    pergunta TEXT NOT NULL,
+    fonte TEXT,
+    max_score NUMERIC,
+    estado VARCHAR(50) DEFAULT 'pendente',
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Tabela: pdf_documents
 CREATE TABLE IF NOT EXISTS pdf_documents (
     pdf_id SERIAL PRIMARY KEY,
