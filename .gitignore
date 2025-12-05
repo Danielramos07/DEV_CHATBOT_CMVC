@@ -17,3 +17,6 @@ backoffice/**/__pycache__/
 build/
 dist/
 *.egg-info/
+
+backoffice/faiss.index
+backoffice/faq_embeddings.pkl
