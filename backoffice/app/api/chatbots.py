@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app, url_for
 from ..db import get_conn
 from ..services.retreival import build_faiss_index
 from werkzeug.utils import secure_filename
@@ -126,10 +126,14 @@ def atualizar_chatbot(chatbot_id):
             if file.filename:
                 filename = secure_filename(file.filename)
                 if filename:
-                    icon_path = os.path.join(Config.ICON_STORAGE_PATH, filename)
-                    if not os.path.exists(Config.ICON_STORAGE_PATH):
-                        os.makedirs(Config.ICON_STORAGE_PATH)
-                    file.save(icon_path)
+                    # Guardar sempre os ícones na pasta static/icons
+                    icons_dir = os.path.join(current_app.static_folder, 'icons')
+                    if not os.path.exists(icons_dir):
+                        os.makedirs(icons_dir, exist_ok=True)
+                    fs_path = os.path.join(icons_dir, filename)
+                    file.save(fs_path)
+                    # Caminho usado pelo frontend
+                    icon_path = url_for('static', filename=f'icons/{filename}')
         if not nome:
             return jsonify({"success": False, "error": "O nome do chatbot é obrigatório."}), 400
         if icon_path:

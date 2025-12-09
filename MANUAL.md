@@ -102,6 +102,7 @@ With the virtualenv still active and from the project root:
 export FLASK_APP=wsgi.py
 export FLASK_ENV=development   # optional, enables debug reload
 flask run
+flask run --debug
 ```
 
 You should see output similar to:

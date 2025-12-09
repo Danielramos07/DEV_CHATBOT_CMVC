@@ -1,18 +1,19 @@
-const TEXTO_RGPD = "Antes de iniciar a conversa, gostaria de informar que, de acordo com o Regulamento Geral de Proteção de Dados (RGPD), esta conversa está registada. Se não concordar com este registo, por favor utilize outro canal.";
+const TEXTO_RGPD =
+  "Antes de iniciar a conversa, gostaria de informar que, de acordo com o Regulamento Geral de Proteção de Dados (RGPD), esta conversa está registada. Se não concordar com este registo, por favor utilize outro canal.";
 
 function shadeColor(color, percent) {
-  let R = parseInt(color.substring(1,3),16);
-  let G = parseInt(color.substring(3,5),16);
-  let B = parseInt(color.substring(5,7),16);
-  R = Math.round(R * (100 + percent) / 100);
-  G = Math.round(G * (100 + percent) / 100);
-  B = Math.round(B * (100 + percent) / 100);
-  R = (R < 255) ? R : 255;
-  G = (G < 255) ? G : 255;
-  B = (B < 255) ? B : 255;
-  let RR = ((R.toString(16).length==1)?"0":"") + R.toString(16);
-  let GG = ((G.toString(16).length==1)?"0":"") + G.toString(16);
-  let BB = ((B.toString(16).length==1)?"0":"") + B.toString(16);
+  let R = parseInt(color.substring(1, 3), 16);
+  let G = parseInt(color.substring(3, 5), 16);
+  let B = parseInt(color.substring(5, 7), 16);
+  R = Math.round((R * (100 + percent)) / 100);
+  G = Math.round((G * (100 + percent)) / 100);
+  B = Math.round((B * (100 + percent)) / 100);
+  R = R < 255 ? R : 255;
+  G = G < 255 ? G : 255;
+  B = B < 255 ? B : 255;
+  let RR = (R.toString(16).length == 1 ? "0" : "") + R.toString(16);
+  let GG = (G.toString(16).length == 1 ? "0" : "") + G.toString(16);
+  let BB = (B.toString(16).length == 1 ? "0" : "") + B.toString(16);
   return "#" + RR + GG + BB;
 }
 
@@ -22,16 +23,23 @@ function atualizarCorChatbot() {
   if (btnToggle) {
     btnToggle.style.backgroundColor = corBot;
   }
-  const btnEnviar = document.querySelector(".chat-input button");
+  const btnEnviar = document.getElementById("chatSendBtn");
+  const micBtn = document.getElementById("chatMicBtn");
   if (btnEnviar) {
     btnEnviar.style.backgroundColor = corBot;
-    btnEnviar.onmouseenter = () => btnEnviar.style.backgroundColor = shadeColor(corBot, 12);
-    btnEnviar.onmouseleave = () => btnEnviar.style.backgroundColor = corBot;
+    btnEnviar.onmouseenter = () =>
+      (btnEnviar.style.backgroundColor = shadeColor(corBot, 12));
+    btnEnviar.onmouseleave = () => (btnEnviar.style.backgroundColor = corBot);
+  }
+  if (micBtn) {
+    micBtn.style.borderColor = corBot;
+    micBtn.style.color = corBot;
   }
 }
 
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
   atualizarCorChatbot();
+  ativarModoTexto();
 });
 
 function getIdiomaAtual() {
@@ -40,37 +48,138 @@ function getIdiomaAtual() {
 
 function formatarDataMensagem(date) {
   const meses = [
-    "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
+    "janeiro",
+    "fevereiro",
+    "março",
+    "abril",
+    "maio",
+    "junho",
+    "julho",
+    "agosto",
+    "setembro",
+    "outubro",
+    "novembro",
+    "dezembro",
   ];
-  const dia = String(date.getDate()).padStart(2, '0');
+  const dia = String(date.getDate()).padStart(2, "0");
   const mes = meses[date.getMonth()];
   const ano = date.getFullYear();
-  const horas = String(date.getHours()).padStart(2, '0');
-  const minutos = String(date.getMinutes()).padStart(2, '0');
+  const horas = String(date.getHours()).padStart(2, "0");
+  const minutos = String(date.getMinutes()).padStart(2, "0");
   return `${dia} de ${mes} de ${ano} ${horas}:${minutos}`;
 }
 
 function gerarDataHoraFormatada() {
   const agora = new Date();
-  return agora.toLocaleDateString("pt-PT", {
+  return (
+    agora.toLocaleDateString("pt-PT", {
       day: "2-digit",
       month: "long",
-      year: "numeric"
+      year: "numeric",
     }) +
     " " +
     agora.toLocaleTimeString("pt-PT", {
       hour: "2-digit",
-      minute: "2-digit"
-    });
+      minute: "2-digit",
+    })
+  );
+}
+// ----- Modo texto / avatar -----
+let micAtivo = false;
+let micStream = null;
+
+async function toggleMic() {
+  const micBtn = document.getElementById("chatMicBtn");
+
+  // Ativar microfone
+  if (!micAtivo) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert("O seu navegador não suporta acesso ao microfone.");
+      return;
+    }
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micAtivo = true;
+      if (micBtn) {
+        micBtn.classList.add("active");
+      }
+      // TODO: integrar aqui o reconhecimento de voz (Vosk, etc.)
+    } catch (err) {
+      console.error("Erro ao obter acesso ao microfone:", err);
+      alert(
+        "Não foi possível aceder ao microfone. Verifique as permissões do navegador."
+      );
+      micAtivo = false;
+      if (micBtn) {
+        micBtn.classList.remove("active");
+      }
+    }
+    return;
+  }
+
+  // Desativar microfone
+  if (micStream) {
+    micStream.getTracks().forEach((t) => t.stop());
+    micStream = null;
+  }
+  micAtivo = false;
+  if (micBtn) {
+    micBtn.classList.remove("active");
+  }
+}
+
+window.chatModoAtual = window.chatModoAtual || "texto";
+
+function ativarModoTexto() {
+  const modoTextoBtn = document.getElementById("modoTextoBtn");
+  const modoAvatarBtn = document.getElementById("modoAvatarBtn");
+  const avatarPanel = document.getElementById("chatAvatarPanel");
+  const chatSidebar = document.getElementById("chatSidebar");
+
+  if (modoTextoBtn && modoAvatarBtn) {
+    modoTextoBtn.classList.add("active");
+    modoAvatarBtn.classList.remove("active");
+  }
+  if (avatarPanel) {
+    avatarPanel.classList.remove("active");
+  }
+
+  if (chatSidebar) {
+    chatSidebar.dataset.modo = "texto";
+  }
+
+  window.chatModoAtual = "texto";
+}
+
+function ativarModoAvatar() {
+  const modoTextoBtn = document.getElementById("modoTextoBtn");
+  const modoAvatarBtn = document.getElementById("modoAvatarBtn");
+  const avatarPanel = document.getElementById("chatAvatarPanel");
+  const chatSidebar = document.getElementById("chatSidebar");
+
+  if (modoTextoBtn && modoAvatarBtn) {
+    modoAvatarBtn.classList.add("active");
+    modoTextoBtn.classList.remove("active");
+  }
+  if (avatarPanel) {
+    avatarPanel.classList.add("active");
+  }
+
+  if (chatSidebar) {
+    chatSidebar.dataset.modo = "avatar";
+  }
+
+  window.chatModoAtual = "avatar";
 }
 
 async function atualizarNomeChatHeader() {
-  const headerNome = document.getElementById('chatHeaderNomeBot');
-  const headerImg = document.querySelector('.chat-header-avatar');
+  const headerNome = document.getElementById("chatHeaderNomeBot");
+
+  const headerImg = document.querySelector(".chat-header-avatar");
   let nomeBot = localStorage.getItem("nomeBot") || "Assistente Municipal";
   let corBot = localStorage.getItem("corChatbot") || "#d4af37";
-  let iconBot = localStorage.getItem("iconBot") || "/static/images/chatbot-icon.png";
+  let iconBot =
+    localStorage.getItem("iconBot") || "/static/images/chatbot-icon.png";
   const chatbotId = parseInt(localStorage.getItem("chatbotAtivo"));
   if (chatbotId && !isNaN(chatbotId)) {
     try {
@@ -93,7 +202,9 @@ async function atualizarNomeChatHeader() {
       }
     } catch (e) {
       const botsData = JSON.parse(localStorage.getItem("chatbotsData") || "[]");
-      const bot = botsData.find(b => b.chatbot_id === chatbotId || b.chatbot_id === String(chatbotId));
+      const bot = botsData.find(
+        (b) => b.chatbot_id === chatbotId || b.chatbot_id === String(chatbotId)
+      );
       if (bot && bot.nome) {
         nomeBot = bot.nome;
         localStorage.setItem("nomeBot", nomeBot);
@@ -112,12 +223,13 @@ async function atualizarNomeChatHeader() {
     }
   }
   if (headerNome) {
-    headerNome.textContent = nomeBot !== "..." ? nomeBot : "Assistente Municipal";
+    headerNome.textContent =
+      nomeBot !== "..." ? nomeBot : "Assistente Municipal";
   }
   if (headerImg) {
     headerImg.src = iconBot;
   }
-  const chatHeader = document.querySelector('.chat-header');
+  const chatHeader = document.querySelector(".chat-header");
   if (chatHeader) {
     chatHeader.style.background = corBot;
   }
@@ -133,7 +245,8 @@ function atualizarFonteBadge() {
     badgeDiv.innerHTML = "";
     return;
   }
-  const fonte = localStorage.getItem(`fonteSelecionada_bot${chatbotId}`) || "faq";
+  const fonte =
+    localStorage.getItem(`fonteSelecionada_bot${chatbotId}`) || "faq";
   let badgeHTML = "";
   if (fonte === "faq" || fonte === "faiss") {
     badgeHTML = `
@@ -165,9 +278,22 @@ function criarBlocoFeedback(msgId) {
 
 function isSaudacao(msg) {
   if (!msg) return false;
-  const s = msg.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const s = msg
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
   const saudacoes = [
-    "olá","ola","bom dia","boa tarde","boa noite","hello","hi","good morning","good afternoon","good evening"
+    "olá",
+    "ola",
+    "bom dia",
+    "boa tarde",
+    "boa noite",
+    "hello",
+    "hi",
+    "good morning",
+    "good afternoon",
+    "good evening",
   ];
   for (let saud of saudacoes) {
     if (s === saud || s.startsWith(saud)) return true;
@@ -175,21 +301,29 @@ function isSaudacao(msg) {
   return false;
 }
 
-function adicionarMensagem(tipo, texto, avatarUrl = null, autor = null, timestamp = null, isRgpd = false) {
+function adicionarMensagem(
+  tipo,
+  texto,
+  avatarUrl = null,
+  autor = null,
+  timestamp = null,
+  isRgpd = false
+) {
   const chat = document.getElementById("chatBody");
   let wrapper = document.createElement("div");
-  wrapper.className = `message-wrapper ${tipo}${isRgpd ? ' rgpd-wrapper' : ''}`;
-  
+  wrapper.className = `message-wrapper ${tipo}${isRgpd ? " rgpd-wrapper" : ""}`;
+
   if (!isRgpd) {
     const authorDiv = document.createElement("div");
     authorDiv.className = "chat-author " + tipo;
-    authorDiv.textContent = tipo === "user" ? "Eu" : (autor || "Assistente Municipal");
+    authorDiv.textContent =
+      tipo === "user" ? "Eu" : autor || "Assistente Municipal";
     wrapper.appendChild(authorDiv);
   }
-  
+
   const messageContent = document.createElement("div");
   messageContent.className = "message-content";
-  
+
   if (tipo === "bot" && avatarUrl && !isRgpd) {
     const avatarDiv = document.createElement("div");
     avatarDiv.className = "bot-avatar-outer";
@@ -200,17 +334,17 @@ function adicionarMensagem(tipo, texto, avatarUrl = null, autor = null, timestam
     avatarDiv.appendChild(avatar);
     messageContent.appendChild(avatarDiv);
   }
-  
+
   const bubbleCol = document.createElement("div");
   bubbleCol.style.display = "flex";
   bubbleCol.style.flexDirection = "column";
   bubbleCol.style.alignItems = tipo === "user" ? "flex-end" : "flex-start";
-  
+
   const msgDiv = document.createElement("div");
-  msgDiv.className = `message ${tipo}${isRgpd ? ' rgpd' : ''}`;
+  msgDiv.className = `message ${tipo}${isRgpd ? " rgpd" : ""}`;
   msgDiv.style.whiteSpace = "pre-line";
   msgDiv.textContent = texto;
-  
+
   let corBot = localStorage.getItem("corChatbot") || "#d4af37";
   if (tipo === "bot" && !isRgpd) {
     msgDiv.style.backgroundColor = corBot;
@@ -220,14 +354,18 @@ function adicionarMensagem(tipo, texto, avatarUrl = null, autor = null, timestam
     msgDiv.style.backgroundColor = shadeColor(corBot, -18);
     msgDiv.style.color = "#fff";
   }
-  
+
   bubbleCol.appendChild(msgDiv);
-  
-  if (!isRgpd && tipo === "bot" &&
+
+  if (
+    !isRgpd &&
+    tipo === "bot" &&
     texto !== "Fico contente por ter ajudado." &&
-    texto !== "Lamento não ter conseguido responder. Tente reformular a pergunta." &&
+    texto !==
+      "Lamento não ter conseguido responder. Tente reformular a pergunta." &&
     texto !== "I'm glad I could help." &&
-    texto !== "I'm sorry I couldn't answer. Please try rephrasing the question." &&
+    texto !==
+      "I'm sorry I couldn't answer. Please try rephrasing the question." &&
     !isSaudacao(texto)
   ) {
     const feedbackId = "feedback-" + Math.random().toString(36).substr(2, 9);
@@ -235,7 +373,7 @@ function adicionarMensagem(tipo, texto, avatarUrl = null, autor = null, timestam
     feedbackDiv.innerHTML = criarBlocoFeedback(feedbackId);
     bubbleCol.appendChild(feedbackDiv);
   }
-  
+
   if (!isRgpd && !timestamp) timestamp = gerarDataHoraFormatada();
   if (!isRgpd) {
     const timestampDiv = document.createElement("div");
@@ -243,43 +381,49 @@ function adicionarMensagem(tipo, texto, avatarUrl = null, autor = null, timestam
     timestampDiv.textContent = timestamp;
     bubbleCol.appendChild(timestampDiv);
   }
-  
+
   messageContent.appendChild(bubbleCol);
   wrapper.appendChild(messageContent);
   chat.appendChild(wrapper);
   chat.scrollTop = chat.scrollHeight;
-  
+
   if (!isRgpd) {
     setTimeout(() => {
-      document.querySelectorAll('.feedback-icons').forEach(feedback => {
+      document.querySelectorAll(".feedback-icons").forEach((feedback) => {
         if (!feedback.dataset.eventBound) {
           feedback.dataset.eventBound = true;
-          const likeBtn = feedback.querySelector('.like-btn');
-          const dislikeBtn = feedback.querySelector('.dislike-btn');
-          const label = feedback.querySelector('.feedback-label');
+          const likeBtn = feedback.querySelector(".like-btn");
+          const dislikeBtn = feedback.querySelector(".dislike-btn");
+          const label = feedback.querySelector(".feedback-label");
           likeBtn.onclick = () => {
-            if (label.nextElementSibling && label.nextElementSibling.classList.contains('feedback-badge')) {
+            if (
+              label.nextElementSibling &&
+              label.nextElementSibling.classList.contains("feedback-badge")
+            ) {
               label.nextElementSibling.remove();
             }
             label.style.display = "none";
-            const badge = document.createElement('div');
+            const badge = document.createElement("div");
             badge.className = "feedback-badge positive";
             badge.innerHTML = `<div class="feedback-line"></div><div class="feedback-label-box">Boa resposta</div>`;
             label.parentNode.insertBefore(badge, label.nextSibling);
-            likeBtn.classList.add('active');
-            dislikeBtn.classList.remove('active');
+            likeBtn.classList.add("active");
+            dislikeBtn.classList.remove("active");
           };
           dislikeBtn.onclick = () => {
-            if (label.nextElementSibling && label.nextElementSibling.classList.contains('feedback-badge')) {
+            if (
+              label.nextElementSibling &&
+              label.nextElementSibling.classList.contains("feedback-badge")
+            ) {
               label.nextElementSibling.remove();
             }
             label.style.display = "none";
-            const badge = document.createElement('div');
+            const badge = document.createElement("div");
             badge.className = "feedback-badge negative";
             badge.innerHTML = `<div class="feedback-line"></div><div class="feedback-label-box">Má resposta</div>`;
             label.parentNode.insertBefore(badge, label.nextSibling);
-            dislikeBtn.classList.add('active');
-            likeBtn.classList.remove('active');
+            dislikeBtn.classList.add("active");
+            likeBtn.classList.remove("active");
           };
         }
       });
@@ -287,7 +431,11 @@ function adicionarMensagem(tipo, texto, avatarUrl = null, autor = null, timestam
   }
 }
 
-function adicionarFeedbackResolvido(onClick, idioma = "pt", isSaudacaoMsg = false) {
+function adicionarFeedbackResolvido(
+  onClick,
+  idioma = "pt",
+  isSaudacaoMsg = false
+) {
   if (isSaudacaoMsg) return;
   const chat = document.getElementById("chatBody");
   const wrapper = document.createElement("div");
@@ -324,11 +472,11 @@ function adicionarFeedbackResolvido(onClick, idioma = "pt", isSaudacaoMsg = fals
   chat.appendChild(wrapper);
   chat.scrollTop = chat.scrollHeight;
   setTimeout(() => {
-    msgDiv.querySelector(".btn-feedback-sim").onclick = function() {
+    msgDiv.querySelector(".btn-feedback-sim").onclick = function () {
       if (typeof onClick === "function") onClick("sim", wrapper);
       wrapper.remove();
     };
-    msgDiv.querySelector(".btn-feedback-nao").onclick = function() {
+    msgDiv.querySelector(".btn-feedback-nao").onclick = function () {
       if (typeof onClick === "function") onClick("nao", wrapper);
       wrapper.remove();
     };
@@ -369,25 +517,25 @@ function limparTimersAutoChat() {
 }
 
 function abrirChat() {
-  document.getElementById('chatSidebar').style.display = 'flex';
+  document.getElementById("chatSidebar").style.display = "flex";
   initialMessageShown = false;
   apresentarMensagemInicial();
   iniciarTimerAutoMensagem();
   atualizarCorChatbot();
-  const toggleCard = document.querySelector('.chat-toggle-card');
-  if (toggleCard) toggleCard.style.display = 'none';
+  const toggleCard = document.querySelector(".chat-toggle-card");
+  if (toggleCard) toggleCard.style.display = "none";
 }
-window.fecharChat = function() {
-  document.getElementById('chatSidebar').style.display = 'none';
+window.fecharChat = function () {
+  document.getElementById("chatSidebar").style.display = "none";
   limparTimersAutoChat();
   initialMessageShown = false;
-  const toggleCard = document.querySelector('.chat-toggle-card');
-  if (toggleCard) toggleCard.style.display = '';
+  const toggleCard = document.querySelector(".chat-toggle-card");
+  if (toggleCard) toggleCard.style.display = "";
 };
 
 async function apresentarMensagemInicial() {
   if (initialMessageShown) return;
-  
+
   let nomeBot, corBot, iconBot;
   const chatbotId = parseInt(localStorage.getItem("chatbotAtivo"));
   if (chatbotId && !isNaN(chatbotId)) {
@@ -396,16 +544,24 @@ async function apresentarMensagemInicial() {
       const data = await res.json();
       nomeBot = data.success && data.nome ? data.nome : "Assistente Municipal";
       corBot = data.success && data.cor ? data.cor : "#d4af37";
-      iconBot = data.success && data.icon ? data.icon : "/static/images/chatbot-icon.png";
+      iconBot =
+        data.success && data.icon
+          ? data.icon
+          : "/static/images/chatbot-icon.png";
       localStorage.setItem("nomeBot", nomeBot);
       localStorage.setItem("corChatbot", corBot);
       localStorage.setItem("iconBot", iconBot);
     } catch (e) {
       const botsData = JSON.parse(localStorage.getItem("chatbotsData") || "[]");
-      const bot = botsData.find(b => b.chatbot_id === chatbotId || b.chatbot_id === String(chatbotId));
+      const bot = botsData.find(
+        (b) => b.chatbot_id === chatbotId || b.chatbot_id === String(chatbotId)
+      );
       nomeBot = bot && bot.nome ? bot.nome : "Assistente Municipal";
       corBot = bot && bot.cor ? bot.cor : "#d4af37";
-      iconBot = bot && bot.icon_path ? bot.icon_path : "/static/images/chatbot-icon.png";
+      iconBot =
+        bot && bot.icon_path
+          ? bot.icon_path
+          : "/static/images/chatbot-icon.png";
       localStorage.setItem("nomeBot", nomeBot);
       localStorage.setItem("corChatbot", corBot);
       localStorage.setItem("iconBot", iconBot);
@@ -419,7 +575,7 @@ async function apresentarMensagemInicial() {
     localStorage.setItem("iconBot", iconBot);
   }
   atualizarCorChatbot();
-  
+
   adicionarMensagem("bot", TEXTO_RGPD, null, null, null, true);
 
   const msg = `Olá!
@@ -459,10 +615,12 @@ function responderPergunta(pergunta) {
     );
     return;
   }
-  const fonte = localStorage.getItem(`fonteSelecionada_bot${chatbotId}`) || "faq";
+  const fonte =
+    localStorage.getItem(`fonteSelecionada_bot${chatbotId}`) || "faq";
   const idioma = getIdiomaAtual();
   let corBot = localStorage.getItem("corChatbot") || "#d4af37";
-  let iconBot = localStorage.getItem("iconBot") || "/static/images/chatbot-icon.png";
+  let iconBot =
+    localStorage.getItem("iconBot") || "/static/images/chatbot-icon.png";
   fetch("/obter-resposta", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -470,16 +628,20 @@ function responderPergunta(pergunta) {
       pergunta,
       chatbot_id: chatbotId,
       fonte,
-      idioma
-    })
+      idioma,
+    }),
   })
-    .then(res => res.json())
-    .then(data => {
+    .then((res) => res.json())
+    .then((data) => {
       let faqPergunta = data.pergunta_faq || pergunta;
       let faqIdioma = (data.faq_idioma || idioma || "pt").toLowerCase();
       if (data.success) {
         let resposta = data.resposta || "";
-        if (data.documentos && Array.isArray(data.documentos) && data.documentos.length > 0) {
+        if (
+          data.documentos &&
+          Array.isArray(data.documentos) &&
+          data.documentos.length > 0
+        ) {
           resposta += `
             <div class="fonte-docs-wrapper" style="margin-top: 18px; display: flex; align-items: center; gap: 10px;">
               <span class="fonte-label" style="font-weight: 600; margin-right: 7px; color: #fff;">Fonte:</span>
@@ -494,50 +656,69 @@ function responderPergunta(pergunta) {
             </div>
           `;
         }
-        adicionarMensagemComHTML("bot", resposta, iconBot, localStorage.getItem("nomeBot"));
-        const saudacao = isSaudacao(faqPergunta) || isSaudacao(resposta);
-        adicionarFeedbackResolvido((respostaFeedback, bloco) => {
-          if (respostaFeedback === "sim") {
-            if (faqIdioma === "en") {
-              adicionarMensagem(
-                "bot",
-                "I'm glad I could help.",
-                iconBot,
-                localStorage.getItem("nomeBot")
-              );
-            } else {
-              adicionarMensagem(
-                "bot",
-                "Fico contente por ter ajudado.",
-                iconBot,
-                localStorage.getItem("nomeBot")
-              );
-            }
-            obterPerguntasSemelhantes(faqPergunta, chatbotId, faqIdioma);
-          } else if (respostaFeedback === "nao") {
-            if (faqIdioma === "en") {
-              adicionarMensagem(
-                "bot",
-                "I'm sorry I couldn't answer. Please try rephrasing the question.",
-                iconBot,
-                localStorage.getItem("nomeBot")
-              );
-            } else {
-              adicionarMensagem(
-                "bot",
-                "Lamento não ter conseguido responder. Tente reformular a pergunta.",
-                iconBot,
-                localStorage.getItem("nomeBot")
-              );
-            }
-            obterPerguntasSemelhantes(faqPergunta, chatbotId, faqIdioma);
-          }
-        }, faqIdioma, saudacao);
+        if (window.chatModoAtual === "avatar") {
+          // No modo avatar, a resposta textual ser5 tratada pelo avatar (voz).
+          // Por agora, apenas registamos para futura integra00o.
+          console.debug("Resposta para o avatar:", resposta);
+        } else {
+          adicionarMensagemComHTML(
+            "bot",
+            resposta,
+            iconBot,
+            localStorage.getItem("nomeBot")
+          );
+          const saudacao = isSaudacao(faqPergunta) || isSaudacao(resposta);
+          adicionarFeedbackResolvido(
+            (respostaFeedback, bloco) => {
+              if (respostaFeedback === "sim") {
+                if (faqIdioma === "en") {
+                  adicionarMensagem(
+                    "bot",
+                    "I'm glad I could help.",
+                    iconBot,
+                    localStorage.getItem("nomeBot")
+                  );
+                } else {
+                  adicionarMensagem(
+                    "bot",
+                    "Fico contente por ter ajudado.",
+                    iconBot,
+                    localStorage.getItem("nomeBot")
+                  );
+                }
+                obterPerguntasSemelhantes(faqPergunta, chatbotId, faqIdioma);
+              } else if (respostaFeedback === "nao") {
+                if (faqIdioma === "en") {
+                  adicionarMensagem(
+                    "bot",
+                    "I'm sorry I couldn't answer. Please try rephrasing the question.",
+                    iconBot,
+                    localStorage.getItem("nomeBot")
+                  );
+                } else {
+                  adicionarMensagem(
+                    "bot",
+                    "Lamento não ter conseguido responder. Tente reformular a pergunta.",
+                    iconBot,
+                    localStorage.getItem("nomeBot")
+                  );
+                }
+                obterPerguntasSemelhantes(faqPergunta, chatbotId, faqIdioma);
+              }
+            },
+            faqIdioma,
+            saudacao
+          );
+        }
         window.awaitingRagConfirmation = false;
-      }
-      else if (
+      } else if (
         data.prompt_rag ||
-        (data.erro && data.erro.toLowerCase().includes("deseja tentar encontrar uma resposta nos documentos pdf"))
+        (data.erro &&
+          data.erro
+            .toLowerCase()
+            .includes(
+              "deseja tentar encontrar uma resposta nos documentos pdf"
+            ))
       ) {
         window.awaitingRagConfirmation = true;
         const chat = document.getElementById("chatBody");
@@ -545,7 +726,8 @@ function responderPergunta(pergunta) {
         wrapper.className = "message-wrapper bot";
         const authorDiv = document.createElement("div");
         authorDiv.className = "chat-author bot";
-        authorDiv.textContent = localStorage.getItem("nomeBot") || "Assistente Municipal";
+        authorDiv.textContent =
+          localStorage.getItem("nomeBot") || "Assistente Municipal";
         wrapper.appendChild(authorDiv);
         const messageContent = document.createElement("div");
         messageContent.className = "message-content";
@@ -577,7 +759,7 @@ function responderPergunta(pergunta) {
         setTimeout(() => {
           const confirmarRag = document.getElementById("confirmar-rag-link");
           if (confirmarRag) {
-            confirmarRag.onclick = function(e) {
+            confirmarRag.onclick = function (e) {
               e.preventDefault();
               window.awaitingRagConfirmation = false;
               confirmarRag.style.pointerEvents = "none";
@@ -591,17 +773,23 @@ function responderPergunta(pergunta) {
                   chatbot_id: chatbotId,
                   fonte: "faq+raga",
                   feedback: "try_rag",
-                  idioma
-                })
+                  idioma,
+                }),
               })
-                .then(res => res.json())
-                .then(ragData => {
+                .then((res) => res.json())
+                .then((ragData) => {
                   if (ragData.success) {
-                    adicionarMensagemComHTML("bot", ragData.resposta || "", iconBot, localStorage.getItem("nomeBot"));
+                    adicionarMensagemComHTML(
+                      "bot",
+                      ragData.resposta || "",
+                      iconBot,
+                      localStorage.getItem("nomeBot")
+                    );
                   } else {
                     adicionarMensagem(
                       "bot",
-                      ragData.erro || "❌ Nenhuma resposta encontrada nos documentos PDF.",
+                      ragData.erro ||
+                        "❌ Nenhuma resposta encontrada nos documentos PDF.",
                       iconBot,
                       localStorage.getItem("nomeBot")
                     );
@@ -621,7 +809,8 @@ function responderPergunta(pergunta) {
       } else {
         adicionarMensagem(
           "bot",
-          data.erro || "❌ Nenhuma resposta encontrada para a pergunta fornecida.",
+          data.erro ||
+            "❌ Nenhuma resposta encontrada para a pergunta fornecida.",
           iconBot,
           localStorage.getItem("nomeBot")
         );
@@ -639,13 +828,20 @@ function responderPergunta(pergunta) {
     });
 }
 
-function adicionarMensagemComHTML(tipo, html, avatarUrl = null, autor = null, timestamp = null) {
+function adicionarMensagemComHTML(
+  tipo,
+  html,
+  avatarUrl = null,
+  autor = null,
+  timestamp = null
+) {
   const chat = document.getElementById("chatBody");
   let wrapper = document.createElement("div");
   wrapper.className = "message-wrapper " + tipo;
   const authorDiv = document.createElement("div");
   authorDiv.className = "chat-author " + tipo;
-  authorDiv.textContent = tipo === "user" ? "Eu" : (autor || "Assistente Municipal");
+  authorDiv.textContent =
+    tipo === "user" ? "Eu" : autor || "Assistente Municipal";
   wrapper.appendChild(authorDiv);
   const messageContent = document.createElement("div");
   messageContent.className = "message-content";
@@ -680,9 +876,11 @@ function adicionarMensagemComHTML(tipo, html, avatarUrl = null, autor = null, ti
   if (
     tipo === "bot" &&
     html !== "Fico contente por ter ajudado." &&
-    html !== "Lamento não ter conseguido responder. Tente reformular a pergunta." &&
+    html !==
+      "Lamento não ter conseguido responder. Tente reformular a pergunta." &&
     html !== "I'm glad I could help." &&
-    html !== "I'm sorry I couldn't answer. Please try rephrasing the question." &&
+    html !==
+      "I'm sorry I couldn't answer. Please try rephrasing the question." &&
     !isSaudacao(html)
   ) {
     const feedbackId = "feedback-" + Math.random().toString(36).substr(2, 9);
@@ -700,12 +898,12 @@ function adicionarMensagemComHTML(tipo, html, avatarUrl = null, autor = null, ti
   chat.appendChild(wrapper);
   chat.scrollTop = chat.scrollHeight;
   setTimeout(() => {
-    document.querySelectorAll('.feedback-icons').forEach(feedback => {
+    document.querySelectorAll(".feedback-icons").forEach((feedback) => {
       if (!feedback.dataset.eventBound) {
         feedback.dataset.eventBound = true;
-        const likeBtn = feedback.querySelector('.like-btn');
-        const dislikeBtn = feedback.querySelector('.dislike-btn');
-        const label = feedback.querySelector('.feedback-label');
+        const likeBtn = feedback.querySelector(".like-btn");
+        const dislikeBtn = feedback.querySelector(".dislike-btn");
+        const label = feedback.querySelector(".feedback-label");
         likeBtn.onclick = () => {
           label.textContent = "Boa resposta";
           label.style.color = "#388e3c";
@@ -734,13 +932,19 @@ function obterPerguntasSemelhantes(perguntaOriginal, chatbotId, idioma = null) {
     body: JSON.stringify({
       pergunta: perguntaOriginal,
       chatbot_id: chatbotId,
-      idioma: idioma
-    })
+      idioma: idioma,
+    }),
   })
-    .then(res => res.json())
-    .then(data => {
-      document.querySelectorAll('.sugestoes-similares').forEach(el => el.remove());
-      if (data.success && Array.isArray(data.sugestoes) && data.sugestoes.length > 0) {
+    .then((res) => res.json())
+    .then((data) => {
+      document
+        .querySelectorAll(".sugestoes-similares")
+        .forEach((el) => el.remove());
+      if (
+        data.success &&
+        Array.isArray(data.sugestoes) &&
+        data.sugestoes.length > 0
+      ) {
         const chat = document.getElementById("chatBody");
         const sugestoesWrapper = document.createElement("div");
         sugestoesWrapper.className = "sugestoes-similares";
@@ -762,7 +966,7 @@ function obterPerguntasSemelhantes(perguntaOriginal, chatbotId, idioma = null) {
         sugestoesWrapper.appendChild(titulo);
         const btnContainer = document.createElement("div");
         btnContainer.className = "suggested-questions-bar";
-        data.sugestoes.forEach(pergunta => {
+        data.sugestoes.forEach((pergunta) => {
           const btn = document.createElement("button");
           btn.className = "suggested-question-btn";
           btn.textContent = pergunta;
@@ -805,8 +1009,8 @@ async function mostrarPerguntasSugestivasDB() {
       body: JSON.stringify({
         idioma: idioma,
         n: 3,
-        chatbot_id: chatbotId
-      })
+        chatbot_id: chatbotId,
+      }),
     });
     const data = await res.json();
     if (data.success && data.faqs && data.faqs.length > 0) {
@@ -818,7 +1022,7 @@ async function mostrarPerguntasSugestivasDB() {
       chat.appendChild(title);
       const btnContainer = document.createElement("div");
       btnContainer.className = "suggested-questions-bar";
-      data.faqs.forEach(faq => {
+      data.faqs.forEach((faq) => {
         const btn = document.createElement("button");
         btn.className = "suggested-question-btn";
         btn.textContent = faq.pergunta;
@@ -844,16 +1048,15 @@ async function mostrarPerguntasSugestivasDB() {
       chat.appendChild(btnContainer);
       chat.scrollTop = chat.scrollHeight;
     }
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
-window.setIdiomaAtivo = function(idioma) {
+window.setIdiomaAtivo = function (idioma) {
   localStorage.setItem("idiomaAtivo", idioma);
 };
 window.apresentarMensagemInicial = apresentarMensagemInicial;
 window.enviarPergunta = enviarPergunta;
 window.responderPergunta = responderPergunta;
-window.perguntarCategoria = function(){};
+window.perguntarCategoria = function () {};
 window.atualizarNomeChatHeader = atualizarNomeChatHeader;
 window.atualizarFonteBadge = atualizarFonteBadge;

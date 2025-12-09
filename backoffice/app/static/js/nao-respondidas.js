@@ -1,4 +1,6 @@
 window.chatbotsMapNaoResp = {};
+let perguntasNaoRespondidasCache = [];
+let perguntaSelecionada = null;
 
 async function carregarChatbotsNaoRespondidas() {
   try {
@@ -60,10 +62,11 @@ async function carregarTabelaNaoRespondidas() {
   lista.innerHTML = "<p>A carregar perguntas não respondidas...</p>";
   if (titulo) titulo.textContent = "";
 
-  const textoPesquisa =
-    (document.getElementById("pesquisaNaoRespondida")?.value || "")
-      .toLowerCase()
-      .trim();
+  const textoPesquisa = (
+    document.getElementById("pesquisaNaoRespondida")?.value || ""
+  )
+    .toLowerCase()
+    .trim();
   const filtroChatbot =
     document.getElementById("filtroChatbotNaoResp")?.value || "";
   const filtroEstado =
@@ -82,6 +85,7 @@ async function carregarTabelaNaoRespondidas() {
     }
 
     let perguntas = json;
+    perguntasNaoRespondidasCache = perguntas;
 
     let filtradas = perguntas.filter((p) => {
       let okPesquisa = true;
@@ -163,8 +167,12 @@ async function carregarTabelaNaoRespondidas() {
                 <td style="text-align:center;">${estadoLabel}</td>
                 <td>${criadoEm || "-"}</td>
                 <td>
-                  <button class="btn-remover" onclick="removerPergunta(${p.id})">Remover</button>
-                  <button class="btn-editar" onclick="editarEstado(${p.id})">Editar</button>
+                  <button class="btn-remover" onclick="removerPergunta(${
+                    p.id
+                  })">Remover</button>
+                  <button class="btn-editar" onclick="abrirModalTratarPergunta(${
+                    p.id
+                  })">Editar</button>
                 </td>
               </tr>
             `;
@@ -180,19 +188,57 @@ async function carregarTabelaNaoRespondidas() {
   }
 }
 
-async function editarEstado(perguntaId) {
-  const res = await fetch(`/perguntas-nao-respondidas/${perguntaId}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      estado: "tratada",
-    }),
-  });
-  const json = await res.json();
-  if (json.success) {
-    carregarTabelaNaoRespondidas();
+function abrirModalTratarPergunta(perguntaId) {
+  const modal = document.getElementById("modalTratarPergunta");
+  const textoEl = document.getElementById("perguntaSelecionadaTexto");
+  const selectAcao = document.getElementById("acaoPergunta");
+
+  if (!modal || !textoEl || !selectAcao) return;
+
+  perguntaSelecionada = perguntasNaoRespondidasCache.find(
+    (p) => String(p.id) === String(perguntaId)
+  );
+
+  if (!perguntaSelecionada) {
+    console.error("Pergunta não encontrada no cache", perguntaId);
+    return;
+  }
+
+  textoEl.textContent = perguntaSelecionada.pergunta || "";
+  selectAcao.value = "criar_faq";
+  modal.style.display = "flex";
+}
+
+async function confirmarTratarPergunta() {
+  const modal = document.getElementById("modalTratarPergunta");
+  const selectAcao = document.getElementById("acaoPergunta");
+  if (!perguntaSelecionada || !selectAcao) return;
+
+  const acao = selectAcao.value;
+
+  if (acao === "marcar_tratada" || acao === "marcar_ignorada") {
+    const novoEstado = acao === "marcar_tratada" ? "tratada" : "ignorada";
+    const res = await fetch(
+      `/perguntas-nao-respondidas/${perguntaSelecionada.id}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: novoEstado }),
+      }
+    );
+    const json = await res.json();
+    if (json.success) {
+      if (modal) modal.style.display = "none";
+      perguntaSelecionada = null;
+      carregarTabelaNaoRespondidas();
+    }
+  } else if (acao === "criar_faq") {
+    // Guardar a pergunta para futura criação de FAQ na página de respostas
+    localStorage.setItem(
+      "perguntaParaNovaFAQ",
+      perguntaSelecionada.pergunta || ""
+    );
+    window.location.href = "/respostas";
   }
 }
 
@@ -224,4 +270,15 @@ document.addEventListener("DOMContentLoaded", () => {
     filtroChatbot.addEventListener("change", carregarTabelaNaoRespondidas);
   if (filtroEstado)
     filtroEstado.addEventListener("change", carregarTabelaNaoRespondidas);
+
+  const btnConfirmar = document.getElementById("confirmarTratarPergunta");
+  const btnCancelar = document.getElementById("cancelarTratarPergunta");
+  const modal = document.getElementById("modalTratarPergunta");
+
+  if (btnConfirmar) btnConfirmar.onclick = confirmarTratarPergunta;
+  if (btnCancelar && modal)
+    btnCancelar.onclick = function () {
+      modal.style.display = "none";
+      perguntaSelecionada = null;
+    };
 });

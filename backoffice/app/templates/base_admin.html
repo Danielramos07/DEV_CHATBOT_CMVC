@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{% block title %}Chatbot Municipal{% endblock %}</title>
+    <link
+      rel="icon"
+      href="{{ url_for('static', filename='images/chatbot-icon.png') }}"
+      type="image/png"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/base.css') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/layout.css') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/components.css') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/chat.css') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/modal.css') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/footer.css') }}"
+    />
+    {% block extra_head %}{% endblock %}
+  </head>
+  {% if 'admin_id' not in session %} {% with messages =
+  get_flashed_messages(with_categories=true) %} {% if messages %}
+  <script>
+    window.location.href = "{{ url_for('login') }}";
+  </script>
+  {% endif %} {% endwith %} {% endif %}
+  <body>
+    <div class="layout">
+      <aside>
+        <h2>Menu</h2>
+        <ul>
+          <li
+            id="menuContexto"
+            class="{% block menu_contexto_class %}{% endblock %}"
+            onclick="window.location.href='{{ url_for('admin.contexto') }}'"
+          >
+            Contexto
+          </li>
+          <li
+            id="menuRecursos"
+            class="{% block menu_recursos_class %}{% endblock %}"
+            onclick="window.location.href='{{ url_for('admin.index') }}'"
+          >
+            Recursos
+          </li>
+          <li
+            id="menuRespostas"
+            class="{% block menu_respostas_class %}{% endblock %}"
+            onclick="window.location.href='{{ url_for('admin.respostas') }}'"
+          >
+            FAQs
+          </li>
+          <li
+            id="menuNaoRespondidas"
+            class="{% block menu_nao_respondidas_class %}{% endblock %}"
+            onclick="window.location.href='{{ url_for('admin.nao_respondidas') }}'"
+          >
+            Não respondidas
+          </li>
+          <li
+            id="menuMetricas"
+            class="{% block menu_metricas_class %}{% endblock %}"
+            onclick="window.location.href='{{ url_for('admin.metricas') }}'"
+          >
+            Métricas
+          </li>
+        </ul>
+      </aside>
+      <div class="content">
+        <header>
+          <div class="bot-info">
+            <img
+              src="{{ url_for('static', filename='images/chatbot-icon.png') }}"
+              alt="bot"
+            />
+            <div>
+              <strong
+                >AI4APGovernance - Inteligência Artificial para a Governança da
+                Administração Pública</strong
+              >
+              <div class="bot-subtext">Chatbot Municipal</div>
+            </div>
+          </div>
+          <button
+            id="publicarBtn"
+            onclick="window.location.href='{{ url_for('auth.logout') }}'"
+          >
+            Sair
+          </button>
+        </header>
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+
+    <div class="chat-sidebar" id="chatSidebar" style="display: none">
+      <div class="chat-header">
+        <button class="chat-close-btn" onclick="fecharChat()">&times;</button>
+        <img
+          src="{{ url_for('static', filename='images/chatbot-icon.png') }}"
+          alt="Chatbot"
+          class="chat-header-avatar"
+        />
+        <div class="chat-header-info">
+          <h3 id="chatHeaderNomeBot"></h3>
+          <div id="chatFonteBadge"></div>
+        </div>
+      </div>
+
+      <div class="chat-main">
+        <div class="chat-body" id="chatBody"></div>
+
+        <div class="chat-avatar-panel" id="chatAvatarPanel">
+          <div class="chat-avatar-inner">
+            <img
+              src="{{ url_for('static', filename='images/face.jpg') }}"
+              alt="Assistente Virtual"
+              class="chat-avatar-image"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-input">
+        <input
+          type="text"
+          placeholder="Digite uma mensagem..."
+          id="chatInput"
+          onkeydown="if(event.key==='Enter') enviarPergunta()"
+        />
+        <button
+          id="chatMicBtn"
+          class="chat-mic-btn"
+          type="button"
+          onclick="toggleMic()"
+          title="Usar o microfone"
+        >
+          <span class="mic-icon">🎤</span>
+        </button>
+        <button
+          id="chatSendBtn"
+          class="chat-send-btn"
+          type="button"
+          onclick="enviarPergunta()"
+          title="Enviar"
+        >
+          ➤
+        </button>
+      </div>
+
+      <div class="chat-mode-toggle">
+        <button
+          id="modoTextoBtn"
+          class="mode-btn active"
+          type="button"
+          onclick="ativarModoTexto()"
+        >
+          Chat com a Assistente
+        </button>
+        <button
+          id="modoAvatarBtn"
+          class="mode-btn"
+          type="button"
+          onclick="ativarModoAvatar()"
+        >
+          Falar com a Assistente
+        </button>
+      </div>
+    </div>
+
+    <button id="chatToggleBtn" class="chat-toggle-btn">
+      <img
+        src="{{ url_for('static', filename='images/icon-botao.png') }}"
+        alt="Chatbot"
+      />
+    </button>
+
+    <footer class="rodape">
+      <div class="rodape-content">
+        <span>O Projeto é cofinanciado por:</span>
+        <div class="rodape-logos">
+          <img
+            src="{{ url_for('static', filename='images/prr.png') }}"
+            alt="PRR"
+            class="logo-prr"
+          />
+          <img
+            src="{{ url_for('static', filename='images/pt.png') }}"
+            alt="República Portuguesa"
+            class="logo-pt"
+          />
+          <img
+            src="{{ url_for('static', filename='images/ue.png') }}"
+            alt="União Europeia"
+            class="logo-ue"
+          />
+        </div>
+      </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="{{ url_for('static', filename='js/globals.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/faq.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chatbot-bots.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chatbot-faq.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chatbot-tabela.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modal.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/toggleChat.js') }}"></script>
+    {% block extra_scripts %}{% endblock %}
+  </body>
+</html>

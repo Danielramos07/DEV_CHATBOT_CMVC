@@ -1,149 +1,116 @@
-<!DOCTYPE html>
-<html lang="pt">
-<head>
-  <meta charset="UTF-8">
-  <title>Chatbot Municipal - Respostas</title>
-  <link rel="icon" href="{{ url_for('static', filename='images/chatbot-icon.png') }}" type="image/png">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/modal.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/footer.css') }}">
-</head>
-{% if 'admin_id' not in session %}
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <script>
-                window.location.href = "{{ url_for('login') }}";
-            </script>
-        {% endif %}
-    {% endwith %}
-{% endif %}
-<body>
-  <div class="layout">
-    <aside>
-      <h2>Menu</h2>
-            <ul>
-        <li id="menuContexto" onclick="window.location.href='{{ url_for('admin.contexto') }}'">Contexto</li>
-        <li id="menuRecursos" onclick="window.location.href='{{ url_for('admin.index') }}'">Recursos</li>
-        <li id="menuRespostas" class="active" onclick="window.location.href='{{ url_for('admin.respostas') }}'">FAQs</li>
-        <li id="menuNaoRespondidas" onclick="window.location.href='{{ url_for('admin.nao_respondidas') }}'">
-          Não respondidas
-        </li>
-        <li id="menuMetricas" onclick="window.location.href='{{ url_for('admin.metricas') }}'">Métricas</li>
-      </ul>
-    </aside>
-    <div class="content">
-      <header>
-        <div class="bot-info">
-          <img src="{{ url_for('static', filename='images/chatbot-icon.png') }}" alt="bot">
-          <div>
-            <strong>AI4APGovernance - Inteligência Artificial para a Governança da Administração Pública</strong>
-            <div class="bot-subtext">Chatbot Municipal</div>
-          </div>
-        </div>
-        <button id="publicarBtn" onclick="window.location.href='{{ url_for('auth.logout') }}'">Sair</button>
-      </header>
-      <div class="panel">
-        <div id="indicadorAtivo" style="display: none;" class="ativo-indicador"></div>
-        <div id="secaoRespostas" class="secao left-content" style="display: block !important;">
-          <h2>FAQs Registadas</h2>
-          <div id="filtrosFAQs" style="display: flex; gap: 16px; align-items: center; margin-bottom: 16px;">
-            <input type="text" id="pesquisaFAQ" placeholder="Pesquisar pergunta, resposta ou designação..." style="flex:2; max-width:340px;">
-            <select id="filtroChatbot" style="flex:1; max-width:180px;">
-              <option value="">Todos os Chatbots</option>
-            </select>
-            <select id="filtroIdioma" style="flex:1; max-width:140px;">
-              <option value="">Todos os Idiomas</option>
-              <option value="pt">Português</option>
-              <option value="en">Inglês</option>
-            </select>
-          </div>
-          <div id="tituloFAQ" style="margin-bottom: 12px; color: #4b4b4b;"></div>
-          <div id="listaFAQs" style="margin-top: 20px;"></div>
-        </div>
-      </div>
+{% extends "base_admin.html" %} {% block title %}Chatbot Municipal - Respostas{%
+endblock %} {% block menu_respostas_class %}active{% endblock %} {% block
+content %}
+<div class="panel">
+  <div id="indicadorAtivo" style="display: none" class="ativo-indicador"></div>
+  <div
+    id="secaoRespostas"
+    class="secao left-content"
+    style="display: block !important"
+  >
+    <h2>FAQs Registadas</h2>
+    <div
+      id="filtrosFAQs"
+      style="display: flex; gap: 16px; align-items: center; margin-bottom: 16px"
+    >
+      <input
+        type="text"
+        id="pesquisaFAQ"
+        placeholder="Pesquisar pergunta, resposta ou designação..."
+        style="flex: 2; max-width: 340px"
+      />
+      <select id="filtroChatbot" style="flex: 1; max-width: 180px">
+        <option value="">Todos os Chatbots</option>
+      </select>
+      <select id="filtroIdioma" style="flex: 1; max-width: 140px">
+        <option value="">Todos os Idiomas</option>
+        <option value="pt">Português</option>
+        <option value="en">Inglês</option>
+      </select>
+    </div>
+    <div id="tituloFAQ" style="margin-bottom: 12px; color: #4b4b4b"></div>
+    <div id="listaFAQs" style="margin-top: 20px"></div>
+  </div>
+</div>
+
+<!-- Modal de confirmação -->
+<div
+  id="modalConfirmacao"
+  class="modal-overlay modal-overlay-confirmacao"
+  style="display: none"
+>
+  <div class="modal-box modal-box-confirmacao">
+    <p>Tem a certeza que quer eliminar esta FAQ?</p>
+    <div class="modal-buttons">
+      <button id="confirmarEliminacao">Sim</button>
+      <button id="cancelarEliminacao">Cancelar</button>
     </div>
   </div>
-  <!-- Chat Sidebar -->
-  <div class="chat-sidebar" id="chatSidebar" style="display: none;">
-    <div class="chat-header">
-      <button class="chat-close-btn" onclick="fecharChat()">×</button>
-      <img src="{{ url_for('static', filename='images/chatbot-icon.png') }}" alt="Chatbot" class="chat-header-avatar">
-      <div class="chat-header-info">
-        <h3 id="chatHeaderNomeBot"></h3>
-        <div id="chatFonteBadge"></div>
+</div>
+<!-- Modal de Editar FAQ -->
+<div
+  id="modalEditarFAQ"
+  class="modal-overlay modal-overlay-editar-faq"
+  style="display: none"
+>
+  <div class="modal-box modal-box-editar-faq">
+    <h2 style="margin-bottom: 22px">Editar FAQ</h2>
+    <form id="formEditarFAQ" autocomplete="off">
+      <label for="editarPergunta">Pergunta</label>
+      <textarea
+        name="pergunta"
+        id="editarPergunta"
+        required
+        class="input-lg"
+        rows="4"
+      ></textarea>
+      <label for="editarResposta" style="margin-top: 18px">Resposta</label>
+      <textarea
+        name="resposta"
+        id="editarResposta"
+        required
+        class="input-lg"
+        rows="8"
+      ></textarea>
+      <label for="editarIdioma" style="margin-top: 18px">Idioma</label>
+      <select
+        name="idioma"
+        id="editarIdioma"
+        class="input-lg"
+        style="max-width: 100%"
+      >
+        <option value="pt">Português (PT)</option>
+        <option value="en">Inglês (EN)</option>
+      </select>
+      <label style="margin-bottom: 7px; margin-top: 22px"
+        >Categorias associadas</label
+      >
+      <div id="editarCategoriasContainer" class="categorias-scroll"></div>
+      <label
+        for="editarRecomendado"
+        style="margin-top: 22px; display: flex; align-items: center; gap: 8px"
+      >
+        <input
+          type="checkbox"
+          id="editarRecomendado"
+          name="recomendado"
+          style="width: 18px; height: 18px"
+        />
+        Marcar como resposta recomendada
+      </label>
+      <div class="btn-bar" style="margin-top: 30px">
+        <button type="submit" class="btn-guardar-faq" id="btnGuardarFAQ">
+          Guardar
+        </button>
+        <button type="button" class="btn-cancelar" id="btnCancelarFAQ">
+          Cancelar
+        </button>
       </div>
-    </div>
-    <div class="chat-body" id="chatBody"></div>
-    <div class="chat-input">
-      <input type="text" placeholder="Digite uma mensagem..." id="chatInput" onkeydown="if(event.key==='Enter') enviarPergunta()">
-      <button onclick="enviarPergunta()" title="Enviar">➤</button>
-    </div>
+      <div
+        id="editarStatusFAQ"
+        style="margin-top: 14px; font-weight: bold"
+      ></div>
+    </form>
   </div>
-  <!-- Botão flutuante para abrir o chat -->
-  <button id="chatToggleBtn" class="chat-toggle-btn">
-    <img src="{{ url_for('static', filename='images/icon-botao.png') }}" alt="Chatbot">
-  </button>
-  <!-- Modal de confirmação -->
-  <div id="modalConfirmacao" class="modal-overlay modal-overlay-confirmacao" style="display: none;">
-    <div class="modal-box modal-box-confirmacao">
-      <p>Tem a certeza que quer eliminar esta FAQ?</p>
-      <div class="modal-buttons">
-        <button id="confirmarEliminacao">Sim</button>
-        <button id="cancelarEliminacao">Cancelar</button>
-      </div>
-    </div>
-  </div>
-  <!-- Modal de Editar FAQ -->
-  <div id="modalEditarFAQ" class="modal-overlay modal-overlay-editar-faq" style="display: none;">
-    <div class="modal-box modal-box-editar-faq">
-      <h2 style="margin-bottom: 22px;">Editar FAQ</h2>
-      <form id="formEditarFAQ" autocomplete="off">
-        <label for="editarPergunta">Pergunta</label>
-        <textarea name="pergunta" id="editarPergunta" required class="input-lg" rows="4"></textarea>
-        <label for="editarResposta" style="margin-top:18px;">Resposta</label>
-        <textarea name="resposta" id="editarResposta" required class="input-lg" rows="8"></textarea>
-        <label for="editarIdioma" style="margin-top:18px;">Idioma</label>
-        <select name="idioma" id="editarIdioma" class="input-lg" style="max-width: 100%;">
-          <option value="pt">Português (PT)</option>
-          <option value="en">Inglês (EN)</option>
-        </select>
-        <label style="margin-bottom: 7px; margin-top: 22px;">Categorias associadas</label>
-        <div id="editarCategoriasContainer" class="categorias-scroll"></div>
-        <label for="editarRecomendado" style="margin-top:22px;display:flex;align-items:center;gap:8px;">
-          <input type="checkbox" id="editarRecomendado" name="recomendado" style="width:18px;height:18px;">
-          Marcar como resposta recomendada
-        </label>
-        <div class="btn-bar" style="margin-top: 30px;">
-          <button type="submit" class="btn-guardar-faq" id="btnGuardarFAQ">Guardar</button>
-          <button type="button" class="btn-cancelar" id="btnCancelarFAQ">Cancelar</button>
-        </div>
-        <div id="editarStatusFAQ" style="margin-top:14px; font-weight: bold;"></div>
-      </form>
-    </div>
-  </div>
-  <!-- Rodapé -->
-  <footer class="rodape">
-    <div class="rodape-content">
-      <span>O Projeto é cofinanciado por:</span>
-      <div class="rodape-logos">
-        <img src="{{ url_for('static', filename='images/prr.png') }}" alt="PRR" class="logo-prr">
-        <img src="{{ url_for('static', filename='images/pt.png') }}" alt="República Portuguesa" class="logo-pt">
-        <img src="{{ url_for('static', filename='images/ue.png') }}" alt="União Europeia" class="logo-ue">
-      </div>
-    </div>
-  </footer>
-  <!-- Scripts -->
-  <script src="{{ url_for('static', filename='js/globals.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/faq.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/chatbot-bots.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/chatbot-faq.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/modal.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/toggleChat.js') }}"></script>
-</body>
-</html>
+</div>
+{% endblock %}

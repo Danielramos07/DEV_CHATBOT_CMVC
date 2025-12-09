@@ -9,10 +9,48 @@
   overflow: hidden;
   position: fixed;
   right: 10px;
-  bottom: 60px;
+  bottom: 88px;
   z-index: 1001;
   box-shadow: -2px 0 6px rgba(0, 0, 0, 0.05);
   display: none;
+}
+
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #f9fafb;
+  overflow-y: auto;
+}
+
+.chat-avatar-panel {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 24px 22px;
+  background: #f5f7fb;
+  border-top: 1px solid #e2e2e2;
+  max-height: 300px;
+  overflow: hidden;
+}
+
+.chat-avatar-panel.active {
+  display: flex;
+}
+
+.chat-avatar-inner {
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.chat-avatar-image {
+  width: 100%;
+  height: auto;
+  max-height: 260px;
+  border-radius: 18px;
+  object-fit: cover;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
 }
 
 .chat-header {
@@ -52,7 +90,7 @@
   letter-spacing: 0.1px;
   color: #fff;
   line-height: 1.2;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 #chatFonteBadge {
@@ -108,6 +146,10 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.chat-sidebar[data-modo="avatar"] .message-wrapper.bot {
+  display: none;
 }
 
 .message-wrapper.bot,
@@ -181,7 +223,7 @@
   line-height: 1.5;
   font-size: 15px;
   position: relative;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   color: #fff;
   word-break: break-word;
   transition: background-color 0.3s, color 0.3s;
@@ -272,10 +314,11 @@
 
 .chat-input {
   padding: 12px;
-  background: white;
+  background: #fff;
   border-top: 1px solid #ddd;
   display: flex;
   gap: 8px;
+  align-items: center;
   min-height: 60px;
 }
 
@@ -288,18 +331,44 @@
   color: #2c3e50;
 }
 
-.chat-input button {
-  background-color: #d4af37;
-  color: white;
+.chat-mic-btn,
+.chat-send-btn {
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  height: 40px;
   border: none;
-  padding: 10px 14px;
-  border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
-  transition: background-color 0.3s;
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s,
+    box-shadow 0.3s;
 }
 
-.chat-input button:hover {
+.chat-mic-btn {
+  background-color: #fff;
+  border: 1px solid #d4af37;
+  color: #d4af37;
+  min-width: 44px;
+}
+
+.chat-mic-btn .mic-icon {
+  font-size: 18px;
+}
+
+.chat-mic-btn.active {
+  background-color: #d4af37;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.chat-send-btn {
+  background-color: #d4af37;
+  color: #fff;
+}
+
+.chat-send-btn:hover {
   background-color: #e0c565;
 }
 
@@ -315,7 +384,7 @@
   white-space: normal;
   text-align: left;
   max-width: 100%;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   transition: background-color 0.2s ease;
 }
 
@@ -323,10 +392,37 @@
   background-color: #e5e7eb;
 }
 
+.chat-mode-toggle {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px 12px;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid #d4af37;
+  background: #fff;
+  color: #444;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mode-btn.active {
+  background: #d4af37;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
 .chat-toggle-btn {
   position: fixed;
   right: 32px;
-  bottom: 60px;
+  bottom: 88px;
   background-color: #d4af37;
   border: none;
   border-radius: 50%;
@@ -338,7 +434,7 @@
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   z-index: 1100;
-  transition: background-color 0.3s, bottom 0.25s cubic-bezier(.4,0,.2,1);
+  transition: background-color 0.3s, bottom 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .chat-toggle-btn:hover {
@@ -448,7 +544,7 @@
   padding-bottom: 14px;
   min-height: 44px;
   border-radius: 15px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .feedback-resolvido .btn-feedback-sim,

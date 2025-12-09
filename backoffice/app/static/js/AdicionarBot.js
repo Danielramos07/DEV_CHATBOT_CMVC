@@ -8,6 +8,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const novoBotForm = document.getElementById("novoBotForm");
   const mensagemNovoBot = document.getElementById("mensagemNovoBot");
 
+  if (!novoBotBtn || !modalNovoBot || !novoBotForm || !mensagemNovoBot) {
+    return;
+  }
+
   novoBotBtn.addEventListener("click", () => {
     modalNovoBot.style.display = "flex";
     mensagemNovoBot.textContent = "";
@@ -17,7 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.target === modalNovoBot) fecharModalNovoBot();
   });
 
-  novoBotForm.addEventListener("submit", function(e) {
+  novoBotForm.addEventListener("submit", function (e) {
     e.preventDefault();
     mensagemNovoBot.textContent = "";
 
@@ -26,31 +30,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const data = {
       nome,
-      descricao
+      descricao,
     };
 
     fetch("/chatbots", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     })
-    .then(r => r.json())
-    .then(resp => {
-      if (resp.success) {
-        mensagemNovoBot.style.color = "green";
-        mensagemNovoBot.textContent = "Chatbot criado com sucesso!";
-        setTimeout(() => {
-          fecharModalNovoBot();
-          window.location.reload();
-        }, 1200);
-      } else {
+      .then((r) => r.json())
+      .then((resp) => {
+        if (resp.success) {
+          mensagemNovoBot.style.color = "green";
+          mensagemNovoBot.textContent = "Chatbot criado com sucesso!";
+          setTimeout(() => {
+            fecharModalNovoBot();
+            window.location.reload();
+          }, 1200);
+        } else {
+          mensagemNovoBot.style.color = "red";
+          mensagemNovoBot.textContent = resp.error || "Erro ao criar chatbot.";
+        }
+      })
+      .catch(() => {
         mensagemNovoBot.style.color = "red";
-        mensagemNovoBot.textContent = resp.error || "Erro ao criar chatbot.";
-      }
-    })
-    .catch(() => {
-      mensagemNovoBot.style.color = "red";
-      mensagemNovoBot.textContent = "Erro de comunicação com o servidor.";
-    });
+        mensagemNovoBot.textContent = "Erro de comunicação com o servidor.";
+      });
   });
 });

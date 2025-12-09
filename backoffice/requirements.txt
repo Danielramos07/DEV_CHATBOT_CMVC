@@ -11,3 +11,4 @@ unidecode
 requests
 rapidfuzz
 sympy
+vosk

@@ -1,151 +1,69 @@
-<!DOCTYPE html>
-<html lang="pt">
-<head>
-  <meta charset="UTF-8">
-  <title>Chatbot Municipal - Métricas</title>
-  <link rel="icon" href="{{ url_for('static', filename='images/chatbot-icon.png') }}" type="image/png">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/modal.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/footer.css') }}">
-  <style>
-    .metric-card {
-      flex: 1;
-      min-width: 220px;
-      padding: 14px;
-      border: 1px solid #e6e6e6;
-      border-radius: 12px;
-      background: #fff;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
-    }
-    .metric-title {
-      font-size: 14px;
-      color: #666;
-      margin-bottom: 6px;
-    }
-    .metric-value {
-      font-size: 28px;
-      font-weight: 700;
-      color: #2a2a2a;
-    }
-  </style>
-</head>
+{% extends "base_admin.html" %} {% block title %}Chatbot Municipal - Métricas{%
+endblock %} {% block extra_head %}
+<style>
+  .metric-card {
+    flex: 1;
+    min-width: 220px;
+    padding: 14px;
+    border: 1px solid #e6e6e6;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+  }
+  .metric-title {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 6px;
+  }
+  .metric-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #2a2a2a;
+  }
+</style>
+{% endblock %} {% block menu_metricas_class %}active{% endblock %} {% block
+content %}
+<div class="panel">
+  <div id="indicadorAtivo" style="display: none" class="ativo-indicador"></div>
 
-{% if 'admin_id' not in session %}
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <script>
-                window.location.href = "{{ url_for('login') }}";
-            </script>
-        {% endif %}
-    {% endwith %}
-{% endif %}
+  <div
+    id="secaoMetricas"
+    class="secao left-content"
+    style="display: block !important"
+  >
+    <h2>Métricas de perguntas não respondidas</h2>
+    <p style="color: #4b4b4b; margin-bottom: 14px">
+      Acompanhe o volume de perguntas não respondidas por chatbot e o estado do
+      tratamento.
+    </p>
 
-<body>
-  <div class="layout">
-    <aside>
-      <h2>Menu</h2>
-            <ul>
-        <li id="menuContexto" onclick="window.location.href='{{ url_for('admin.contexto') }}'">Contexto</li>
-        <li id="menuRecursos" onclick="window.location.href='{{ url_for('admin.index') }}'">Recursos</li>
-        <li id="menuRespostas" onclick="window.location.href='{{ url_for('admin.respostas') }}'">FAQs</li>
-        <li id="menuNaoRespondidas" onclick="window.location.href='{{ url_for('admin.nao_respondidas') }}'">
-          Não respondidas
-        </li>
-        <li id="menuMetricas" class="active" onclick="window.location.href='{{ url_for('admin.metricas') }}'">Métricas</li>
-      </ul>
-    </aside>
-
-    <div class="content">
-      <header>
-        <div class="bot-info">
-          <img src="{{ url_for('static', filename='images/chatbot-icon.png') }}" alt="bot">
-          <div>
-            <strong>AI4APGovernance - Inteligência Artificial para a Governação da Administração Pública</strong>
-            <div class="bot-subtext">Chatbot Municipal</div>
-          </div>
-        </div>
-        <button id="publicarBtn" onclick="window.location.href='{{ url_for('auth.logout') }}'">Sair</button>
-      </header>
-
-      <div class="panel">
-        <div id="indicadorAtivo" style="display: none;" class="ativo-indicador"></div>
-
-        <div id="secaoMetricas" class="secao left-content" style="display: block !important;">
-          <h2>Métricas de perguntas não respondidas</h2>
-          <p style="color:#4b4b4b; margin-bottom:14px;">
-            Acompanhe o volume de perguntas não respondidas por chatbot e o estado do tratamento.
-          </p>
-
-          <div id="resumoMetricas" style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:16px;">
-            <div class="metric-card">
-              <div class="metric-title">Total</div>
-              <div class="metric-value" id="resumoTotal">-</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-title">Pendentes</div>
-              <div class="metric-value" id="resumoPendentes">-</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-title">Tratadas</div>
-              <div class="metric-value" id="resumoTratadas">-</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-title">Ignoradas</div>
-              <div class="metric-value" id="resumoIgnoradas">-</div>
-            </div>
-          </div>
-
-          <div id="tabelaMetricas" style="margin-top: 12px;">
-            <p>A carregar métricas...</p>
-          </div>
-        </div>
+    <div
+      id="resumoMetricas"
+      style="display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 16px"
+    >
+      <div class="metric-card">
+        <div class="metric-title">Total</div>
+        <div class="metric-value" id="resumoTotal">-</div>
       </div>
+      <div class="metric-card">
+        <div class="metric-title">Pendentes</div>
+        <div class="metric-value" id="resumoPendentes">-</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-title">Tratadas</div>
+        <div class="metric-value" id="resumoTratadas">-</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-title">Ignoradas</div>
+        <div class="metric-value" id="resumoIgnoradas">-</div>
+      </div>
+    </div>
+
+    <div id="tabelaMetricas" style="margin-top: 12px">
+      <p>A carregar métricas...</p>
     </div>
   </div>
-
-  <div class="chat-sidebar" id="chatSidebar" style="display: none;">
-    <div class="chat-header">
-      <button class="chat-close-btn" onclick="fecharChat()">×</button>
-      <img src="{{ url_for('static', filename='images/chatbot-icon.png') }}" alt="Chatbot" class="chat-header-avatar">
-      <div class="chat-header-info">
-        <h3 id="chatHeaderNomeBot"></h3>
-        <div id="chatFonteBadge"></div>
-      </div>
-    </div>
-    <div class="chat-body" id="chatBody"></div>
-    <div class="chat-input">
-      <input type="text" placeholder="Digite uma mensagem..." id="chatInput" onkeydown="if(event.key==='Enter') enviarPergunta()">
-      <button onclick="enviarPergunta()" title="Enviar">➤</button>
-    </div>
-  </div>
-
-  <button id="chatToggleBtn" class="chat-toggle-btn">
-    <img src="{{ url_for('static', filename='images/icon-botao.png') }}" alt="Chatbot">
-  </button>
-
-  <footer class="rodape">
-    <div class="rodape-content">
-      <span>O Projeto é cofinanciado por:</span>
-      <div class="rodape-logos">
-        <img src="{{ url_for('static', filename='images/prr.png') }}" alt="PRR" class="logo-prr">
-        <img src="{{ url_for('static', filename='images/pt.png') }}" alt="República Portuguesa" class="logo-pt">
-        <img src="{{ url_for('static', filename='images/ue.png') }}" alt="União Europeia" class="logo-ue">
-      </div>
-    </div>
-  </footer>
-
-  <script src="{{ url_for('static', filename='js/globals.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/chatbot-bots.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/chatbot-faq.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/modal.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/toggleChat.js') }}"></script>
-
-  <script src="{{ url_for('static', filename='js/metricas.js') }}"></script>
-</body>
-</html>
+</div>
+{% endblock %} {% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/metricas.js') }}"></script>
+{% endblock %}
