@@ -344,6 +344,17 @@ function reiniciarConversa() {
     chat.innerHTML = "";
   }
 
+  const avatarSuggestions = document.getElementById("chatAvatarSuggestions");
+  if (avatarSuggestions) {
+    avatarSuggestions.innerHTML = "";
+  }
+
+  if (chat) {
+    chat
+      .querySelectorAll(".suggested-questions-bar, .sugestoes-title")
+      .forEach((el) => el.remove());
+  }
+
   // Recarregar imagem do avatar para "refrescar" visualmente
   const avatarImg = document.querySelector(".chat-avatar-image");
   if (avatarImg) {
