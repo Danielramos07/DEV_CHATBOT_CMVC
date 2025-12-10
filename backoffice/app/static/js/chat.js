@@ -719,7 +719,7 @@ window.fecharChat = function () {
 async function apresentarMensagemInicial() {
   if (initialMessageShown) return;
 
-  let nomeBot, corBot, iconBot;
+  let nomeBot, corBot, iconBot, generoBot;
   const chatbotId = parseInt(localStorage.getItem("chatbotAtivo"));
   if (chatbotId && !isNaN(chatbotId)) {
     try {
@@ -731,9 +731,11 @@ async function apresentarMensagemInicial() {
         data.success && data.icon
           ? data.icon
           : "/static/images/chatbot-icon.png";
+      generoBot = data.success && data.genero ? data.genero : "";
       localStorage.setItem("nomeBot", nomeBot);
       localStorage.setItem("corChatbot", corBot);
       localStorage.setItem("iconBot", iconBot);
+      localStorage.setItem("generoBot", generoBot || "");
     } catch (e) {
       const botsData = JSON.parse(localStorage.getItem("chatbotsData") || "[]");
       const bot = botsData.find(
@@ -745,25 +747,50 @@ async function apresentarMensagemInicial() {
         bot && bot.icon_path
           ? bot.icon_path
           : "/static/images/chatbot-icon.png";
+      generoBot = bot && bot.genero ? bot.genero : "";
       localStorage.setItem("nomeBot", nomeBot);
       localStorage.setItem("corChatbot", corBot);
       localStorage.setItem("iconBot", iconBot);
+      localStorage.setItem("generoBot", generoBot || "");
     }
   } else {
     nomeBot = "Assistente Municipal";
     corBot = "#d4af37";
     iconBot = "/static/images/chatbot-icon.png";
+    generoBot = "";
     localStorage.setItem("nomeBot", nomeBot);
     localStorage.setItem("corChatbot", corBot);
     localStorage.setItem("iconBot", iconBot);
+    localStorage.setItem("generoBot", generoBot || "");
   }
   atualizarCorChatbot();
 
   adicionarMensagem("bot", TEXTO_RGPD, null, null, null, true);
 
-  const msg = `Olá!
-Eu sou o ${nomeBot}, o seu assistente virtual.
+  const idioma = getIdiomaAtual();
+  let msg;
+  if (idioma === "en") {
+    msg = `Hello!
+I'm ${nomeBot}, your virtual assistant.
+Ask one question at a time and I will do my best to clarify your doubts.`;
+  } else {
+    const generoLocal = localStorage.getItem("generoBot") || generoBot || "";
+    let artigoSou = "o";
+    let artigoPossessivo = "o seu";
+    if (generoLocal === "f") {
+      artigoSou = "a";
+      artigoPossessivo = "a sua";
+    } else if (generoLocal === "") {
+      artigoSou = "";
+      artigoPossessivo = "o seu";
+    }
+    const prefixoSou = artigoSou
+      ? `Eu sou ${artigoSou} ${nomeBot},`
+      : `Eu sou ${nomeBot},`;
+    msg = `Olá!
+${prefixoSou} ${artigoPossessivo} assistente virtual.
 Faça uma pergunta de cada vez que eu procurarei esclarecer todas as suas dúvidas.`;
+  }
   adicionarMensagem("bot", msg, iconBot, nomeBot);
   initialMessageShown = true;
   await atualizarNomeChatHeader();
@@ -1226,8 +1253,14 @@ async function mostrarPerguntasSugestivasDB() {
         btn.onclick = () => {
           adicionarMensagem("user", faq.pergunta);
           responderPergunta(faq.pergunta);
-          btnContainer.remove();
-          title.remove();
+          btn.remove();
+          const aindaTemBotoes = btnContainer.querySelector(
+            ".suggested-question-btn"
+          );
+          if (!aindaTemBotoes) {
+            title.remove();
+            btnContainer.remove();
+          }
         };
         btnContainer.appendChild(btn);
       });
@@ -1247,3 +1280,4 @@ window.responderPergunta = responderPergunta;
 window.perguntarCategoria = function () {};
 window.atualizarNomeChatHeader = atualizarNomeChatHeader;
 window.atualizarFonteBadge = atualizarFonteBadge;
+window.reiniciarConversa = reiniciarConversa;

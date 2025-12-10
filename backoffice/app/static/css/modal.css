@@ -20,12 +20,18 @@
   text-align: left;
   max-width: 1000px;
   width: 98vw;
-  box-shadow: 0 8px 48px rgba(31,41,55,0.22);
-  animation: modalUp 0.24s cubic-bezier(.47,1.64,.41,.8);
+  box-shadow: 0 8px 48px rgba(31, 41, 55, 0.22);
+  animation: modalUp 0.24s cubic-bezier(0.47, 1.64, 0.41, 0.8);
 }
 @keyframes modalUp {
-  from { transform: translateY(50px) scale(.98); opacity: 0.4; }
-  to { transform: translateY(0) scale(1); opacity: 1; }
+  from {
+    transform: translateY(50px) scale(0.98);
+    opacity: 0.4;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
 
 .modal-box h2 {
@@ -55,7 +61,7 @@
   border-radius: 7px;
   font-size: 15px;
   background: #f7f8fa;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   transition: border 0.19s;
 }
 .modal-box input:focus,
@@ -85,7 +91,7 @@
   margin-bottom: 12px;
   cursor: pointer;
   transition: background 0.17s;
-  box-shadow: 0 1px 5px rgba(212,175,55,0.11);
+  box-shadow: 0 1px 5px rgba(212, 175, 55, 0.11);
 }
 
 .modal-box .btn-bar,
@@ -154,9 +160,9 @@
   width: 98vw;
   padding: 48px 44px 36px 44px;
   border-radius: 22px;
-  box-shadow: 0 10px 60px rgba(31,41,55,0.18);
+  box-shadow: 0 10px 60px rgba(31, 41, 55, 0.18);
   background: #fff;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 }
 .modal-box-novo-bot-exclusivo h2 {
   font-size: 28px;
@@ -172,9 +178,9 @@
   width: 98vw;
   padding: 40px 38px 28px 38px;
   border-radius: 22px;
-  box-shadow: 0 10px 60px rgba(31,41,55,0.17);
+  box-shadow: 0 10px 60px rgba(31, 41, 55, 0.17);
   background: #fff;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 }
 .modal-box-editar-chatbot-exclusivo h2 {
   font-size: 28px;
@@ -223,7 +229,7 @@
 #editarCategoriasContainer label {
   white-space: nowrap;
   font-size: 1.02em;
-  max-width: 160px;     
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -240,10 +246,12 @@
   max-width: 1000px;
   min-width: 400px;
   width: 98vw;
+  max-height: 88vh;
+  overflow-y: auto;
   border-radius: 22px;
-  box-shadow: 0 10px 60px rgba(31,41,55,0.18);
+  box-shadow: 0 10px 60px rgba(31, 41, 55, 0.18);
   background: #fff;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   padding: 38px 34px 28px 34px;
 }
 .modal-box-adicionar-faq-exclusivo h2 {
@@ -313,7 +321,7 @@
   align-items: center;
   justify-content: center;
   transition: background 0.18s;
-  box-shadow: 0 1px 5px rgba(255,94,94,0.08);
+  box-shadow: 0 1px 5px rgba(255, 94, 94, 0.08);
   cursor: pointer;
 }
 
@@ -366,7 +374,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: background 0.17s;
-  box-shadow: 0 1px 5px rgba(212,175,55,0.11);
+  box-shadow: 0 1px 5px rgba(212, 175, 55, 0.11);
 }
 
 .btn-adicionar-faq-modal:hover,
@@ -481,7 +489,7 @@
   cursor: pointer;
   transition: background 0.14s;
   margin-left: auto;
-  box-shadow: 0 1px 4px rgba(255,94,94,0.09);
+  box-shadow: 0 1px 4px rgba(255, 94, 94, 0.09);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -509,7 +517,7 @@
   justify-content: center;
   cursor: pointer;
   transition: background 0.16s;
-  box-shadow: 0 1px 6px rgba(212,175,55,0.12);
+  box-shadow: 0 1px 6px rgba(212, 175, 55, 0.12);
 }
 .btn-adicionar-categoria:hover,
 .btn-adicionar-cat:hover {
@@ -533,7 +541,7 @@
   cursor: pointer;
   margin-top: 0;
   margin-left: 0;
-  box-shadow: 0 1px 5px rgba(255,94,94,0.09);
+  box-shadow: 0 1px 5px rgba(255, 94, 94, 0.09);
 }
 .btn-fechar-categorias:hover {
   background: #e03939;
@@ -546,4 +554,4 @@
   margin-top: 18px;
   flex-direction: row;
   align-items: center;
-} 
+}

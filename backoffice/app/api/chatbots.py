@@ -15,13 +15,28 @@ def get_chatbots():
     cur = conn.cursor()
     try:
         cur.execute("""
-            SELECT c.chatbot_id, c.nome, c.descricao, c.data_criacao, c.cor, c.icon_path, fr.fonte,
+            SELECT c.chatbot_id,
+                   c.nome,
+                   c.descricao,
+                   c.data_criacao,
+                   c.cor,
+                   c.icon_path,
+                   c.genero,
+                   fr.fonte,
                    array_remove(array_agg(cc.categoria_id), NULL) as categorias,
                    c.mensagem_sem_resposta
             FROM chatbot c
             LEFT JOIN fonte_resposta fr ON fr.chatbot_id = c.chatbot_id
             LEFT JOIN chatbot_categoria cc ON cc.chatbot_id = c.chatbot_id
-            GROUP BY c.chatbot_id, c.nome, c.descricao, c.data_criacao, c.cor, c.icon_path, fr.fonte, c.mensagem_sem_resposta
+            GROUP BY c.chatbot_id,
+                     c.nome,
+                     c.descricao,
+                     c.data_criacao,
+                     c.cor,
+                     c.icon_path,
+                     c.genero,
+                     fr.fonte,
+                     c.mensagem_sem_resposta
             ORDER BY c.chatbot_id ASC
         """)
         data = cur.fetchall()
@@ -33,9 +48,10 @@ def get_chatbots():
                 "data_criacao": row[3],
                 "cor": row[4] if row[4] else "#d4af37",
                 "icon_path": row[5] if row[5] else "/static/images/chatbot-icon.png",
-                "fonte": row[6] if row[6] else "faq",
-                "categorias": row[7] if row[7] is not None else [],
-                "mensagem_sem_resposta": row[8] if len(row) > 8 else ""
+                "genero": row[6] if row[6] else None,
+                "fonte": row[7] if row[7] else "faq",
+                "categorias": row[8] if row[8] is not None else [],
+                "mensagem_sem_resposta": row[9] if len(row) > 9 else ""
             }
             for row in data
         ])
@@ -57,17 +73,18 @@ def criar_chatbot():
     cor = data.get("cor", "").strip() or "#d4af37"
     icon_path = data.get("icon_path", "/static/images/chatbot-icon.png")
     mensagem_sem_resposta = data.get("mensagem_sem_resposta", "").strip()
+    genero = data.get("genero") or None
     if not nome:
         return jsonify({"success": False, "error": "Nome obrigatório."}), 400
     try:
         cur.execute(
             """
-            INSERT INTO chatbot (nome, descricao, cor, icon_path, mensagem_sem_resposta)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO chatbot (nome, descricao, cor, icon_path, mensagem_sem_resposta, genero)
+            VALUES (%s, %s, %s, %s, %s, %s)
             ON CONFLICT (nome) DO NOTHING
             RETURNING chatbot_id
             """,
-            (nome, descricao, cor, icon_path, mensagem_sem_resposta)
+            (nome, descricao, cor, icon_path, mensagem_sem_resposta, genero)
         )
         row = cur.fetchone()
         if not row:
@@ -97,10 +114,16 @@ def obter_nome_chatbot(chatbot_id):
     conn = get_conn()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT nome, cor, icon_path FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
+        cur.execute("SELECT nome, cor, icon_path, genero FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
         row = cur.fetchone()
         if row:
-            return jsonify({"success": True, "nome": row[0], "cor": row[1] or "#d4af37", "icon": row[2] or "/static/images/chatbot-icon.png"})
+            return jsonify({
+                "success": True,
+                "nome": row[0],
+                "cor": row[1] or "#d4af37",
+                "icon": row[2] or "/static/images/chatbot-icon.png",
+                "genero": row[3]
+            })
         return jsonify({"success": False, "erro": "Chatbot não encontrado."}), 404
     except Exception as e:
         return jsonify({"success": False, "erro": str(e)}), 500
@@ -120,6 +143,7 @@ def atualizar_chatbot(chatbot_id):
         categorias = request.form.getlist("categorias[]") if request.form.getlist("categorias[]") else []
         cor = request.form.get("cor", "").strip() or "#d4af37"
         mensagem_sem_resposta = request.form.get("mensagem_sem_resposta", "").strip()
+        genero = request.form.get("genero") or None
         icon_path = None
         if 'icon' in request.files:
             file = request.files['icon']
@@ -138,13 +162,13 @@ def atualizar_chatbot(chatbot_id):
             return jsonify({"success": False, "error": "O nome do chatbot é obrigatório."}), 400
         if icon_path:
             cur.execute(
-                "UPDATE chatbot SET nome=%s, descricao=%s, cor=%s, mensagem_sem_resposta=%s, icon_path=%s WHERE chatbot_id=%s",
-                (nome, descricao, cor, mensagem_sem_resposta, icon_path, chatbot_id)
+                "UPDATE chatbot SET nome=%s, descricao=%s, cor=%s, mensagem_sem_resposta=%s, icon_path=%s, genero=%s WHERE chatbot_id=%s",
+                (nome, descricao, cor, mensagem_sem_resposta, icon_path, genero, chatbot_id)
             )
         else:
             cur.execute(
-                "UPDATE chatbot SET nome=%s, descricao=%s, cor=%s, mensagem_sem_resposta=%s WHERE chatbot_id=%s",
-                (nome, descricao, cor, mensagem_sem_resposta, chatbot_id)
+                "UPDATE chatbot SET nome=%s, descricao=%s, cor=%s, mensagem_sem_resposta=%s, genero=%s WHERE chatbot_id=%s",
+                (nome, descricao, cor, mensagem_sem_resposta, genero, chatbot_id)
             )
         cur.execute("DELETE FROM chatbot_categoria WHERE chatbot_id=%s", (chatbot_id,))
         for categoria_id in categorias:

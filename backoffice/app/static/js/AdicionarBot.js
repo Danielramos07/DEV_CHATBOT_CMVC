@@ -27,10 +27,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const nome = this.nome.value.trim();
     const descricao = this.descricao.value.trim();
+    const genero = this.genero ? this.genero.value : "";
+    const mensagem_sem_resposta = this.mensagem_sem_resposta
+      ? this.mensagem_sem_resposta.value.trim()
+      : "";
+    const cor = this.cor ? this.cor.value : "#d4af37";
 
     const data = {
       nome,
       descricao,
+      genero,
+      mensagem_sem_resposta,
+      cor,
     };
 
     fetch("/chatbots", {

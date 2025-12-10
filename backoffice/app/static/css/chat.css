@@ -1,6 +1,6 @@
 .chat-sidebar {
   width: 760px;
-  height: 75vh;
+  height: 84vh;
   background: #fff;
   border: 1px solid #ddd;
   display: flex;
@@ -52,6 +52,7 @@
   border-top: none;
   max-height: 320px;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .chat-avatar-inner {
@@ -71,6 +72,8 @@
 .chat-suggestions {
   width: 100%;
   margin-top: 16px;
+  flex: 1 1 auto;
+  overflow-y: auto;
 }
 
 .chat-suggestions .sugestoes-title {
@@ -610,12 +613,13 @@
   color: var(--corBot, #d4af37);
   border: 1.5px solid var(--corBot, #d4af37);
   border-radius: 6px;
-  padding: 4px 18px 4px 18px;
+  padding: 6px 18px 6px 18px;
   font-weight: 600;
   font-size: 15px;
   cursor: pointer;
   transition: all 0.18s;
   outline: none;
+  white-space: nowrap;
 }
 
 .feedback-resolvido .btn-feedback-sim:hover,
@@ -629,14 +633,9 @@
 @media (max-width: 768px) {
   .chat-sidebar {
     width: 100%;
-    right: 0;
+    right: 10px;
     left: 0;
     bottom: 88px;
-    border-radius: 0;
-  }
-
-  .chat-sidebar-inner {
-    /* keep same height; no extra scaling on mobile */
   }
 
   .chat-main {

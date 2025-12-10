@@ -36,6 +36,14 @@ content %}
       <input type="text" name="nome" placeholder="Nome do Chatbot" required />
       <textarea name="descricao" placeholder="Descrição"></textarea>
       <div class="form-group">
+        <label for="novoGeneroChatbot">Género do Bot:</label>
+        <select name="genero" id="novoGeneroChatbot">
+          <option value="">Neutro</option>
+          <option value="m">Masculino</option>
+          <option value="f">Feminino</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label for="novaMensagemSemResposta"
           >Mensagem personalizada "Sem Resposta":</label
         >
@@ -112,6 +120,16 @@ content %}
             <option value="faq">Baseado em Regras (FAQ)</option>
             <option value="faiss">FAISS</option>
             <option value="faq+raga">FAQ+RAG</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-row">
+        <div class="form-group">
+          <label for="editarGeneroChatbot">Género do Bot:</label>
+          <select name="genero" id="editarGeneroChatbot">
+            <option value="">Neutro</option>
+            <option value="m">Masculino</option>
+            <option value="f">Feminino</option>
           </select>
         </div>
       </div>

@@ -318,11 +318,12 @@ document.addEventListener("DOMContentLoaded", function () {
       const mensagem_sem_resposta =
         novoBotForm.elements["mensagem_sem_resposta"].value.trim();
       const cor = novoBotForm.elements["cor"].value.trim();
+      const genero = novoBotForm.elements["genero"].value;
       if (!nome) {
         alert("Nome obrigatório");
         return;
       }
-      const body = { nome, descricao, mensagem_sem_resposta, cor };
+      const body = { nome, descricao, mensagem_sem_resposta, cor, genero };
       try {
         const res = await fetch(`/chatbots`, {
           method: "POST",
@@ -359,6 +360,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const mensagem_sem_resposta = document
         .getElementById("editarMensagemSemResposta")
         .value.trim();
+      const genero = document.getElementById("editarGeneroChatbot").value;
       const iconInput = document.getElementById("editarIconChatbot");
       const iconFile = iconInput.files[0];
 
@@ -373,6 +375,7 @@ document.addEventListener("DOMContentLoaded", function () {
       formData.append("fonte", fonte);
       formData.append("cor", cor);
       formData.append("mensagem_sem_resposta", mensagem_sem_resposta);
+      formData.append("genero", genero);
       if (iconFile) formData.append("icon", iconFile);
 
       try {
@@ -383,6 +386,18 @@ document.addEventListener("DOMContentLoaded", function () {
         await atualizarCategoriasDoChatbot(chatbot_id);
         if (res.ok) {
           localStorage.setItem(`fonteSelecionada_bot${chatbot_id}`, fonte);
+          const ativoId = localStorage.getItem("chatbotAtivo");
+          if (ativoId && String(ativoId) === String(chatbot_id)) {
+            localStorage.setItem("generoBot", genero || "");
+            localStorage.setItem("nomeBot", nome);
+            localStorage.setItem("corChatbot", cor || "#d4af37");
+            if (window.atualizarNomeChatHeader) {
+              window.atualizarNomeChatHeader();
+            }
+            if (window.reiniciarConversa) {
+              window.reiniciarConversa();
+            }
+          }
           window.fecharModalEditarChatbot();
           carregarTabelaBots();
         } else {
@@ -459,6 +474,7 @@ window.abrirModalAtualizar = async function (chatbot_id) {
     document.getElementById("editarCorChatbot").value = bot.cor || "#d4af37";
     document.getElementById("editarMensagemSemResposta").value =
       bot.mensagem_sem_resposta || "";
+    document.getElementById("editarGeneroChatbot").value = bot.genero || "";
     document.getElementById("previewIcon").src =
       bot.icon_path || "/static/images/chatbot-icon.png";
     document.getElementById("previewIcon").style.display = bot.icon_path
