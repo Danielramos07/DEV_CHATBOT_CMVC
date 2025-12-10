@@ -727,6 +727,15 @@ window.fecharChat = function () {
   if (toggleCard) toggleCard.style.display = "";
 };
 
+document.addEventListener("keydown", function (event) {
+  if (event.key === "Escape" || event.key === "Esc") {
+    const sidebar = document.getElementById("chatSidebar");
+    if (sidebar && sidebar.style.display !== "none") {
+      fecharChat();
+    }
+  }
+});
+
 async function apresentarMensagemInicial() {
   if (initialMessageShown) return;
 
@@ -800,7 +809,7 @@ Ask one question at a time and I will do my best to clarify your doubts.`;
       : `Eu sou ${nomeBot},`;
     msg = `Olá!
 ${prefixoSou} ${artigoPossessivo} assistente virtual.
-Faça uma pergunta de cada vez que eu procurarei esclarecer todas as suas dúvidas.`;
+Faça uma pergunta de cada vez, que eu procurarei esclarecer todas as suas dúvidas.`;
   }
   adicionarMensagem("bot", msg, iconBot, nomeBot);
   initialMessageShown = true;
