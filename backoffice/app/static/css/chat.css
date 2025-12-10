@@ -490,8 +490,6 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  /* No transform here; we instead reduced paddings/font sizes locally
-     so the outer window size stays the same. */
 }
 
 .chat-toggle-btn:hover {
@@ -630,12 +628,9 @@
 /* Responsividade do chat - aplicar apenas em larguras tipo telemóvel */
 @media (max-width: 768px) {
   .chat-sidebar {
-    /* Use full available width without causing horizontal scrollbars */
     width: 100%;
     right: 0;
     left: 0;
-    /* Keep the same bottom margin as desktop so the footer
-       remains visible behind the chat window */
     bottom: 88px;
     border-radius: 0;
   }
@@ -663,7 +658,6 @@
     padding: 10px;
   }
 
-  /* On smaller widths, hide suggested FAQs and shrink avatar a bit more */
   #chatAvatarSuggestions {
     display: none;
   }
