@@ -333,7 +333,7 @@ function toggleAvatarAtivo() {
     avatarPanel.style.display = avatarAtivo ? "flex" : "none";
   }
   if (btn) {
-    btn.textContent = avatarAtivo ? "Desligar avatar" : "Ligar avatar";
+    btn.textContent = avatarAtivo ? "⏻ Desligar avatar" : "⏻ Ligar avatar";
   }
   // No futuro, este estado controlará também o áudio do avatar.
 }
