@@ -127,17 +127,41 @@
       </div>
 
       <div class="chat-main">
-        <div class="chat-body" id="chatBody"></div>
-
-        <div class="chat-avatar-panel" id="chatAvatarPanel">
-          <div class="chat-avatar-inner">
-            <img
-              src="{{ url_for('static', filename='images/face.jpg') }}"
-              alt="Assistente Virtual"
-              class="chat-avatar-image"
-            />
+        <div class="chat-avatar-column">
+          <div class="chat-avatar-header-row">
+            <button
+              id="avatarToggleBtn"
+              class="avatar-toggle-btn"
+              type="button"
+              onclick="toggleAvatarAtivo()"
+            >
+              Desligar avatar
+            </button>
           </div>
+
+          <div class="chat-avatar-panel" id="chatAvatarPanel">
+            <div class="chat-avatar-inner">
+              <img
+                src="{{ url_for('static', filename='images/face.jpg') }}"
+                alt="Assistente Virtual"
+                class="chat-avatar-image"
+              />
+            </div>
+          </div>
+
+          <button
+            id="chatResetBtn"
+            class="chat-reset-btn"
+            type="button"
+            onclick="reiniciarConversa()"
+          >
+            Reiniciar Conversa
+          </button>
+
+          <div class="chat-suggestions" id="chatAvatarSuggestions"></div>
         </div>
+
+        <div class="chat-body" id="chatBody"></div>
       </div>
 
       <div class="chat-input">
@@ -164,25 +188,6 @@
           title="Enviar"
         >
           ➤
-        </button>
-      </div>
-
-      <div class="chat-mode-toggle">
-        <button
-          id="modoTextoBtn"
-          class="mode-btn active"
-          type="button"
-          onclick="ativarModoTexto()"
-        >
-          Chat com a Assistente
-        </button>
-        <button
-          id="modoAvatarBtn"
-          class="mode-btn"
-          type="button"
-          onclick="ativarModoAvatar()"
-        >
-          Falar com a Assistente
         </button>
       </div>
     </div>

@@ -39,7 +39,6 @@ function atualizarCorChatbot() {
 
 document.addEventListener("DOMContentLoaded", function () {
   atualizarCorChatbot();
-  ativarModoTexto();
 });
 
 function getIdiomaAtual() {
@@ -324,48 +323,38 @@ async function enviarWavParaTranscricao() {
   }
 }
 
-window.chatModoAtual = window.chatModoAtual || "texto";
+let avatarAtivo = true;
 
-function ativarModoTexto() {
-  const modoTextoBtn = document.getElementById("modoTextoBtn");
-  const modoAvatarBtn = document.getElementById("modoAvatarBtn");
+function toggleAvatarAtivo() {
+  avatarAtivo = !avatarAtivo;
   const avatarPanel = document.getElementById("chatAvatarPanel");
-  const chatSidebar = document.getElementById("chatSidebar");
-
-  if (modoTextoBtn && modoAvatarBtn) {
-    modoTextoBtn.classList.add("active");
-    modoAvatarBtn.classList.remove("active");
-  }
+  const btn = document.getElementById("avatarToggleBtn");
   if (avatarPanel) {
-    avatarPanel.classList.remove("active");
+    avatarPanel.style.display = avatarAtivo ? "flex" : "none";
   }
-
-  if (chatSidebar) {
-    chatSidebar.dataset.modo = "texto";
+  if (btn) {
+    btn.textContent = avatarAtivo ? "Desligar avatar" : "Ligar avatar";
   }
-
-  window.chatModoAtual = "texto";
+  // No futuro, este estado controlará também o áudio do avatar.
 }
 
-function ativarModoAvatar() {
-  const modoTextoBtn = document.getElementById("modoTextoBtn");
-  const modoAvatarBtn = document.getElementById("modoAvatarBtn");
-  const avatarPanel = document.getElementById("chatAvatarPanel");
-  const chatSidebar = document.getElementById("chatSidebar");
-
-  if (modoTextoBtn && modoAvatarBtn) {
-    modoAvatarBtn.classList.add("active");
-    modoTextoBtn.classList.remove("active");
-  }
-  if (avatarPanel) {
-    avatarPanel.classList.add("active");
+function reiniciarConversa() {
+  const chat = document.getElementById("chatBody");
+  if (chat) {
+    chat.innerHTML = "";
   }
 
-  if (chatSidebar) {
-    chatSidebar.dataset.modo = "avatar";
+  // Recarregar imagem do avatar para "refrescar" visualmente
+  const avatarImg = document.querySelector(".chat-avatar-image");
+  if (avatarImg) {
+    const srcBase = avatarImg.src.split("?")[0];
+    avatarImg.src = srcBase + "?t=" + Date.now();
   }
 
-  window.chatModoAtual = "avatar";
+  initialMessageShown = false;
+  limparTimersAutoChat();
+  apresentarMensagemInicial();
+  iniciarTimerAutoMensagem();
 }
 
 async function atualizarNomeChatHeader() {
@@ -852,21 +841,7 @@ function responderPergunta(pergunta) {
             </div>
           `;
         }
-        if (window.chatModoAtual === "avatar") {
-          // No modo avatar, a resposta textual será tratada pelo avatar (voz).
-          // Apenas mostramos um marcador visual no histórico.
-          const msgAudio =
-            (faqIdioma || "pt").toLowerCase() === "en"
-              ? "Answered via audio."
-              : "Respondido através de áudio.";
-          adicionarMensagem(
-            "bot",
-            msgAudio,
-            iconBot,
-            localStorage.getItem("nomeBot")
-          );
-          console.debug("Resposta para o avatar (áudio):", resposta);
-        } else {
+        {
           adicionarMensagemComHTML(
             "bot",
             resposta,
@@ -1203,8 +1178,15 @@ function obterPerguntasSemelhantes(perguntaOriginal, chatbotId, idioma = null) {
 }
 
 async function mostrarPerguntasSugestivasDB() {
-  const chat = document.getElementById("chatBody");
-  if (!chat) return;
+  const container =
+    document.getElementById("chatAvatarSuggestions") ||
+    document.getElementById("chatBody");
+  if (!container) return;
+
+  // Se já existir uma barra de perguntas sugeridas ativa, não criar outra
+  if (container.querySelector(".suggested-questions-bar")) {
+    return;
+  }
   const idioma = getIdiomaAtual();
   const chatbotId = parseInt(localStorage.getItem("chatbotAtivo"));
   if (!chatbotId || isNaN(chatbotId)) return;
@@ -1225,7 +1207,7 @@ async function mostrarPerguntasSugestivasDB() {
       title.textContent = "Possíveis perguntas:";
       const corBot = localStorage.getItem("corChatbot") || "#d4af37";
       title.style.color = corBot;
-      chat.appendChild(title);
+      container.appendChild(title);
       const btnContainer = document.createElement("div");
       btnContainer.className = "suggested-questions-bar";
       data.faqs.forEach((faq) => {
@@ -1251,8 +1233,9 @@ async function mostrarPerguntasSugestivasDB() {
         };
         btnContainer.appendChild(btn);
       });
-      chat.appendChild(btnContainer);
-      chat.scrollTop = chat.scrollHeight;
+      container.appendChild(btnContainer);
+      const chatBody = document.getElementById("chatBody");
+      if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
     }
   } catch (e) {}
 }
