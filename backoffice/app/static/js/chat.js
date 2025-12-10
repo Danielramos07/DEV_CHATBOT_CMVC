@@ -703,7 +703,6 @@ function limparTimersAutoChat() {
 
 function abrirChat() {
   document.getElementById("chatSidebar").style.display = "flex";
-  initialMessageShown = false;
   apresentarMensagemInicial();
   iniciarTimerAutoMensagem();
   atualizarCorChatbot();
@@ -713,7 +712,6 @@ function abrirChat() {
 window.fecharChat = function () {
   document.getElementById("chatSidebar").style.display = "none";
   limparTimersAutoChat();
-  initialMessageShown = false;
   const toggleCard = document.querySelector(".chat-toggle-card");
   if (toggleCard) toggleCard.style.display = "";
 };
