@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
 import logging
+import os
 from .config import Config
 from .db import init_pool, close_conn
 from .auth import app as auth
@@ -11,6 +12,11 @@ def create_app():
     logging.basicConfig(level=logging.DEBUG)
     app = Flask(__name__)   
     app.config.from_object(Config)
+
+    # Optional: path to the Vosk model used by the STT service.
+    # By default we expect the model under backoffice/app/extras/models.
+    default_vosk_path = os.path.join("extras", "models", "vosk-model-small-pt-0.3")
+    app.config.setdefault("VOSK_MODEL_PATH", default_vosk_path)
 
     #Cookies and Cors
 

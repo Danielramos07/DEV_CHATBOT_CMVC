@@ -88,43 +88,239 @@ function gerarDataHoraFormatada() {
 let micAtivo = false;
 let micStream = null;
 
-async function toggleMic() {
+// Simple silence-based auto-stop + PCM capture
+let audioContext = null;
+let analyserNode = null;
+let sourceNode = null;
+let processorNode = null;
+let silencioTimeout = null;
+let recordedBuffers = [];
+let recordedSampleRate = 16000;
+const SILENCIO_MS = 1500; // tempo sem som antes de parar (~1.5s)
+const SILENCIO_LIMIAR = 0.01; // limiar de volume (0-1)
+
+function limparSilencioMonitor() {
+  if (silencioTimeout) {
+    clearTimeout(silencioTimeout);
+    silencioTimeout = null;
+  }
+}
+
+function iniciarMonitorSilencio(stream) {
+  try {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    sourceNode = audioContext.createMediaStreamSource(stream);
+    analyserNode = audioContext.createAnalyser();
+    analyserNode.fftSize = 512;
+    sourceNode.connect(analyserNode);
+
+    recordedBuffers = [];
+    recordedSampleRate = audioContext.sampleRate;
+
+    // Capture PCM via ScriptProcessorNode (widely supported)
+    const bufferSize = 4096;
+    processorNode = audioContext.createScriptProcessor(bufferSize, 1, 1);
+    sourceNode.connect(processorNode);
+    processorNode.connect(audioContext.destination);
+
+    const dataArray = new Uint8Array(analyserNode.fftSize);
+
+    processorNode.onaudioprocess = (event) => {
+      if (!micAtivo) return;
+
+      const input = event.inputBuffer.getChannelData(0);
+      recordedBuffers.push(new Float32Array(input));
+
+      analyserNode.getByteTimeDomainData(dataArray);
+      let soma = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        const amostra = (dataArray[i] - 128) / 128; // -1 a 1
+        soma += amostra * amostra;
+      }
+      const rms = Math.sqrt(soma / dataArray.length);
+
+      if (rms < SILENCIO_LIMIAR) {
+        if (!silencioTimeout) {
+          silencioTimeout = setTimeout(() => {
+            pararGravacao();
+          }, SILENCIO_MS);
+        }
+      } else {
+        limparSilencioMonitor();
+      }
+    };
+  } catch (e) {
+    console.warn("Falha ao iniciar monitor de silêncio:", e);
+  }
+}
+
+function limparAudioContext() {
+  limparSilencioMonitor();
+  if (sourceNode) {
+    try {
+      sourceNode.disconnect();
+    } catch (e) {}
+  }
+  if (analyserNode) {
+    try {
+      analyserNode.disconnect();
+    } catch (e) {}
+  }
+  if (processorNode) {
+    try {
+      processorNode.disconnect();
+    } catch (e) {}
+  }
+  if (audioContext) {
+    audioContext.close();
+  }
+  sourceNode = null;
+  analyserNode = null;
+  processorNode = null;
+  audioContext = null;
+}
+
+async function pararGravacao() {
   const micBtn = document.getElementById("chatMicBtn");
 
-  // Ativar microfone
-  if (!micAtivo) {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      alert("O seu navegador não suporta acesso ao microfone.");
-      return;
-    }
-    try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micAtivo = true;
-      if (micBtn) {
-        micBtn.classList.add("active");
-      }
-      // TODO: integrar aqui o reconhecimento de voz (Vosk, etc.)
-    } catch (err) {
-      console.error("Erro ao obter acesso ao microfone:", err);
-      alert(
-        "Não foi possível aceder ao microfone. Verifique as permissões do navegador."
-      );
-      micAtivo = false;
-      if (micBtn) {
-        micBtn.classList.remove("active");
-      }
-    }
-    return;
-  }
+  if (!micAtivo) return;
 
-  // Desativar microfone
+  micAtivo = false;
+  limparSilencioMonitor();
   if (micStream) {
     micStream.getTracks().forEach((t) => t.stop());
     micStream = null;
   }
-  micAtivo = false;
+  limparAudioContext();
+
   if (micBtn) {
     micBtn.classList.remove("active");
+  }
+
+  // Depois de parar a captura, enviar o WAV para transcrição
+  enviarWavParaTranscricao();
+}
+
+async function toggleMic() {
+  const micBtn = document.getElementById("chatMicBtn");
+
+  // Se já está ativo, parar manualmente (fallback)
+  if (micAtivo) {
+    await pararGravacao();
+    return;
+  }
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert("O seu navegador não suporta acesso ao microfone.");
+    return;
+  }
+
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    iniciarMonitorSilencio(micStream);
+
+    micAtivo = true;
+    if (micBtn) {
+      micBtn.classList.add("active");
+    }
+  } catch (err) {
+    console.error("Erro ao obter acesso ao microfone:", err);
+    alert(
+      "Não foi possível aceder ao microfone. Verifique as permissões do navegador."
+    );
+    micAtivo = false;
+    if (micBtn) {
+      micBtn.classList.remove("active");
+    }
+    if (micStream) {
+      micStream.getTracks().forEach((t) => t.stop());
+      micStream = null;
+    }
+    limparAudioContext();
+  }
+}
+
+function floatTo16BitPCM(float32Array) {
+  const buffer = new ArrayBuffer(float32Array.length * 2);
+  const view = new DataView(buffer);
+  let offset = 0;
+  for (let i = 0; i < float32Array.length; i++, offset += 2) {
+    let s = Math.max(-1, Math.min(1, float32Array[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return buffer;
+}
+
+function encodeWAV(buffers, sampleRate) {
+  // Concat all Float32 chunks
+  let length = 0;
+  for (const b of buffers) length += b.length;
+  const merged = new Float32Array(length);
+  let offset = 0;
+  for (const b of buffers) {
+    merged.set(b, offset);
+    offset += b.length;
+  }
+
+  const pcmBuffer = floatTo16BitPCM(merged);
+  const wavBuffer = new ArrayBuffer(44 + pcmBuffer.byteLength);
+  const view = new DataView(wavBuffer);
+
+  // RIFF chunk descriptor
+  writeString(view, 0, "RIFF");
+  view.setUint32(4, 36 + pcmBuffer.byteLength, true);
+  writeString(view, 8, "WAVE");
+
+  // FMT sub-chunk
+  writeString(view, 12, "fmt ");
+  view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+  view.setUint16(20, 1, true); // AudioFormat (1=PCM)
+  view.setUint16(22, 1, true); // NumChannels
+  view.setUint32(24, sampleRate, true); // SampleRate
+  view.setUint32(28, sampleRate * 2, true); // ByteRate (SampleRate*NumChannels*BitsPerSample/8)
+  view.setUint16(32, 2, true); // BlockAlign (NumChannels*BitsPerSample/8)
+  view.setUint16(34, 16, true); // BitsPerSample
+
+  // data sub-chunk
+  writeString(view, 36, "data");
+  view.setUint32(40, pcmBuffer.byteLength, true);
+
+  // PCM data
+  new Uint8Array(wavBuffer, 44).set(new Uint8Array(pcmBuffer));
+
+  return new Blob([wavBuffer], { type: "audio/wav" });
+}
+
+function writeString(view, offset, string) {
+  for (let i = 0; i < string.length; i++) {
+    view.setUint8(offset + i, string.charCodeAt(i));
+  }
+}
+
+// Enviar WAV gravado para o backend e acionar o envio da pergunta
+async function enviarWavParaTranscricao() {
+  if (!recordedBuffers.length) return;
+  try {
+    const blob = encodeWAV(recordedBuffers, recordedSampleRate);
+    recordedBuffers = [];
+
+    const formData = new FormData();
+    formData.append("audio", blob, "audio.wav");
+
+    const resp = await fetch("/vosk/transcribe", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await resp.json();
+    if (data && data.success && data.text) {
+      const chatInput = document.getElementById("chatInput");
+      if (chatInput) {
+        chatInput.value = data.text;
+      }
+      enviarPergunta();
+    }
+  } catch (e) {
+    console.error("Erro ao transcrever áudio:", e);
   }
 }
 
@@ -657,9 +853,19 @@ function responderPergunta(pergunta) {
           `;
         }
         if (window.chatModoAtual === "avatar") {
-          // No modo avatar, a resposta textual ser5 tratada pelo avatar (voz).
-          // Por agora, apenas registamos para futura integra00o.
-          console.debug("Resposta para o avatar:", resposta);
+          // No modo avatar, a resposta textual será tratada pelo avatar (voz).
+          // Apenas mostramos um marcador visual no histórico.
+          const msgAudio =
+            (faqIdioma || "pt").toLowerCase() === "en"
+              ? "Answered via audio."
+              : "Respondido através de áudio.";
+          adicionarMensagem(
+            "bot",
+            msgAudio,
+            iconBot,
+            localStorage.getItem("nomeBot")
+          );
+          console.debug("Resposta para o avatar (áudio):", resposta);
         } else {
           adicionarMensagemComHTML(
             "bot",
