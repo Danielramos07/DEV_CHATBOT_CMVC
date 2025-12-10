@@ -56,13 +56,13 @@
 
 .chat-avatar-inner {
   width: 100%;
-  max-width: 360px;
+  max-width: 320px;
 }
 
 .chat-avatar-image {
   width: 100%;
   height: auto;
-  max-height: 260px;
+  max-height: 230px;
   border-radius: 18px;
   object-fit: cover;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
@@ -108,7 +108,7 @@
 .chat-header {
   background: #d4af37;
   color: white;
-  padding: 16px 20px 16px 16px;
+  padding: 14px 18px 14px 14px;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -192,7 +192,7 @@
 
 .chat-body {
   flex: 1;
-  padding: 20px 20px 20px 20px;
+  padding: 18px 18px 18px 18px;
   background: #f9fafb;
   overflow-y: auto;
   display: flex;
@@ -264,12 +264,12 @@
 }
 
 .message {
-  max-width: 400px;
+  max-width: 380px;
   width: auto;
-  padding: 12px 16px;
+  padding: 10px 14px;
   border-radius: 16px;
   line-height: 1.5;
-  font-size: 15px;
+  font-size: 14px;
   position: relative;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   color: #fff;
@@ -291,7 +291,7 @@
   border-bottom-right-radius: 16px;
   margin-right: 50px;
   position: relative;
-  max-width: 420px;
+  max-width: 400px;
   min-width: 120px;
 }
 
@@ -361,7 +361,7 @@
 }
 
 .chat-input {
-  padding: 12px;
+  padding: 10px 12px;
   background: #fff;
   border-top: 1px solid #ddd;
   display: flex;
@@ -372,10 +372,10 @@
 
 .chat-input input {
   flex: 1;
-  padding: 10px 14px;
+  padding: 8px 12px;
   border: 1px solid #ccc;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   color: #2c3e50;
 }
 
@@ -385,8 +385,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 14px;
-  height: 40px;
+  padding: 0 12px;
+  height: 36px;
   border: none;
   cursor: pointer;
   font-weight: 500;
@@ -483,6 +483,15 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   z-index: 1100;
   transition: background-color 0.3s, bottom 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chat-sidebar-inner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* No transform here; we instead reduced paddings/font sizes locally
+     so the outer window size stays the same. */
 }
 
 .chat-toggle-btn:hover {
@@ -616,4 +625,54 @@
   background: var(--corBot, #d4af37);
   color: #fff;
   border-color: #fff;
+}
+
+/* Responsividade do chat - aplicar apenas em larguras tipo telemóvel */
+@media (max-width: 768px) {
+  .chat-sidebar {
+    /* Use full available width without causing horizontal scrollbars */
+    width: 100%;
+    right: 0;
+    left: 0;
+    /* Keep the same bottom margin as desktop so the footer
+       remains visible behind the chat window */
+    bottom: 88px;
+    border-radius: 0;
+  }
+
+  .chat-sidebar-inner {
+    /* keep same height; no extra scaling on mobile */
+  }
+
+  .chat-main {
+    flex-direction: column;
+  }
+
+  .chat-avatar-column {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #e2e2e2;
+    padding: 10px 12px 8px;
+  }
+
+  .chat-body {
+    padding: 16px;
+  }
+
+  .chat-input {
+    padding: 10px;
+  }
+
+  /* On smaller widths, hide suggested FAQs and shrink avatar a bit more */
+  #chatAvatarSuggestions {
+    display: none;
+  }
+
+  .chat-avatar-inner {
+    max-width: 220px;
+  }
+
+  .chat-avatar-image {
+    max-height: 170px;
+  }
 }

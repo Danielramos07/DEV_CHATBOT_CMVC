@@ -113,82 +113,84 @@
     </div>
 
     <div class="chat-sidebar" id="chatSidebar" style="display: none">
-      <div class="chat-header">
-        <button class="chat-close-btn" onclick="fecharChat()">&times;</button>
-        <img
-          src="{{ url_for('static', filename='images/chatbot-icon.png') }}"
-          alt="Chatbot"
-          class="chat-header-avatar"
-        />
-        <div class="chat-header-info">
-          <h3 id="chatHeaderNomeBot"></h3>
-          <div id="chatFonteBadge"></div>
-        </div>
-      </div>
-
-      <div class="chat-main">
-        <div class="chat-avatar-column">
-          <div class="chat-avatar-header-row">
-            <button
-              id="avatarToggleBtn"
-              class="avatar-toggle-btn"
-              type="button"
-              onclick="toggleAvatarAtivo()"
-            >
-              ⏻ Desligar avatar
-            </button>
+      <div class="chat-sidebar-inner">
+        <div class="chat-header">
+          <button class="chat-close-btn" onclick="fecharChat()">&times;</button>
+          <img
+            src="{{ url_for('static', filename='images/chatbot-icon.png') }}"
+            alt="Chatbot"
+            class="chat-header-avatar"
+          />
+          <div class="chat-header-info">
+            <h3 id="chatHeaderNomeBot"></h3>
+            <div id="chatFonteBadge"></div>
           </div>
+        </div>
 
-          <div class="chat-avatar-panel" id="chatAvatarPanel">
-            <div class="chat-avatar-inner">
-              <img
-                src="{{ url_for('static', filename='images/face.jpg') }}"
-                alt="Assistente Virtual"
-                class="chat-avatar-image"
-              />
+        <div class="chat-main">
+          <div class="chat-avatar-column">
+            <div class="chat-avatar-header-row">
+              <button
+                id="avatarToggleBtn"
+                class="avatar-toggle-btn"
+                type="button"
+                onclick="toggleAvatarAtivo()"
+              >
+                ⏻ Desligar avatar
+              </button>
             </div>
+
+            <div class="chat-avatar-panel" id="chatAvatarPanel">
+              <div class="chat-avatar-inner">
+                <img
+                  src="{{ url_for('static', filename='images/face.jpg') }}"
+                  alt="Assistente Virtual"
+                  class="chat-avatar-image"
+                />
+              </div>
+            </div>
+
+            <button
+              id="chatResetBtn"
+              class="chat-reset-btn"
+              type="button"
+              onclick="reiniciarConversa()"
+            >
+              🔄 Reiniciar Conversa
+            </button>
+
+            <div class="chat-suggestions" id="chatAvatarSuggestions"></div>
           </div>
 
-          <button
-            id="chatResetBtn"
-            class="chat-reset-btn"
-            type="button"
-            onclick="reiniciarConversa()"
-          >
-            🔄 Reiniciar Conversa
-          </button>
-
-          <div class="chat-suggestions" id="chatAvatarSuggestions"></div>
+          <div class="chat-body" id="chatBody"></div>
         </div>
 
-        <div class="chat-body" id="chatBody"></div>
-      </div>
-
-      <div class="chat-input">
-        <input
-          type="text"
-          placeholder="Digite uma mensagem..."
-          id="chatInput"
-          onkeydown="if(event.key==='Enter') enviarPergunta()"
-        />
-        <button
-          id="chatMicBtn"
-          class="chat-mic-btn"
-          type="button"
-          onclick="toggleMic()"
-          title="Usar o microfone"
-        >
-          <span class="mic-icon">🎤</span>
-        </button>
-        <button
-          id="chatSendBtn"
-          class="chat-send-btn"
-          type="button"
-          onclick="enviarPergunta()"
-          title="Enviar"
-        >
-          ➤
-        </button>
+        <div class="chat-input">
+          <input
+            type="text"
+            placeholder="Digite uma mensagem..."
+            id="chatInput"
+            onkeydown="if(event.key==='Enter') enviarPergunta()"
+          />
+          <button
+            id="chatMicBtn"
+            class="chat-mic-btn"
+            type="button"
+            onclick="toggleMic()"
+            title="Usar o microfone"
+          >
+            <span class="mic-icon">🎤</span>
+          </button>
+          <button
+            id="chatSendBtn"
+            class="chat-send-btn"
+            type="button"
+            onclick="enviarPergunta()"
+            title="Enviar"
+          >
+            ➤
+          </button>
+        </div>
       </div>
     </div>
 
