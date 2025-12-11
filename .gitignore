@@ -9,6 +9,7 @@ backoffice/**/__pycache__/
 *~
 *.swp
 *.swo
+tts/
 
 # macOS
 .DS_Store
