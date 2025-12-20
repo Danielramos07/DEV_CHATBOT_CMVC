@@ -131,8 +131,8 @@ function adicionarListenersFormulariosFAQ(allBots = []) {
           } else if (res.status === 409) {
             const resultado = await res.json().catch(() => ({}));
             if (resultado.busy) {
-              if (msgDiv)
-                msgDiv.innerHTML = `<span style="color:#dc2626;">Já existe um vídeo a ser gerado neste momento. Termine esse processo ou desmarque a opção de gerar vídeo para esta FAQ.</span>`;
+              document.getElementById("modalVideoBusy").style.display = "flex";
+              return;
             } else {
               const erroTexto =
                 resultado.error || resultado.erro || (await res.text());
@@ -250,3 +250,7 @@ function adicionarListenersUploadDocx(allBots = []) {
 
 window.adicionarListenersFormulariosFAQ = adicionarListenersFormulariosFAQ;
 window.adicionarListenersUploadDocx = adicionarListenersUploadDocx;
+
+function fecharModalVideoBusy() {
+  document.getElementById("modalVideoBusy").style.display = "none";
+}

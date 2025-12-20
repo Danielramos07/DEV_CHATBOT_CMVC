@@ -105,6 +105,12 @@ def criar_chatbot():
             (chatbot_id, "faq")
         )
         conn.commit()
+
+        # If video is enabled, queue idle video generation
+        if video_enabled:
+            from ..services.video_service import queue_videos_for_chatbot
+            queue_videos_for_chatbot(chatbot_id)
+
         return jsonify({"success": True, "chatbot_id": chatbot_id})
     except Exception as e:
         conn.rollback()
@@ -118,7 +124,7 @@ def obter_nome_chatbot(chatbot_id):
     conn = get_conn()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT nome, cor, icon_path, genero FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
+        cur.execute("SELECT nome, cor, icon_path, genero, video_greeting_path, video_idle_path FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
         row = cur.fetchone()
         if row:
             return jsonify({
@@ -126,7 +132,9 @@ def obter_nome_chatbot(chatbot_id):
                 "nome": row[0],
                 "cor": row[1] or "#d4af37",
                 "icon": row[2] or "/static/images/chatbot-icon.png",
-                "genero": row[3]
+                "genero": row[3],
+                "video_greeting_path": row[4],
+                "video_idle_path": row[5]
             })
         return jsonify({"success": False, "erro": "Chatbot não encontrado."}), 404
     except Exception as e:
@@ -187,6 +195,15 @@ def atualizar_chatbot(chatbot_id):
         else:
             cur.execute("INSERT INTO fonte_resposta (chatbot_id, fonte) VALUES (%s, %s)", (chatbot_id, fonte))
         conn.commit()
+
+        # If video is enabled, queue videos generation if not already done
+        if video_enabled:
+            cur.execute("SELECT video_greeting_path, video_idle_path FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
+            row = cur.fetchone()
+            if not row or not row[0] or not row[1]:
+                from ..services.video_service import queue_videos_for_chatbot
+                queue_videos_for_chatbot(chatbot_id)
+
         return jsonify({"success": True})
     except Exception as e:
         conn.rollback()

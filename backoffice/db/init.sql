@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS chatbot (
     icon_path TEXT,
     mensagem_sem_resposta TEXT,
     genero VARCHAR(20),
-    video_enabled BOOLEAN NOT NULL DEFAULT FALSE
+    video_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    video_idle_path TEXT,
+    video_greeting_path TEXT
 );
 
 -- Tabela: chatbot_categoria

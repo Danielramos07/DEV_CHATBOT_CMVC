@@ -339,47 +339,51 @@ function toggleAvatarAtivo() {
   // No futuro, este estado controlará também o áudio do avatar.
 }
 
-function mostrarVideoFaqNoAvatar(faqId) {
+function mostrarSpinnerVideoFaq(faqId) {
   if (!avatarAtivo) return;
   const avatarPanel = document.getElementById("chatAvatarPanel");
   if (!avatarPanel || !faqId) return;
 
   let videoEl = avatarPanel.querySelector("video.chat-avatar-video");
   let imgEl = avatarPanel.querySelector("img.chat-avatar-image");
+  let spinnerEl = avatarPanel.querySelector(".video-spinner");
 
-  if (!videoEl) {
-    videoEl = document.createElement("video");
-    videoEl.className = "chat-avatar-video";
-    videoEl.autoplay = true;
-    videoEl.muted = true;
-    videoEl.loop = true;
-    videoEl.playsInline = true;
-    videoEl.style.width = "100%";
-    videoEl.style.height = "100%";
-    videoEl.style.objectFit = "cover";
-    avatarPanel.insertBefore(videoEl, avatarPanel.firstChild);
+  if (!spinnerEl) {
+    spinnerEl = document.createElement("div");
+    spinnerEl.className = "video-spinner";
+    spinnerEl.style.width = "100%";
+    spinnerEl.style.height = "100%";
+    spinnerEl.style.display = "flex";
+    spinnerEl.style.alignItems = "center";
+    spinnerEl.style.justifyContent = "center";
+    spinnerEl.style.backgroundColor = "#f0f0f0";
+    spinnerEl.innerHTML =
+      '<div style="border: 4px solid #ccc; border-top: 4px solid #007bff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div><style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>';
+    avatarPanel.insertBefore(spinnerEl, avatarPanel.firstChild);
   }
 
-  if (imgEl) {
-    imgEl.style.display = "none";
-  }
+  if (imgEl) imgEl.style.display = "none";
+  if (videoEl) videoEl.style.display = "none";
+  spinnerEl.style.display = "flex";
 
-  const videoUrl = `/video/faq/${faqId}`;
-
-  // Cache simples: se já estamos a mostrar o vídeo desta FAQ, não recarregar
-  if (currentFaqVideoId === faqId && videoEl.src) {
-    videoEl.style.display = "block";
-    if (videoEl.paused) {
-      videoEl.play().catch(() => {});
+  // Polling para verificar se o vídeo está pronto
+  const checkVideoReady = async () => {
+    try {
+      const res = await fetch(`/video/faq/${faqId}`);
+      if (res.ok) {
+        // Vídeo pronto, mostrar
+        spinnerEl.style.display = "none";
+        mostrarVideoFaqNoAvatar(faqId);
+      } else {
+        // Ainda não pronto, tentar novamente em 2 segundos
+        setTimeout(checkVideoReady, 2000);
+      }
+    } catch (e) {
+      setTimeout(checkVideoReady, 2000);
     }
-    return;
-  }
+  };
 
-  currentFaqVideoId = faqId;
-  videoEl.style.display = "block";
-  videoEl.src = videoUrl;
-  videoEl.load();
-  videoEl.play().catch(() => {});
+  checkVideoReady();
 }
 
 function reiniciarConversa() {
@@ -449,6 +453,12 @@ async function atualizarNomeChatHeader() {
           headerImg.src = iconBot;
         }
       }
+      if (data.success && data.video_greeting_path) {
+        localStorage.setItem("videoGreetingPath", data.video_greeting_path);
+      }
+      if (data.success && data.video_idle_path) {
+        localStorage.setItem("videoIdlePath", data.video_idle_path);
+      }
     } catch (e) {
       const botsData = JSON.parse(localStorage.getItem("chatbotsData") || "[]");
       const bot = botsData.find(
@@ -484,6 +494,7 @@ async function atualizarNomeChatHeader() {
   }
   atualizarFonteBadge();
   atualizarCorChatbot();
+  setupAvatarVideo();
 }
 
 function atualizarFonteBadge() {
@@ -948,7 +959,11 @@ function responderPergunta(pergunta) {
           );
           if (data.faq_id) {
             try {
-              mostrarVideoFaqNoAvatar(data.faq_id);
+              if (data.video_status === "ready") {
+                mostrarVideoFaqNoAvatar(data.faq_id);
+              } else {
+                mostrarSpinnerVideoFaq(data.faq_id);
+              }
             } catch (e) {}
           }
           const saudacao = isSaudacao(faqPergunta) || isSaudacao(resposta);
@@ -1359,3 +1374,44 @@ window.perguntarCategoria = function () {};
 window.atualizarNomeChatHeader = atualizarNomeChatHeader;
 window.atualizarFonteBadge = atualizarFonteBadge;
 window.reiniciarConversa = reiniciarConversa;
+
+let hasPlayedGreeting = false;
+
+function setupAvatarVideo() {
+  const videoEl = document.querySelector(".chat-avatar-video");
+  const imgEl = document.querySelector(".chat-avatar-image");
+  if (!videoEl || !imgEl) return;
+
+  const greetingPath = localStorage.getItem("videoGreetingPath");
+  const idlePath = localStorage.getItem("videoIdlePath");
+
+  if (!greetingPath || !idlePath) {
+    // No videos, show img
+    videoEl.style.display = "none";
+    imgEl.style.display = "block";
+    return;
+  }
+
+  // Show video, hide img
+  videoEl.style.display = "block";
+  imgEl.style.display = "none";
+
+  if (!hasPlayedGreeting) {
+    // Play greeting
+    videoEl.src = greetingPath;
+    videoEl.loop = false;
+    videoEl.play();
+    videoEl.onended = () => {
+      hasPlayedGreeting = true;
+      // Switch to idle
+      videoEl.src = idlePath;
+      videoEl.loop = true;
+      videoEl.play();
+    };
+  } else {
+    // Already played greeting, show idle
+    videoEl.src = idlePath;
+    videoEl.loop = true;
+    videoEl.play();
+  }
+}

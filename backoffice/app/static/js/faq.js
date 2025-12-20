@@ -433,17 +433,55 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
     e.preventDefault();
 
     const form = e.target;
-    const chatbotIdRaw = form.querySelector('select[name="chatbot_id"]').value;
+    const chatbotIdEl =
+      form.querySelector('select[name="chatbot_id"]') ||
+      form.querySelector('[name="chatbot_id"]');
+    const chatbotIdRaw = chatbotIdEl ? chatbotIdEl.value : "";
 
     const dadosBase = {
-      categoria_id: parseInt(form.categoria_id.value) || null,
-      designacao: form.designacao.value.trim(),
-      pergunta: form.pergunta.value.trim(),
-      resposta: form.resposta.value.trim(),
-      documentos: form.documentos.value.trim(),
-      relacionadas: form.relacionadas.value.trim(),
-      recomendado: form.recomendado ? form.recomendado.checked : false,
+      categoria_id: (() => {
+        const el = form.querySelector('[name="categoria_id"]');
+        return el ? parseInt(el.value) || null : null;
+      })(),
+      designacao: (() => {
+        const el = form.querySelector('[name="designacao"]');
+        return el ? el.value.trim() : "";
+      })(),
+      pergunta: (() => {
+        const el = form.querySelector('[name="pergunta"]');
+        return el ? el.value.trim() : "";
+      })(),
+      resposta: (() => {
+        const el = form.querySelector('[name="resposta"]');
+        return el ? el.value.trim() : "";
+      })(),
+      documentos: (() => {
+        const el = form.querySelector('[name="documentos"]');
+        return el ? el.value.trim() : "";
+      })(),
+      relacionadas: (() => {
+        const el = form.querySelector('[name="relacionadas"]');
+        return el ? el.value.trim() : "";
+      })(),
+      recomendado: (() => {
+        const el = form.querySelector('[name="recomendado"]');
+        return el ? el.checked : false;
+      })(),
+      idioma: (() => {
+        const el = form.querySelector('[name="idioma"]');
+        return el ? el.value.trim() || "pt" : "pt";
+      })(),
+      gerar_video: (() => {
+        const el = form.querySelector('[name="gerar_video"]');
+        return el ? el.checked : false;
+      })(),
     };
+
+    if (!chatbotIdRaw) {
+      statusDiv.innerHTML = "❌ Chatbot não selecionado.";
+      statusDiv.style.color = "red";
+      return;
+    }
 
     try {
       if (chatbotIdRaw === "todos") {
@@ -743,4 +781,12 @@ document.addEventListener("DOMContentLoaded", () => {
     filtroIdioma.addEventListener("change", carregarTabelaFAQsBackoffice);
 
   ligarBotaoCancelarEditarFAQ();
+
+  // Polling para atualizar status dos vídeos a cada 10 segundos
+  setInterval(() => {
+    // Só recarrega se a página estiver visível e se houver vídeos em processamento
+    if (document.visibilityState === "visible") {
+      carregarTabelaFAQsBackoffice();
+    }
+  }, 10000);
 });

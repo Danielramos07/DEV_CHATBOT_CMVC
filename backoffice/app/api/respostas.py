@@ -56,11 +56,11 @@ def obter_resposta():
             resultado = obter_faq_mais_semelhante(pergunta, chatbot_id)
             if resultado:
                 cur.execute("""
-                    SELECT faq_id, categoria_id FROM faq
+                    SELECT faq_id, categoria_id, video_status FROM faq
                     WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
                 """, (resultado["pergunta"], chatbot_id))
                 row = cur.fetchone()
-                faq_id, categoria_id = row if row else (None, None)
+                faq_id, categoria_id, video_status = row if row else (None, None, None)
                 cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
                 docs = [r[0] for r in cur.fetchall()]
                 return jsonify({
@@ -69,6 +69,7 @@ def obter_resposta():
                     "resposta": resultado["resposta"],
                     "faq_id": faq_id,
                     "categoria_id": categoria_id,
+                    "video_status": video_status,
                     "score": resultado["score"],
                     "pergunta_faq": resultado["pergunta"],
                     "documentos": docs
@@ -97,11 +98,11 @@ def obter_resposta():
                 resultado = obter_faq_mais_semelhante(pergunta, chatbot_id, threshold=80)
                 if resultado:
                     cur.execute("""
-                        SELECT faq_id, categoria_id FROM faq
+                        SELECT faq_id, categoria_id, video_status FROM faq
                         WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
                     """, (resultado["pergunta"], chatbot_id))
                     row = cur.fetchone()
-                    faq_id, categoria_id = row if row else (None, None)
+                    faq_id, categoria_id, video_status = row if row else (None, None, None)
                     cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
                     docs = [r[0] for r in cur.fetchall()]
                     return jsonify({
@@ -110,6 +111,7 @@ def obter_resposta():
                         "resposta": resultado["resposta"],
                         "faq_id": faq_id,
                         "categoria_id": categoria_id,
+                        "video_status": video_status,
                         "score": resultado["score"],
                         "pergunta_faq": resultado["pergunta"],
                         "documentos": docs
@@ -122,11 +124,11 @@ def obter_resposta():
             resultado = obter_faq_mais_semelhante(pergunta, chatbot_id)
             if resultado:
                 cur.execute("""
-                    SELECT faq_id, categoria_id FROM faq
+                    SELECT faq_id, categoria_id, video_status FROM faq
                     WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
                 """, (resultado["pergunta"], chatbot_id))
                 row = cur.fetchone()
-                faq_id, categoria_id = row if row else (None, None)
+                faq_id, categoria_id, video_status = row if row else (None, None, None)
                 cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
                 docs = [r[0] for r in cur.fetchall()]
                 return jsonify({
@@ -135,6 +137,7 @@ def obter_resposta():
                     "resposta": resultado["resposta"],
                     "faq_id": faq_id,
                     "categoria_id": categoria_id,
+                    "video_status": video_status,
                     "score": resultado["score"],
                     "pergunta_faq": resultado["pergunta"],
                     "documentos": docs

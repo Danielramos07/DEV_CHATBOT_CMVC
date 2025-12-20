@@ -77,6 +77,33 @@ def can_start_new_video_job() -> bool:
         return _current_job.get("status") not in {"queued", "processing"}
 
 
+def queue_videos_for_chatbot(chatbot_id: int) -> bool:
+    """Queue generation of greeting and idle videos for the given chatbot.
+
+    Returns False if another job is already running.
+    """
+
+    with _job_lock:
+        if _current_job.get("status") in {"queued", "processing"}:
+            return False
+        _current_job.update(
+            {
+                "status": "queued",
+                "chatbot_id": chatbot_id,
+                "progress": 0,
+                "message": "A preparar geração de vídeos do chatbot...",
+                "error": None,
+                "started_at": time.time(),
+            }
+        )
+
+    from flask import current_app
+    app = current_app._get_current_object()
+    worker = Thread(target=_run_idle_video_job, args=(chatbot_id, app), daemon=True)
+    worker.start()
+    return True
+
+
 def queue_video_for_faq(faq_id: int) -> bool:
     """Queue a new video generation job for the given FAQ.
 
@@ -104,7 +131,7 @@ def queue_video_for_faq(faq_id: int) -> bool:
     return True
 
 
-def _generate_video(text: str, genero: Optional[str], avatar_path: Optional[Path]) -> str:
+def _generate_video(text: str, genero: Optional[str], avatar_path: Optional[Path], chatbot_id: int, is_idle: bool = False, video_type: str = "faq") -> str:
     """Generate a talking-head video for the given text and gender.
 
     Returns the absolute path to the resulting MP4 file.
@@ -126,16 +153,9 @@ def _generate_video(text: str, genero: Optional[str], avatar_path: Optional[Path
     if not avatar_path.exists():
         raise FileNotFoundError(f"Avatar image not found at: {avatar_path}")
 
-    voice_model_path = voice_model if voice_model.is_absolute() else (ROOT / voice_model)
-    if not voice_model_path.exists():
-        raise FileNotFoundError(
-            f"Piper voice model not found: {voice_model_path}. "
-            "Verifique a instalação dos modelos Piper (setup.py --models-only)."
-        )
-
     preprocess = SADTALKER_PREPROCESS_DEFAULT or "crop"
     size = SADTALKER_SIZE_DEFAULT if SADTALKER_SIZE_DEFAULT in {"256", "512"} else "256"
-    enhancer = SADTALKER_ENHANCER_DEFAULT or ""
+    enhancer = "gfpgan" if (ROOT / "backoffice/app/video/models/gfpgan/weights/GFPGANv1.4.pth").exists() else ""
     batch_size = str(SADTALKER_BATCH_SIZE_DEFAULT or "1")
 
     result_root = RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)
@@ -148,44 +168,74 @@ def _generate_video(text: str, genero: Optional[str], avatar_path: Optional[Path
     save_dir = result_dir / timestamp
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    wav_path = save_dir / "piper.wav"
-    piper_speak(text, str(wav_path), str(voice_model_path))
+    try:
+        if is_idle:
+            # For idle video, no audio needed, use idle mode
+            wav_path = None
+            _set_job(progress=50, message="A gerar animação idle...")
+        else:
+            # Generate audio for speaking video
+            voice_model_path = voice_model if voice_model.is_absolute() else (ROOT / voice_model)
+            if not voice_model_path.exists():
+                raise FileNotFoundError(
+                    f"Piper voice model not found: {voice_model_path}. "
+                    "Verifique a instalação dos modelos Piper (setup.py --models-only)."
+                )
 
-    still = preprocess.startswith("full")
+            wav_path = save_dir / "piper.wav"
+            piper_speak(text, str(wav_path), str(voice_model_path))
+            _set_job(progress=50, message="A processar vídeo...")
 
-    cmd = [
-        sys.executable,
-        "-m",
-        "src.inference",
-        "--driven_audio",
-        str(wav_path),
-        "--source_image",
-        str(avatar_path),
-        "--result_dir",
-        str(result_dir),
-        "--save_dir",
-        str(save_dir),
-        "--size",
-        str(size),
-        "--batch_size",
-        str(batch_size),
-        "--preprocess",
-        preprocess,
-    ]
+        still = preprocess.startswith("full")
 
-    if still:
-        cmd.append("--still")
+        cmd = [
+            sys.executable,
+            "-m",
+            "src.inference",
+            "--source_image",
+            str(avatar_path),
+            "--result_dir",
+            str(result_dir),
+            "--save_dir",
+            str(save_dir),
+            "--size",
+            str(size),
+            "--batch_size",
+            str(batch_size),
+            "--preprocess",
+            preprocess,
+        ]
 
-    if enhancer:
-        cmd.extend(["--enhancer", enhancer])
+        if is_idle:
+            cmd.extend(["--use_idle_mode", "--length_of_audio", "10"])
+        else:
+            cmd.extend(["--driven_audio", str(wav_path)])
 
-    subprocess.check_call(cmd, cwd=str(VIDEO_ROOT))
+        if still:
+            cmd.append("--still")
 
-    mp4_files = sorted(result_dir.rglob("*.mp4"), key=os.path.getmtime)
-    if not mp4_files:
-        raise RuntimeError(f"Nenhum ficheiro mp4 encontrado em {result_dir}.")
+        if enhancer:
+            cmd.extend(["--enhancer", enhancer])
 
-    return str(mp4_files[-1].resolve())
+        subprocess.check_call(cmd, cwd=str(VIDEO_ROOT))
+
+        _set_job(progress=80, message="A finalizar vídeo...")
+
+        mp4_files = sorted(result_dir.rglob("*.mp4"), key=os.path.getmtime)
+        if not mp4_files:
+            raise RuntimeError(f"Nenhum ficheiro mp4 encontrado em {result_dir}.")
+
+        # Move the MP4 to results/{video_type}_{chatbot_id}.mp4
+        final_mp4 = mp4_files[-1]
+        final_path = result_root / f"{video_type}_{chatbot_id}.mp4"
+        final_mp4.rename(final_path)
+
+        return str(final_path.resolve())
+    finally:
+        # Clean up the temporary directories
+        import shutil
+        if result_dir.exists():
+            shutil.rmtree(result_dir)
 
 
 def _run_video_job(faq_id: int, app) -> None:
@@ -200,7 +250,8 @@ def _run_video_job(faq_id: int, app) -> None:
                 SELECT f.resposta,
                        COALESCE(f.video_text, f.resposta) AS video_text,
                        c.genero,
-                       c.icon_path
+                       c.icon_path,
+                       c.chatbot_id
                 FROM faq f
                 JOIN chatbot c ON f.chatbot_id = c.chatbot_id
                 WHERE f.faq_id = %s
@@ -211,7 +262,7 @@ def _run_video_job(faq_id: int, app) -> None:
             if not row:
                 raise ValueError(f"FAQ com id {faq_id} não encontrada.")
 
-            resposta, video_text, genero, icon_path = row
+            resposta, video_text, genero, icon_path, chatbot_id = row
             video_text = (video_text or resposta or "").strip()
             if not video_text:
                 raise ValueError("Texto para vídeo vazio.")
@@ -237,7 +288,7 @@ def _run_video_job(faq_id: int, app) -> None:
                 except Exception:
                     avatar_file = None
 
-            video_path = _generate_video(video_text, genero, avatar_file)
+            video_path = _generate_video(video_text, genero, avatar_file, chatbot_id, is_idle=False, video_type="faq")
 
             _set_job(progress=90, message="A finalizar vídeo...")
             cur.execute(
@@ -258,6 +309,59 @@ def _run_video_job(faq_id: int, app) -> None:
                 conn.commit()
             except Exception:
                 conn.rollback()
+        finally:
+            cur.close()
+            conn.close()
+
+
+def _run_idle_video_job(chatbot_id: int, app) -> None:
+    with app.app_context():
+        conn = get_conn()
+        cur = conn.cursor()
+        try:
+            _set_job(status="processing", progress=10, message="A preparar dados do chatbot...")
+
+            cur.execute(
+                "SELECT nome, genero, icon_path FROM chatbot WHERE chatbot_id = %s",
+                (chatbot_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise ValueError(f"Chatbot {chatbot_id} não encontrado.")
+            nome, genero, icon_path = row
+
+            # Resolver avatar
+            avatar_file: Optional[Path] = None
+            if icon_path:
+                try:
+                    filename = str(icon_path).split("/")[-1]
+                    icon_base = ICON_DIR if ICON_DIR.is_absolute() else (ROOT / ICON_DIR)
+                    candidate = icon_base / filename
+                    if candidate.exists():
+                        avatar_file = candidate
+                except Exception:
+                    avatar_file = None
+
+            # Generate greeting video
+            _set_job(progress=25, message="A gerar vídeo de saudação...")
+            video_text = f"Olá, sou o {nome}. Como posso ajudar?"
+            greeting_path = _generate_video(video_text, genero, avatar_file, chatbot_id, is_idle=False, video_type="greeting")
+
+            # Generate idle video
+            _set_job(progress=60, message="A gerar vídeo idle...")
+            idle_path = _generate_video("", genero, avatar_file, chatbot_id, is_idle=True, video_type="idle")
+
+            _set_job(progress=90, message="A finalizar vídeos...")
+            cur.execute(
+                "UPDATE chatbot SET video_greeting_path=%s, video_idle_path=%s WHERE chatbot_id=%s",
+                (greeting_path, idle_path, chatbot_id),
+            )
+            conn.commit()
+
+            _set_job(status="done", progress=100, message="Vídeos gerados com sucesso.", error=None)
+        except Exception as e:
+            conn.rollback()
+            _set_job(status="error", progress=100, message="Falha ao gerar vídeos.", error=str(e))
         finally:
             cur.close()
             conn.close()

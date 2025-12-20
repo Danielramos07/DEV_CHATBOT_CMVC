@@ -187,6 +187,13 @@
 
             <div class="chat-avatar-panel" id="chatAvatarPanel">
               <div class="chat-avatar-inner">
+                <video
+                  class="chat-avatar-video"
+                  autoplay
+                  muted
+                  loop
+                  style="display: none"
+                ></video>
                 <img
                   src="{{ url_for('static', filename='images/face.jpg') }}"
                   alt="Assistente Virtual"
