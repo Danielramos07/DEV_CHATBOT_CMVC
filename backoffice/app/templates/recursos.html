@@ -133,6 +133,19 @@ content %}
           </select>
         </div>
       </div>
+      <div class="grid-row">
+        <div class="form-group">
+          <label for="editarVideoEnabledChatbot">
+            <input
+              type="checkbox"
+              name="video_enabled"
+              id="editarVideoEnabledChatbot"
+              style="width: 18px; height: 18px; margin-right: 6px"
+            />
+            Ativar geração de vídeo (SadTalker) para este chatbot
+          </label>
+        </div>
+      </div>
       <div class="form-group">
         <label for="editarMensagemSemResposta"
           >Mensagem personalizada "Sem Resposta":</label
@@ -232,6 +245,29 @@ content %}
             <option value="pt">Português</option>
             <option value="en">Inglês</option>
           </select>
+          <div
+            id="faqVideoInfo"
+            style="font-size: 13px; margin: 6px 0 2px; color: #555"
+          ></div>
+          <label
+            for="faqGerarVideoCheckbox"
+            id="faqGerarVideoWrapper"
+            style="
+              display: none;
+              margin-bottom: 8px;
+              font-size: 14px;
+              cursor: pointer;
+            "
+          >
+            <input
+              type="checkbox"
+              name="gerar_video"
+              id="faqGerarVideoCheckbox"
+              style="width: 16px; height: 16px; margin-right: 6px"
+              checked
+            />
+            Gerar vídeo para esta FAQ (um vídeo de cada vez em todo o sistema)
+          </label>
           <input
             type="text"
             name="links_documentos"

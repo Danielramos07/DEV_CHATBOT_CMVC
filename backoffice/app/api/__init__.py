@@ -5,6 +5,7 @@ from .faqs import app as faqs_bp
 from .categorias import app as categorias_bp
 from .uploads import app as uploads_bp
 from .stt_vosk_api import app as stt_vosk_bp
+from .video import app as video_bp
 
 # Criar um blueprint principal para a API
 api = Blueprint('api', __name__)
@@ -16,4 +17,5 @@ api.register_blueprint(faqs_bp)
 api.register_blueprint(categorias_bp)
 api.register_blueprint(uploads_bp)
 api.register_blueprint(stt_vosk_bp)
+api.register_blueprint(video_bp)
 

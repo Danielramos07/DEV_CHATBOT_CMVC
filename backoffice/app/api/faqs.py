@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify
 from ..db import get_conn
 from ..services.retreival import build_faiss_index
+from ..services.video_service import can_start_new_video_job, queue_video_for_faq
+import os
 
 app = Blueprint('faqs', __name__)
 
@@ -10,10 +12,19 @@ def get_faqs():
     conn = get_conn()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT faq_id, chatbot_id, designacao, pergunta, resposta FROM faq")
+        cur.execute("SELECT faq_id, chatbot_id, designacao, pergunta, resposta, video_status, video_path FROM faq")
         data = cur.fetchall()
         return jsonify([
-            {"faq_id": f[0], "chatbot_id": f[1], "designacao": f[2], "pergunta": f[3], "resposta": f[4]} for f in data
+            {
+                "faq_id": f[0],
+                "chatbot_id": f[1],
+                "designacao": f[2],
+                "pergunta": f[3],
+                "resposta": f[4],
+                "video_status": f[5],
+                "video_path": f[6],
+            }
+            for f in data
         ])
     except Exception as e:
         conn.rollback()
@@ -29,7 +40,7 @@ def get_faq_by_id(faq_id):
     try:
         cur.execute("""
             SELECT f.faq_id, f.chatbot_id, f.categoria_id, f.designacao, f.pergunta, f.resposta, f.idioma, f.links_documentos,
-                   c.nome as categoria_nome, f.recomendado
+                   c.nome as categoria_nome, f.recomendado, f.video_status, f.video_path, f.video_text
             FROM faq f
             LEFT JOIN categoria c ON f.categoria_id = c.categoria_id
             WHERE f.faq_id = %s
@@ -49,7 +60,10 @@ def get_faq_by_id(faq_id):
                 "idioma": faq[6],
                 "links_documentos": faq[7],
                 "categoria_nome": faq[8],
-                "recomendado": faq[9]
+                "recomendado": faq[9],
+                "video_status": faq[10],
+                "video_path": faq[11],
+                "video_text": faq[12],
             }
         })
     except Exception as e:
@@ -99,12 +113,35 @@ def update_faq(faq_id):
         categorias = data.get("categorias", [])
         recomendado = data.get("recomendado", False)
         categoria_id = categorias[0] if categorias else None
+        # Fetch current values to check if resposta or video_text changed
+        cur.execute("SELECT resposta, video_text, chatbot_id FROM faq WHERE faq_id = %s", (faq_id,))
+        old = cur.fetchone()
+        old_resposta = old[0] if old else None
+        old_video_text = old[1] if old else None
+        chatbot_id = old[2] if old else None
+
         cur.execute("""
             UPDATE faq SET pergunta=%s, resposta=%s, idioma=%s, categoria_id=%s, recomendado=%s
             WHERE faq_id=%s
         """, (pergunta, resposta, idioma, categoria_id, recomendado, faq_id))
         conn.commit()
         build_faiss_index()
+
+        # Check if chatbot has video_enabled
+        video_enabled = False
+        if chatbot_id:
+            cur.execute("SELECT video_enabled FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
+            row = cur.fetchone()
+            video_enabled = bool(row[0]) if row else False
+
+        # If resposta or video_text changed, and video_enabled, queue video
+        if video_enabled and ((resposta and resposta != old_resposta) or ("video_text" in data and data["video_text"] != (old_video_text or ""))):
+            if can_start_new_video_job():
+                queue_video_for_faq(faq_id)
+                return jsonify({"success": True, "video_queued": True})
+            else:
+                return jsonify({"success": True, "video_queued": False, "busy": True})
+
         return jsonify({"success": True})
     except Exception as e:
         conn.rollback()
@@ -124,15 +161,31 @@ def add_faq():
             return jsonify({"success": False, "error": "O campo 'idioma' é obrigatório."}), 400
         links_documentos = data.get("links_documentos", "").strip()
         recomendado = data.get("recomendado", False)
+        video_text = data.get("video_text", "").strip() or None
+        gerar_video = bool(data.get("gerar_video"))
         cur.execute("""
             SELECT faq_id FROM faq
             WHERE chatbot_id = %s AND designacao = %s AND pergunta = %s AND resposta = %s AND idioma = %s
         """, (data["chatbot_id"], data["designacao"], data["pergunta"], data["resposta"], idioma))
         if cur.fetchone():
             return jsonify({"success": False, "error": "Esta FAQ já está inserida."}), 409
+
+        # Always check if chatbot has video_enabled
+        cur.execute("SELECT video_enabled FROM chatbot WHERE chatbot_id = %s", (data["chatbot_id"],))
+        row = cur.fetchone()
+        video_enabled = bool(row[0]) if row else False
+
+        # Se for para gerar vídeo, garantir que não há outro job em curso.
+        if (gerar_video or video_enabled) and not can_start_new_video_job():
+            return jsonify({
+                "success": False,
+                "busy": True,
+                "error": "Já existe um vídeo a ser gerado. Aguarde que termine ou desative a opção de gerar vídeo."
+            }), 409
+
         cur.execute("""
-            INSERT INTO faq (chatbot_id, categoria_id, designacao, pergunta, resposta, idioma, links_documentos, recomendado)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO faq (chatbot_id, categoria_id, designacao, pergunta, resposta, idioma, links_documentos, recomendado, video_text)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING faq_id
         """, (
             data["chatbot_id"],
@@ -142,7 +195,8 @@ def add_faq():
             data["resposta"],
             idioma,
             links_documentos,
-            recomendado
+            recomendado,
+            video_text,
         ))
         faq_id = cur.fetchone()[0]
         if links_documentos:
@@ -158,7 +212,12 @@ def add_faq():
                 cur.execute("INSERT INTO faq_relacionadas (faq_id, faq_relacionada_id) VALUES (%s, %s)", (faq_id, int(rel_id.strip())))
         conn.commit()
         build_faiss_index()
-        return jsonify({"success": True, "faq_id": faq_id})
+
+        if gerar_video or video_enabled:
+            queue_video_for_faq(faq_id)
+            return jsonify({"success": True, "faq_id": faq_id, "video_queued": True})
+
+        return jsonify({"success": True, "faq_id": faq_id, "video_queued": False})
     except Exception as e:
         conn.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
@@ -171,9 +230,22 @@ def delete_faq(faq_id):
     conn = get_conn()
     cur = conn.cursor()
     try:
+        # Fetch video_path before deleting
+        cur.execute("SELECT video_path FROM faq WHERE faq_id = %s", (faq_id,))
+        row = cur.fetchone()
+        video_path = row[0] if row else None
+
         cur.execute("DELETE FROM faq WHERE faq_id = %s", (faq_id,))
         conn.commit()
         build_faiss_index()
+
+        # Delete video file if it exists
+        if video_path and os.path.isfile(video_path):
+            try:
+                os.remove(video_path)
+            except Exception:
+                pass
+
         return jsonify({"success": True})
     except Exception as e:
         conn.rollback()
@@ -189,7 +261,8 @@ def get_faqs_detalhes():
     try:
         cur.execute("""
             SELECT f.faq_id, f.chatbot_id, f.designacao, f.pergunta, f.resposta, f.idioma, f.links_documentos,
-                   f.categoria_id, c.nome AS categoria_nome, ch.nome AS chatbot_nome, f.recomendado
+                   f.categoria_id, c.nome AS categoria_nome, ch.nome AS chatbot_nome, f.recomendado,
+                   f.video_status, f.video_path, f.video_text
             FROM faq f
             LEFT JOIN categoria c ON f.categoria_id = c.categoria_id
             LEFT JOIN chatbot ch ON f.chatbot_id = ch.chatbot_id
@@ -208,7 +281,10 @@ def get_faqs_detalhes():
                 "categoria_id": r[7],
                 "categoria_nome": r[8],
                 "chatbot_nome": r[9],
-                "recomendado": r[10]
+                "recomendado": r[10],
+                "video_status": r[11],
+                "video_path": r[12],
+                "video_text": r[13],
             }
             for r in data
         ])

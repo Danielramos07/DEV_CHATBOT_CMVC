@@ -148,3 +148,5 @@ Paths (relative to project root):
 - Icons: `backoffice/static/icons/`
 
 If you add new documents, there may be an admin action or API endpoint to rebuild the FAISS index (check `backoffice/app/services/rag.py` and API routes under `backoffice/app/api/`).
+
+TROCAR functional_tensor POR functional NO FICHEIRO degradations DA VENV NA PASTA DO PYTHON

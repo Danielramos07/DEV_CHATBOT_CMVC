@@ -70,7 +70,7 @@ function mostrarPromptRAG(perguntaOriginal, chatbotId) {
         link.textContent = "A pesquisar...";
         link.style.pointerEvents = "none";
         window.awaitingRagConfirmation = false;
-      }
+      };
     }
   }, 80);
 }
@@ -86,12 +86,12 @@ function enviarPerguntaRAG() {
       pergunta,
       chatbot_id: chatbotId,
       fonte: "faq+raga",
-      feedback: "try_rag"
-    })
+      feedback: "try_rag",
+    }),
   })
-    .then(res => res.json())
-    .then(data => {
-      document.querySelectorAll('.rag-btn-bar').forEach(el => el.remove());
+    .then((res) => res.json())
+    .then((data) => {
+      document.querySelectorAll(".rag-btn-bar").forEach((el) => el.remove());
       window.awaitingRagConfirmation = false;
       if (data.success) {
         adicionarMensagem("bot", data.resposta || "");
@@ -104,10 +104,7 @@ function enviarPerguntaRAG() {
     })
     .catch(() => {
       window.awaitingRagConfirmation = false;
-      adicionarMensagem(
-        "bot",
-        "❌ Erro ao comunicar com o servidor (RAG)."
-      );
+      adicionarMensagem("bot", "❌ Erro ao comunicar com o servidor (RAG).");
     });
 }
 
@@ -118,20 +115,31 @@ async function carregarChatbots() {
     const selects = document.querySelectorAll('select[name="chatbot_id"]');
     if (selects.length) {
       const chatbotIdSelecionado = localStorage.getItem("chatbotSelecionado");
-      selects.forEach(select => {
-        select.innerHTML = '<option value="">Selecione o Chatbot</option>' +
+      selects.forEach((select) => {
+        select.innerHTML =
+          '<option value="">Selecione o Chatbot</option>' +
           '<option value="todos">Todos os Chatbots</option>' +
-          chatbots.map(bot => `<option value="${String(bot.chatbot_id)}">${bot.nome}</option>`).join('');
+          chatbots
+            .map(
+              (bot) =>
+                `<option value="${String(bot.chatbot_id)}">${bot.nome}</option>`
+            )
+            .join("");
 
         const estaEmFormulario = !!select.closest("form");
-        if (!estaEmFormulario && chatbotIdSelecionado && !isNaN(parseInt(chatbotIdSelecionado))) {
+        if (
+          !estaEmFormulario &&
+          chatbotIdSelecionado &&
+          !isNaN(parseInt(chatbotIdSelecionado))
+        ) {
           select.value = chatbotIdSelecionado;
         }
 
         select.addEventListener("change", () => {
           const val = select.value;
           window.chatbotSelecionado = val === "todos" ? null : parseInt(val);
-          if (val !== "todos") carregarTabelaFAQs(window.chatbotSelecionado, true);
+          if (val !== "todos")
+            carregarTabelaFAQs(window.chatbotSelecionado, true);
         });
       });
 
@@ -143,8 +151,14 @@ async function carregarChatbots() {
 
     const filtro = document.getElementById("filtroChatbot");
     if (filtro) {
-      filtro.innerHTML = `<option value="">Todos os Chatbots</option>` +
-        chatbots.map(bot => `<option value="${String(bot.chatbot_id)}">${bot.nome}</option>`).join('');
+      filtro.innerHTML =
+        `<option value="">Todos os Chatbots</option>` +
+        chatbots
+          .map(
+            (bot) =>
+              `<option value="${String(bot.chatbot_id)}">${bot.nome}</option>`
+          )
+          .join("");
     }
   } catch (err) {
     console.error("❌ Erro ao carregar chatbots:", err);
@@ -156,35 +170,42 @@ async function carregarTabelaFAQsBackoffice() {
   if (!lista) return;
   lista.innerHTML = "<p>A carregar FAQs...</p>";
 
-  const textoPesquisa = (document.getElementById("pesquisaFAQ")?.value || "").toLowerCase();
+  const textoPesquisa = (
+    document.getElementById("pesquisaFAQ")?.value || ""
+  ).toLowerCase();
   const filtroChatbot = document.getElementById("filtroChatbot")?.value || "";
   const filtroIdioma = document.getElementById("filtroIdioma")?.value || "";
 
   try {
     const [faqs, chatbots, categorias] = await Promise.all([
-      fetch("/faqs/detalhes").then(r => r.json()),
-      fetch("/chatbots").then(r => r.json()),
-      fetch("/categorias").then(r => r.json())
+      fetch("/faqs/detalhes").then((r) => r.json()),
+      fetch("/chatbots").then((r) => r.json()),
+      fetch("/categorias").then((r) => r.json()),
     ]);
 
     const chatbotsMap = {};
-    chatbots.forEach(bot => chatbotsMap[bot.chatbot_id] = bot.nome);
+    chatbots.forEach((bot) => (chatbotsMap[bot.chatbot_id] = bot.nome));
     const categoriasMap = {};
-    categorias.forEach(cat => categoriasMap[cat.categoria_id] = cat.nome);
+    categorias.forEach((cat) => (categoriasMap[cat.categoria_id] = cat.nome));
 
-    let faqsFiltradas = faqs.filter(faq => {
+    let faqsFiltradas = faqs.filter((faq) => {
       let matchPesquisa = true;
       if (textoPesquisa) {
         const target =
-          (faq.designacao || "") + " " +
-          (faq.pergunta || "") + " " +
+          (faq.designacao || "") +
+          " " +
+          (faq.pergunta || "") +
+          " " +
           (faq.resposta || "");
         matchPesquisa = target.toLowerCase().includes(textoPesquisa);
       }
       let matchChatbot = true;
-      if (filtroChatbot) matchChatbot = String(faq.chatbot_id) === filtroChatbot;
+      if (filtroChatbot)
+        matchChatbot = String(faq.chatbot_id) === filtroChatbot;
       let matchIdioma = true;
-      if (filtroIdioma) matchIdioma = (faq.idioma || "").toLowerCase() === filtroIdioma.toLowerCase();
+      if (filtroIdioma)
+        matchIdioma =
+          (faq.idioma || "").toLowerCase() === filtroIdioma.toLowerCase();
 
       return matchPesquisa && matchChatbot && matchIdioma;
     });
@@ -200,50 +221,84 @@ async function carregarTabelaFAQsBackoffice() {
             <th>Idioma</th>
             <th>Categorias da FAQ</th>
             <th>Recomendações</th>
+            <th>Vídeo</th>
             <th>Ações</th>
           </tr>
         </thead>
         <tbody>
-          ${faqsFiltradas.map(faq => {
-            let docLinks = "";
-            if (faq.links_documentos && faq.links_documentos.trim()) {
-              docLinks = faq.links_documentos.split(",").map(link => {
-                link = link.trim();
-                if (!link) return "";
-                return `
+          ${faqsFiltradas
+            .map((faq) => {
+              let docLinks = "";
+              if (faq.links_documentos && faq.links_documentos.trim()) {
+                docLinks = faq.links_documentos
+                  .split(",")
+                  .map((link) => {
+                    link = link.trim();
+                    if (!link) return "";
+                    return `
                   <a href="${link}" target="_blank" style="display:inline-block;">
                     <img src="images/pdf-icon.png" alt="PDF" title="Abrir documento PDF" style="width:26px;vertical-align:middle;">
                   </a>
                 `;
-              }).join(" ");
-            }
-            let flag = "-";
-            if (faq.idioma === "pt" || faq.idioma?.toLowerCase() === "português") {
-              flag = '<img src="/static/images/pt.jpg" style="height:20px" title="Português">';
-            } else if (faq.idioma === "en" || faq.idioma?.toLowerCase() === "inglês" || faq.idioma?.toLowerCase() === "english") {
-              flag = '<img src="/static/images/en.png" style="height:20px" title="English">';
-            } else if (faq.idioma) {
-              flag = faq.idioma;
-            }
-            let recomendacao = faq.recomendado
-              ? '<span style="color:green;font-size:18px;">✅ Sim</span>'
-              : '<span style="color:#cc2424;font-size:18px;">❌ Não</span>';
-            return `
+                  })
+                  .join(" ");
+              }
+              let flag = "-";
+              if (
+                faq.idioma === "pt" ||
+                faq.idioma?.toLowerCase() === "português"
+              ) {
+                flag =
+                  '<img src="/static/images/pt.jpg" style="height:20px" title="Português">';
+              } else if (
+                faq.idioma === "en" ||
+                faq.idioma?.toLowerCase() === "inglês" ||
+                faq.idioma?.toLowerCase() === "english"
+              ) {
+                flag =
+                  '<img src="/static/images/en.png" style="height:20px" title="English">';
+              } else if (faq.idioma) {
+                flag = faq.idioma;
+              }
+              let recomendacao = faq.recomendado
+                ? '<span style="color:green;font-size:18px;">✅ Sim</span>'
+                : '<span style="color:#cc2424;font-size:18px;">❌ Não</span>';
+
+              let videoCol = "-";
+              if (
+                faq.video_status === "processing" ||
+                faq.video_status === "queued"
+              ) {
+                videoCol = '<span style="color:#d97706;">⏳ a processar</span>';
+              } else if (faq.video_status === "ready" && faq.video_path) {
+                videoCol = `<a href="/video/faq/${faq.faq_id}" target="_blank" style="color:#2563eb;">▶ Ver vídeo</a>`;
+              } else if (faq.video_status === "failed") {
+                videoCol = '<span style="color:#b91c1c;">❌ falhou</span>';
+              }
+              return `
               <tr>
                 <td>${chatbotsMap[faq.chatbot_id] || "-"}</td>
                 <td>${faq.designacao || "-"}</td>
                 <td>${faq.pergunta || "-"}</td>
                 <td class="col-pdf">${docLinks || "-"}</td>
                 <td>${flag}</td>
-                <td>${faq.categoria_nome || categoriasMap[faq.categoria_id] || "-"}</td>
+                <td>${
+                  faq.categoria_nome || categoriasMap[faq.categoria_id] || "-"
+                }</td>
                 <td style="text-align:center;">${recomendacao}</td>
+                <td style="text-align:center;">${videoCol}</td>
                 <td>
-                  <button class="btn-remover" onclick="pedirConfirmacao(${faq.faq_id})">Remover</button>
-                  <button class="btn-editar" onclick="editarFAQ(${faq.faq_id})">Editar</button>
+                  <button class="btn-remover" onclick="pedirConfirmacao(${
+                    faq.faq_id
+                  })">Remover</button>
+                  <button class="btn-editar" onclick="editarFAQ(${
+                    faq.faq_id
+                  })">Editar</button>
                 </td>
               </tr>
             `;
-          }).join("")}
+            })
+            .join("")}
         </tbody>
       </table>
     `;
@@ -288,14 +343,15 @@ function responderPergunta(pergunta) {
     return;
   }
 
-  const fonte = localStorage.getItem(`fonteSelecionada_bot${chatbotId}`) || "faq";
+  const fonte =
+    localStorage.getItem(`fonteSelecionada_bot${chatbotId}`) || "faq";
   fetch("/obter-resposta", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pergunta, chatbot_id: chatbotId, fonte })
+    body: JSON.stringify({ pergunta, chatbot_id: chatbotId, fonte }),
   })
-    .then(res => res.json())
-    .then(data => {
+    .then((res) => res.json())
+    .then((data) => {
       if (data.success) {
         adicionarMensagem("bot", data.resposta);
         obterPerguntasSemelhantes(pergunta, chatbotId);
@@ -303,20 +359,24 @@ function responderPergunta(pergunta) {
       } else if (
         data.prompt_rag ||
         (data.erro &&
-          data.erro.toLowerCase().includes("deseja tentar encontrar uma resposta nos documentos pdf"))
+          data.erro
+            .toLowerCase()
+            .includes(
+              "deseja tentar encontrar uma resposta nos documentos pdf"
+            ))
       ) {
         window.awaitingRagConfirmation = true;
         mostrarPromptRAG(pergunta, chatbotId);
       } else {
-        adicionarMensagem("bot", data.erro || "❌ Nenhuma resposta encontrada.");
+        adicionarMensagem(
+          "bot",
+          data.erro || "❌ Nenhuma resposta encontrada."
+        );
         window.awaitingRagConfirmation = false;
       }
     })
     .catch(() => {
-      adicionarMensagem(
-        "bot",
-        "❌ Erro ao comunicar com o servidor."
-      );
+      adicionarMensagem("bot", "❌ Erro ao comunicar com o servidor.");
       window.awaitingRagConfirmation = false;
     });
 }
@@ -329,10 +389,10 @@ function obterPerguntasSemelhantes(perguntaOriginal, chatbotId) {
   fetch("/perguntas-semelhantes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pergunta: perguntaOriginal, chatbot_id: chatbotId })
+    body: JSON.stringify({ pergunta: perguntaOriginal, chatbot_id: chatbotId }),
   })
-    .then(res => res.json())
-    .then(data => {
+    .then((res) => res.json())
+    .then((data) => {
       if (data.success && data.sugestoes.length > 0) {
         const chat = document.getElementById("chatBody");
         const divTitulo = document.createElement("div");
@@ -346,7 +406,7 @@ function obterPerguntasSemelhantes(perguntaOriginal, chatbotId) {
         btnContainer.style.marginTop = "6px";
         btnContainer.style.flexWrap = "wrap";
 
-        data.sugestoes.forEach(pergunta => {
+        data.sugestoes.forEach((pergunta) => {
           const btn = document.createElement("button");
           btn.className = "btn-similar";
           btn.textContent = pergunta;
@@ -363,7 +423,7 @@ function obterPerguntasSemelhantes(perguntaOriginal, chatbotId) {
     });
 }
 
-document.querySelectorAll(".faqForm").forEach(faqForm => {
+document.querySelectorAll(".faqForm").forEach((faqForm) => {
   const statusDiv = document.createElement("div");
   statusDiv.className = "faqStatus";
   statusDiv.style.marginTop = "10px";
@@ -382,7 +442,7 @@ document.querySelectorAll(".faqForm").forEach(faqForm => {
       resposta: form.resposta.value.trim(),
       documentos: form.documentos.value.trim(),
       relacionadas: form.relacionadas.value.trim(),
-      recomendado: form.recomendado ? form.recomendado.checked : false
+      recomendado: form.recomendado ? form.recomendado.checked : false,
     };
 
     try {
@@ -395,7 +455,7 @@ document.querySelectorAll(".faqForm").forEach(faqForm => {
           await fetch("/faqs", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data)
+            body: JSON.stringify(data),
           });
         }
 
@@ -408,7 +468,7 @@ document.querySelectorAll(".faqForm").forEach(faqForm => {
         const res = await fetch("/faqs", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data)
+          body: JSON.stringify(data),
         });
 
         const resultado = await res.json();
@@ -420,7 +480,9 @@ document.querySelectorAll(".faqForm").forEach(faqForm => {
           carregarTabelaFAQs(parseInt(chatbotIdRaw), true);
           mostrarRespostas();
         } else {
-          statusDiv.innerHTML = `❌ Erro: ${resultado.error || resultado.erro || "Erro desconhecido."}`;
+          statusDiv.innerHTML = `❌ Erro: ${
+            resultado.error || resultado.erro || "Erro desconhecido."
+          }`;
           statusDiv.style.color = "red";
         }
       }
@@ -432,17 +494,19 @@ document.querySelectorAll(".faqForm").forEach(faqForm => {
   });
 });
 
-document.querySelectorAll(".uploadForm").forEach(uploadForm => {
+document.querySelectorAll(".uploadForm").forEach((uploadForm) => {
   uploadForm.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const uploadStatus = 
+    const uploadStatus =
       uploadForm.querySelector(".uploadStatusPDF") ||
       uploadForm.querySelector(".uploadStatus") ||
       document.getElementById("uploadStatus");
 
     if (!uploadStatus) {
-      alert("⚠️ Erro: Não foi encontrado nenhum elemento para mostrar o status do upload!");
+      alert(
+        "⚠️ Erro: Não foi encontrado nenhum elemento para mostrar o status do upload!"
+      );
       return;
     }
 
@@ -450,21 +514,31 @@ document.querySelectorAll(".uploadForm").forEach(uploadForm => {
     let rota = "upload-faq-docx";
     let isPDF = false;
 
-    const pdfInput = uploadForm.querySelector('input[type="file"][accept=".pdf"]');
-    const docxInput = uploadForm.querySelector('input[type="file"][accept=".docx"]');
+    const pdfInput = uploadForm.querySelector(
+      'input[type="file"][accept=".pdf"]'
+    );
+    const docxInput = uploadForm.querySelector(
+      'input[type="file"][accept=".docx"]'
+    );
 
     if (pdfInput && pdfInput.files.length > 0) {
       rota = "upload-pdf";
       isPDF = true;
       formData.delete("file");
-      Array.from(pdfInput.files).forEach(file => formData.append("file", file));
+      Array.from(pdfInput.files).forEach((file) =>
+        formData.append("file", file)
+      );
     } else if (docxInput && docxInput.files.length > 1) {
       rota = "upload-faq-docx-multiplos";
       formData.delete("files");
-      Array.from(docxInput.files).forEach(file => formData.append("files", file));
+      Array.from(docxInput.files).forEach((file) =>
+        formData.append("files", file)
+      );
     }
 
-    const chatbotId = uploadForm.querySelector('input[name="chatbot_id"]')?.value;
+    const chatbotId = uploadForm.querySelector(
+      'input[name="chatbot_id"]'
+    )?.value;
     if (!chatbotId) {
       uploadStatus.innerHTML = "❌ Selecione um chatbot antes de enviar.";
       uploadStatus.style.color = "red";
@@ -475,7 +549,7 @@ document.querySelectorAll(".uploadForm").forEach(uploadForm => {
     try {
       const res = await fetch(`/${rota}`, {
         method: "POST",
-        body: formData
+        body: formData,
       });
       const resultado = await res.json();
 
@@ -488,7 +562,9 @@ document.querySelectorAll(".uploadForm").forEach(uploadForm => {
           carregarTabelaFAQs(parseInt(chatbotId), true);
         }
       } else {
-        uploadStatus.innerHTML = `❌ Erro: ${resultado.error || "Erro ao carregar o documento."}`;
+        uploadStatus.innerHTML = `❌ Erro: ${
+          resultado.error || "Erro ao carregar o documento."
+        }`;
         uploadStatus.style.color = "red";
       }
     } catch (err) {
@@ -504,59 +580,91 @@ let categoriasDisponiveis = [];
 
 async function editarFAQ(faq_id) {
   try {
-    const faqResp = await fetch(`/faqs/${faq_id}`).then(r => r.json());
+    const faqResp = await fetch(`/faqs/${faq_id}`).then((r) => r.json());
     if (!faqResp.success || !faqResp.faq) {
       alert("Erro ao carregar dados da FAQ.");
       return;
     }
     faqAEditar = faqResp.faq;
 
-    const categorias = await fetch(`/chatbots/${faqAEditar.chatbot_id}/categorias`).then(r => r.json());
+    const categorias = await fetch(
+      `/chatbots/${faqAEditar.chatbot_id}/categorias`
+    ).then((r) => r.json());
     categoriasDisponiveis = categorias;
 
-    document.getElementById('editarPergunta').value = faqAEditar.pergunta || "";
-    document.getElementById('editarResposta').value = faqAEditar.resposta || "";
-    document.getElementById('editarIdioma').value = faqAEditar.idioma || "pt";
-    if (document.getElementById('editarRecomendado'))
-      document.getElementById('editarRecomendado').checked = !!faqAEditar.recomendado;
+    document.getElementById("editarPergunta").value = faqAEditar.pergunta || "";
+    document.getElementById("editarResposta").value = faqAEditar.resposta || "";
+    document.getElementById("editarIdioma").value = faqAEditar.idioma || "pt";
+    if (document.getElementById("editarRecomendado"))
+      document.getElementById("editarRecomendado").checked =
+        !!faqAEditar.recomendado;
 
-    const catContainer = document.getElementById('editarCategoriasContainer');
+    const catContainer = document.getElementById("editarCategoriasContainer");
     let categoriasMarcadas = [];
     if (Array.isArray(faqAEditar.categorias)) {
       categoriasMarcadas = faqAEditar.categorias.map(Number);
     } else if (faqAEditar.categoria_id) {
       categoriasMarcadas = [Number(faqAEditar.categoria_id)];
     }
-    catContainer.innerHTML = categorias.map(cat => {
-      const checked = categoriasMarcadas.includes(Number(cat.categoria_id));
-      return `<label style="display:inline-flex;align-items:center;gap:3px;">
-        <input type="checkbox" value="${cat.categoria_id}" ${checked ? "checked" : ""} />${cat.nome}
+    catContainer.innerHTML = categorias
+      .map((cat) => {
+        const checked = categoriasMarcadas.includes(Number(cat.categoria_id));
+        return `<label style="display:inline-flex;align-items:center;gap:3px;">
+        <input type="checkbox" value="${cat.categoria_id}" ${
+          checked ? "checked" : ""
+        } />${cat.nome}
       </label>`;
-    }).join("");
+      })
+      .join("");
 
     document.getElementById("modalEditarFAQ").style.display = "flex";
-    document.getElementById("editarStatusFAQ").textContent = "";
+    const statusDiv = document.getElementById("editarStatusFAQ");
+    if (statusDiv) {
+      let texto = "";
+      if (
+        faqAEditar.video_status === "processing" ||
+        faqAEditar.video_status === "queued"
+      ) {
+        texto = "Vídeo desta FAQ está em processamento.";
+        statusDiv.style.color = "#d97706";
+      } else if (faqAEditar.video_status === "ready" && faqAEditar.video_path) {
+        texto = `Vídeo disponível para esta FAQ. Clique em 'Ver vídeo' na listagem para o abrir.`;
+        statusDiv.style.color = "#16a34a";
+      } else if (faqAEditar.video_status === "failed") {
+        texto = "A geração de vídeo para esta FAQ falhou.";
+        statusDiv.style.color = "#b91c1c";
+      } else {
+        texto = "Esta FAQ ainda não tem vídeo associado.";
+        statusDiv.style.color = "#4b5563";
+      }
+      statusDiv.textContent = texto;
+    }
   } catch (err) {
     alert("Erro ao carregar dados da FAQ.");
   }
-}  
+}
 
 const formEditarFAQ = document.getElementById("formEditarFAQ");
 if (formEditarFAQ) {
-  formEditarFAQ.onsubmit = async function(e) {
+  formEditarFAQ.onsubmit = async function (e) {
     e.preventDefault();
     const status = document.getElementById("editarStatusFAQ");
     status.textContent = "";
 
     if (!faqAEditar) return;
 
-    const pergunta = document.getElementById('editarPergunta').value.trim();
-    const resposta = document.getElementById('editarResposta').value.trim();
-    const idioma = document.getElementById('editarIdioma').value;
-    const recomendado = document.getElementById('editarRecomendado') ? document.getElementById('editarRecomendado').checked : false;
+    const pergunta = document.getElementById("editarPergunta").value.trim();
+    const resposta = document.getElementById("editarResposta").value.trim();
+    const idioma = document.getElementById("editarIdioma").value;
+    const recomendado = document.getElementById("editarRecomendado")
+      ? document.getElementById("editarRecomendado").checked
+      : false;
 
-    const categoriasSel = Array.from(document.querySelectorAll('#editarCategoriasContainer input[type="checkbox"]:checked'))
-      .map(cb => parseInt(cb.value));
+    const categoriasSel = Array.from(
+      document.querySelectorAll(
+        '#editarCategoriasContainer input[type="checkbox"]:checked'
+      )
+    ).map((cb) => parseInt(cb.value));
 
     try {
       const res = await fetch(`/faqs/${faqAEditar.faq_id}`, {
@@ -567,8 +675,8 @@ if (formEditarFAQ) {
           resposta,
           idioma,
           recomendado,
-          categorias: categoriasSel
-        })
+          categorias: categoriasSel,
+        }),
       });
       const out = await res.json();
       if (out.success) {
@@ -592,12 +700,12 @@ if (formEditarFAQ) {
 function ligarBotaoCancelarEditarFAQ() {
   const btnCancelar = document.getElementById("btnCancelarFAQ");
   if (btnCancelar) {
-    btnCancelar.onclick = function(e) {
+    btnCancelar.onclick = function (e) {
       e.preventDefault();
       document.getElementById("modalEditarFAQ").style.display = "none";
       const status = document.getElementById("editarStatusFAQ");
       if (status) status.textContent = "";
-    }
+    };
   }
 }
 
@@ -627,9 +735,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const filtroChatbot = document.getElementById("filtroChatbot");
   const filtroIdioma = document.getElementById("filtroIdioma");
 
-  if (pesquisaInput) pesquisaInput.addEventListener("input", carregarTabelaFAQsBackoffice);
-  if (filtroChatbot) filtroChatbot.addEventListener("change", carregarTabelaFAQsBackoffice);
-  if (filtroIdioma) filtroIdioma.addEventListener("change", carregarTabelaFAQsBackoffice);
+  if (pesquisaInput)
+    pesquisaInput.addEventListener("input", carregarTabelaFAQsBackoffice);
+  if (filtroChatbot)
+    filtroChatbot.addEventListener("change", carregarTabelaFAQsBackoffice);
+  if (filtroIdioma)
+    filtroIdioma.addEventListener("change", carregarTabelaFAQsBackoffice);
 
   ligarBotaoCancelarEditarFAQ();
 });

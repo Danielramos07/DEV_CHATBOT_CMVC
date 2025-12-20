@@ -324,6 +324,7 @@ async function enviarWavParaTranscricao() {
 }
 
 let avatarAtivo = true;
+let currentFaqVideoId = null;
 
 function toggleAvatarAtivo() {
   avatarAtivo = !avatarAtivo;
@@ -336,6 +337,49 @@ function toggleAvatarAtivo() {
     btn.textContent = avatarAtivo ? "⏻ Desligar avatar" : "⏻ Ligar avatar";
   }
   // No futuro, este estado controlará também o áudio do avatar.
+}
+
+function mostrarVideoFaqNoAvatar(faqId) {
+  if (!avatarAtivo) return;
+  const avatarPanel = document.getElementById("chatAvatarPanel");
+  if (!avatarPanel || !faqId) return;
+
+  let videoEl = avatarPanel.querySelector("video.chat-avatar-video");
+  let imgEl = avatarPanel.querySelector("img.chat-avatar-image");
+
+  if (!videoEl) {
+    videoEl = document.createElement("video");
+    videoEl.className = "chat-avatar-video";
+    videoEl.autoplay = true;
+    videoEl.muted = true;
+    videoEl.loop = true;
+    videoEl.playsInline = true;
+    videoEl.style.width = "100%";
+    videoEl.style.height = "100%";
+    videoEl.style.objectFit = "cover";
+    avatarPanel.insertBefore(videoEl, avatarPanel.firstChild);
+  }
+
+  if (imgEl) {
+    imgEl.style.display = "none";
+  }
+
+  const videoUrl = `/video/faq/${faqId}`;
+
+  // Cache simples: se já estamos a mostrar o vídeo desta FAQ, não recarregar
+  if (currentFaqVideoId === faqId && videoEl.src) {
+    videoEl.style.display = "block";
+    if (videoEl.paused) {
+      videoEl.play().catch(() => {});
+    }
+    return;
+  }
+
+  currentFaqVideoId = faqId;
+  videoEl.style.display = "block";
+  videoEl.src = videoUrl;
+  videoEl.load();
+  videoEl.play().catch(() => {});
 }
 
 function reiniciarConversa() {
@@ -356,11 +400,20 @@ function reiniciarConversa() {
   }
 
   // Recarregar imagem do avatar para "refrescar" visualmente
+  const avatarVideo = document.querySelector(".chat-avatar-video");
+  if (avatarVideo) {
+    try {
+      avatarVideo.pause();
+    } catch (e) {}
+    avatarVideo.style.display = "none";
+  }
   const avatarImg = document.querySelector(".chat-avatar-image");
   if (avatarImg) {
+    avatarImg.style.display = "block";
     const srcBase = avatarImg.src.split("?")[0];
     avatarImg.src = srcBase + "?t=" + Date.now();
   }
+  currentFaqVideoId = null;
 
   initialMessageShown = false;
   limparTimersAutoChat();
@@ -893,6 +946,11 @@ function responderPergunta(pergunta) {
             iconBot,
             localStorage.getItem("nomeBot")
           );
+          if (data.faq_id) {
+            try {
+              mostrarVideoFaqNoAvatar(data.faq_id);
+            } catch (e) {}
+          }
           const saudacao = isSaudacao(faqPergunta) || isSaudacao(resposta);
           adicionarFeedbackResolvido(
             (respostaFeedback, bloco) => {

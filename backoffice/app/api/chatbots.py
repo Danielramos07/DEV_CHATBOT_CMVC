@@ -22,6 +22,7 @@ def get_chatbots():
                    c.cor,
                    c.icon_path,
                    c.genero,
+                   c.video_enabled,
                    fr.fonte,
                    array_remove(array_agg(cc.categoria_id), NULL) as categorias,
                    c.mensagem_sem_resposta
@@ -35,6 +36,7 @@ def get_chatbots():
                      c.cor,
                      c.icon_path,
                      c.genero,
+                     c.video_enabled,
                      fr.fonte,
                      c.mensagem_sem_resposta
             ORDER BY c.chatbot_id ASC
@@ -49,9 +51,10 @@ def get_chatbots():
                 "cor": row[4] if row[4] else "#d4af37",
                 "icon_path": row[5] if row[5] else "/static/images/chatbot-icon.png",
                 "genero": row[6] if row[6] else None,
-                "fonte": row[7] if row[7] else "faq",
-                "categorias": row[8] if row[8] is not None else [],
-                "mensagem_sem_resposta": row[9] if len(row) > 9 else ""
+                "video_enabled": bool(row[7]) if len(row) > 7 else False,
+                "fonte": row[8] if row[8] else "faq",
+                "categorias": row[9] if row[9] is not None else [],
+                "mensagem_sem_resposta": row[10] if len(row) > 10 else ""
             }
             for row in data
         ])
@@ -74,17 +77,18 @@ def criar_chatbot():
     icon_path = data.get("icon_path", "/static/images/chatbot-icon.png")
     mensagem_sem_resposta = data.get("mensagem_sem_resposta", "").strip()
     genero = data.get("genero") or None
+    video_enabled = bool(data.get("video_enabled", False))
     if not nome:
         return jsonify({"success": False, "error": "Nome obrigatório."}), 400
     try:
         cur.execute(
             """
-            INSERT INTO chatbot (nome, descricao, cor, icon_path, mensagem_sem_resposta, genero)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO chatbot (nome, descricao, cor, icon_path, mensagem_sem_resposta, genero, video_enabled)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (nome) DO NOTHING
             RETURNING chatbot_id
             """,
-            (nome, descricao, cor, icon_path, mensagem_sem_resposta, genero)
+            (nome, descricao, cor, icon_path, mensagem_sem_resposta, genero, video_enabled)
         )
         row = cur.fetchone()
         if not row:
@@ -144,6 +148,7 @@ def atualizar_chatbot(chatbot_id):
         cor = request.form.get("cor", "").strip() or "#d4af37"
         mensagem_sem_resposta = request.form.get("mensagem_sem_resposta", "").strip()
         genero = request.form.get("genero") or None
+        video_enabled = request.form.get("video_enabled") in ["true", "1", "on", "yes"]
         icon_path = None
         if 'icon' in request.files:
             file = request.files['icon']
@@ -162,13 +167,13 @@ def atualizar_chatbot(chatbot_id):
             return jsonify({"success": False, "error": "O nome do chatbot é obrigatório."}), 400
         if icon_path:
             cur.execute(
-                "UPDATE chatbot SET nome=%s, descricao=%s, cor=%s, mensagem_sem_resposta=%s, icon_path=%s, genero=%s WHERE chatbot_id=%s",
-                (nome, descricao, cor, mensagem_sem_resposta, icon_path, genero, chatbot_id)
+                "UPDATE chatbot SET nome=%s, descricao=%s, cor=%s, mensagem_sem_resposta=%s, icon_path=%s, genero=%s, video_enabled=%s WHERE chatbot_id=%s",
+                (nome, descricao, cor, mensagem_sem_resposta, icon_path, genero, video_enabled, chatbot_id)
             )
         else:
             cur.execute(
-                "UPDATE chatbot SET nome=%s, descricao=%s, cor=%s, mensagem_sem_resposta=%s, genero=%s WHERE chatbot_id=%s",
-                (nome, descricao, cor, mensagem_sem_resposta, genero, chatbot_id)
+                "UPDATE chatbot SET nome=%s, descricao=%s, cor=%s, mensagem_sem_resposta=%s, genero=%s, video_enabled=%s WHERE chatbot_id=%s",
+                (nome, descricao, cor, mensagem_sem_resposta, genero, video_enabled, chatbot_id)
             )
         cur.execute("DELETE FROM chatbot_categoria WHERE chatbot_id=%s", (chatbot_id,))
         for categoria_id in categorias:

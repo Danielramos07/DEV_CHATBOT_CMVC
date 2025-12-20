@@ -299,6 +299,13 @@ function obterNomeFonte(fonte) {
   return fonte;
 }
 
+function obterEstadoVideo(bot) {
+  if (bot.video_enabled) {
+    return "Vídeo ON";
+  }
+  return "Vídeo OFF";
+}
+
 function isAtivo(chatbot_id) {
   return String(localStorage.getItem("chatbotAtivo")) === String(chatbot_id);
 }
@@ -361,6 +368,9 @@ document.addEventListener("DOMContentLoaded", function () {
         .getElementById("editarMensagemSemResposta")
         .value.trim();
       const genero = document.getElementById("editarGeneroChatbot").value;
+      const video_enabled = document.getElementById("editarVideoEnabledChatbot")
+        ? document.getElementById("editarVideoEnabledChatbot").checked
+        : false;
       const iconInput = document.getElementById("editarIconChatbot");
       const iconFile = iconInput.files[0];
 
@@ -376,6 +386,7 @@ document.addEventListener("DOMContentLoaded", function () {
       formData.append("cor", cor);
       formData.append("mensagem_sem_resposta", mensagem_sem_resposta);
       formData.append("genero", genero);
+      formData.append("video_enabled", video_enabled ? "true" : "false");
       if (iconFile) formData.append("icon", iconFile);
 
       try {

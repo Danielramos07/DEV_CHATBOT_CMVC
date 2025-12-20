@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS chatbot (
     cor VARCHAR(16) NOT NULL DEFAULT '#d4af37',
     icon_path TEXT,
     mensagem_sem_resposta TEXT,
-    genero VARCHAR(20)
+    genero VARCHAR(20),
+    video_enabled BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- Tabela: chatbot_categoria
@@ -33,6 +34,9 @@ CREATE TABLE IF NOT EXISTS faq (
     resposta TEXT NOT NULL,
     idioma VARCHAR(20) NOT NULL,
     links_documentos TEXT,
+    video_text TEXT,
+    video_path TEXT,
+    video_status VARCHAR(20),
     recomendado BOOLEAN DEFAULT FALSE,
     UNIQUE (chatbot_id, designacao, pergunta, resposta, idioma)
 );
