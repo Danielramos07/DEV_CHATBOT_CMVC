@@ -4,9 +4,39 @@ from ..services.retreival import build_faiss_index
 from werkzeug.utils import secure_filename
 import traceback
 import os
+import shutil
 from ..config import Config
 
 app = Blueprint('chatbots', __name__)
+
+def _cleanup_chatbot_files(chatbot_id: int, icon_path: str = None) -> None:
+    """Best-effort delete of local files belonging to a chatbot.
+
+    - Removes uploaded icon under static/icons/
+    - Removes results folder results/chatbot_<id>/ if present
+    """
+    try:
+        # Delete icon only if it lives under /static/icons/
+        if icon_path and str(icon_path).startswith("/static/icons/"):
+            filename = str(icon_path).split("/")[-1]
+            icons_dir = os.path.join(current_app.static_folder, "icons")
+            fs_path = os.path.join(icons_dir, filename)
+            if os.path.isfile(fs_path):
+                try:
+                    os.remove(fs_path)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    try:
+        from ..services.video_service import ROOT, RESULTS_DIR
+        result_root = RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)
+        folder = result_root / f"chatbot_{chatbot_id}"
+        if folder.exists() and folder.is_dir():
+            shutil.rmtree(folder, ignore_errors=True)
+    except Exception:
+        pass
 
 def _save_chatbot_icon(file, chatbot_id: int, nome: str) -> str:
     """Save uploaded icon into static/icons with deterministic name 'nome_id.ext'."""
@@ -294,6 +324,11 @@ def eliminar_chatbot(chatbot_id):
     conn = get_conn()
     cur = conn.cursor()
     try:
+        # Fetch icon before deleting the row (so we can remove the file from disk)
+        cur.execute("SELECT icon_path FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
+        row = cur.fetchone()
+        icon_path = row[0] if row else None
+
         cur.execute("DELETE FROM faq_relacionadas WHERE faq_id IN (SELECT faq_id FROM faq WHERE chatbot_id = %s)", (chatbot_id,))
         cur.execute("DELETE FROM faq_documento WHERE faq_id IN (SELECT faq_id FROM faq WHERE chatbot_id = %s)", (chatbot_id,))
         cur.execute("DELETE FROM faq WHERE chatbot_id = %s", (chatbot_id,))
@@ -302,6 +337,7 @@ def eliminar_chatbot(chatbot_id):
         cur.execute("DELETE FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
         conn.commit()
         build_faiss_index()
+        _cleanup_chatbot_files(chatbot_id, icon_path=icon_path)
         return jsonify({"success": True})
     except Exception as e:
         conn.rollback()

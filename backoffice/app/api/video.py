@@ -1,5 +1,5 @@
 
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, jsonify, request, send_file, current_app
 
 from ..db import get_conn
 from ..config import Config
@@ -181,6 +181,11 @@ def cancel_video_job():
         conn = get_conn()
         cur = conn.cursor()
         try:
+            # Fetch icon_path before deleting the row so we can remove the file from disk
+            cur.execute("SELECT icon_path FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
+            row = cur.fetchone()
+            icon_path = row[0] if row else None
+
             cur.execute(
                 "DELETE FROM faq_relacionadas WHERE faq_id IN (SELECT faq_id FROM faq WHERE chatbot_id = %s)",
                 (chatbot_id,),
@@ -194,6 +199,30 @@ def cancel_video_job():
             cur.execute("DELETE FROM pdf_documents WHERE chatbot_id = %s", (chatbot_id,))
             cur.execute("DELETE FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
             conn.commit()
+
+            # Best-effort cleanup: uploaded icon + results folder
+            try:
+                if icon_path and str(icon_path).startswith("/static/icons/"):
+                    filename = str(icon_path).split("/")[-1]
+                    icons_dir = os.path.join(current_app.static_folder, "icons")
+                    fs_path = os.path.join(icons_dir, filename)
+                    if os.path.isfile(fs_path):
+                        try:
+                            os.remove(fs_path)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+            try:
+                from ..services.video_service import ROOT, RESULTS_DIR
+                import shutil
+                result_root = RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)
+                folder = result_root / f"chatbot_{chatbot_id}"
+                if folder.exists() and folder.is_dir():
+                    shutil.rmtree(folder, ignore_errors=True)
+            except Exception:
+                pass
         except Exception as e:
             conn.rollback()
             return jsonify({"success": False, "error": str(e)}), 500
