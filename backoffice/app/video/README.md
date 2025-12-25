@@ -1,186 +1,117 @@
-# SadTalker Core (Piper TTS → SadTalker)
+# SadTalker (vendorizado) para geração de vídeo do avatar
 
-Minimal, cleaned version of SadTalker focused on a lightweight local workflow:
+Este diretório contém uma versão vendorizada/embutida do SadTalker (sem Gradio/WebUI) usada pela aplicação Flask para gerar:
 
-1. Type a message
-2. Generate speech with Piper TTS
-3. Animate a single avatar image with SadTalker
+- vídeos de FAQ: resposta → vídeo “falado”
+- vídeos do chatbot: `greeting.mp4` e `idle.mp4`
 
-No WebUI/Gradio, and no speech-to-text (Vosk) in this workflow.
+O “orquestrador” que chama este módulo é o serviço:
 
-## Features
+- `backoffice/app/services/video_service.py`
 
-- Local text-to-speech via Piper (`piper` CLI)
-- High-quality talking-head animation via SadTalker
-- Optional face enhancement via GFPGAN
-- Simple interactive CLI + scriptable SadTalker runner (`python -m src.inference`)
+---
 
-## What this repo contains
+## Como é usado na app
 
-- Core model code under `src/` (preprocess, audio2coeff, face renderer, utilities).
-- `main.py`: interactive flow (type text → Piper voice → SadTalker settings → output video).
-- `src/inference.py`: scriptable entrypoint for SadTalker (image + audio → mp4).
-- Model files under `models/`:
-  - `models/checkpoints/` (SadTalker weights)
-  - `models/gfpgan/weights/` (enhancer weights)
-  - `models/voices/` (Piper voice models)
+A app não usa isto como projeto standalone. Em runtime, o `video_service.py` chama:
 
-Optional helper folders (examples, docs, results) can be ignored or deleted in downstream projects; they are not required by the core code.
+- `python -m src.inference` dentro de `backoffice/app/video/` (via `subprocess`)
+- Piper TTS via wrapper Python (`backoffice/app/video/src/piper_tts.py`)
 
-## Requirements
+O serviço define o layout de resultados e faz cleanup de temporários.
 
-- Python 3.8–3.10 is recommended (some deps may be flaky on 3.11+).
-- FFmpeg available on PATH (recommended).
-- PyTorch installed manually for your platform (CPU/GPU).
+---
 
-### FFmpeg
+## Outputs e layout
 
-This project writes videos; having FFmpeg installed system-wide makes things more reliable.
+Por defeito (configurado pelo `.env` na raiz do projeto):
 
-```bash
-# macOS
-brew install ffmpeg
+- FAQs: `RESULTS_DIR/faq_<faq_id>/final.mp4`
+- Chatbot: `RESULTS_DIR/chatbot_<chatbot_id>/greeting.mp4` e `idle.mp4`
 
-# Ubuntu/Debian
-sudo apt update && sudo apt install ffmpeg
-```
+O pipeline cria um workspace temporário em:
 
-## Installation (local project)
+- `RESULTS_DIR/<entity>/_tmp/...`
 
-From the project root:
+No fim, **apaga `_tmp/` e deixa apenas o MP4 final**.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate  # or .venv\\Scripts\\activate on Windows
+---
 
-# Install PyTorch (version combo known to work with basicsr/gfpgan)
-# CPU-only example for macOS/Linux:
-pip install "torch==1.12.1" "torchvision==0.13.1" "torchaudio==0.12.1" \
-  --extra-index-url https://download.pytorch.org/whl/cpu
+## Modelos e assets
 
-# Then install Python dependencies
-pip install -r requirements.txt
-```
+Este folder inclui o código, mas os assets de modelo são geridos por `setup.py` na raiz do repo:
 
-This installs the non-PyTorch dependencies listed in requirements.txt.
-PyTorch itself is not in requirements.txt because its wheels are
-hardware/OS specific; if you target a different platform or want GPU
-builds, use the selector on https://pytorch.org to adjust the command.
+- `models/checkpoints/` (weights SadTalker)
+- `models/voices/` (Piper voices)
+- `models/gfpgan/weights/` (opcional, enhancer)
 
-You can also use the helper script to install requirements and download all
-SadTalker checkpoints, GFPGAN weights, and Piper voice models in one go:
+O diretório `results/` deve ser considerado output e **não deve ir para git**.
 
-```bash
-python setup.py
-```
+---
 
-Or run only specific steps:
+## Configuração (via `.env` na raiz do projeto)
 
-```bash
-python setup.py --requirements-only  # just pip install -r requirements.txt
-python setup.py --models-only        # download model files + Piper voices
-python setup.py --verify             # check that files exist
-```
+Variáveis relevantes (ver `env.example`):
 
-## Quickstart (interactive)
+- `RESULTS_DIR`
+- `PIPER_VOICES_DIR`
+- `PIPER_VOICE_MALE`, `PIPER_VOICE_FEMALE`, `PIPER_VOICE_DEFAULT`
+- `SADTALKER_PREPROCESS_DEFAULT` (`crop|full|extfull`)
+- `SADTALKER_SIZE_DEFAULT` (`256|512`)
+- `SADTALKER_BATCH_SIZE_DEFAULT` (recomendado `1`)
+- `SADTALKER_ENHANCER_DEFAULT` (vazio ou `gfpgan`)
+- `SADTALKER_IDLE_SECONDS` (duração do idle)
+
+Notas:
+
+- Em macOS, para acelerar e reduzir problemas, o enhancer pode ficar desativado por defeito (`SADTALKER_ENHANCER_DEFAULT=`).
+- O avatar (imagem fonte) vem do `icon_path` do chatbot (normalmente `/static/icons/<nome>_<id>.ext`), resolvido para o ficheiro real pelo `video_service.py`.
+
+---
+
+## Execução manual (debug)
+
+Isto é útil para debug, mas não é o caminho normal da app.
+
+Exemplo:
 
 ```bash
-python main.py
-```
-
-Workflow:
-
-1. Type a message and press Enter
-2. Choose a Piper voice (press Enter to use the default)
-3. Choose SadTalker settings (press Enter to use defaults)
-4. The result is written under `results/<uuid>/<timestamp>.mp4`
-
-## Script usage (SadTalker only)
-
-```bash
+cd backoffice/app/video
 python -m src.inference \
   --driven_audio /path/to/audio.wav \
   --source_image /path/to/image.png \
   --result_dir ./results \
-  --save_dir ./results/run-1/2025_12_18_12.00.00 \
+  --save_dir ./results/debug-run \
   --size 256 \
   --batch_size 1 \
-  --preprocess crop \
-  --enhancer gfpgan  # optional, requires GFPGAN weights
+  --preprocess crop
 ```
 
-For backwards compatibility, `python inference.py ...` also works (shim).
+---
 
-This writes the output video into the results/ directory.
+## Cancelamento
 
-`--save_dir` is optional; when provided, it forces SadTalker to write all intermediate files into that exact folder.
-This is used by `main.py` so the generated `piper.wav` is co-located with the run intermediates and gets cleaned up.
+O cancelamento é gerido a nível da app (não aqui):
 
-## Configuration
+- endpoint: `POST /video/cancel`
+- serviço: `backoffice/app/services/video_service.py`
 
-Defaults live in `config.py` and can be overridden via a `.env` file or changed in the file itself.
+O serviço tenta terminar o processo SadTalker em curso e faz cleanup (ex.: apagar `results/faq_<id>/` ou `results/chatbot_<id>/` quando aplicável).
 
-Key settings:
+---
 
-- `AVATAR_FACE` (default: `models/avatar.jpg`)
-- `PIPER_VOICES_DIR` (default: `models/voices`)
-- `PIPER_VOICE_MALE`, `PIPER_VOICE_FEMALE`, `PIPER_VOICE_DEFAULT`
-- `SADTALKER_PREPROCESS_DEFAULT` (`crop|full|extfull`)
-- `SADTALKER_SIZE_DEFAULT` (`256|512`)
-- `SADTALKER_BATCH_SIZE_DEFAULT` (recommended `1`)
-- `SADTALKER_ENHANCER_DEFAULT` (empty or `gfpgan`)
+## Troubleshooting
 
-Example `.env`:
+### `functional_tensor` vs `functional`
 
-```bash
-AVATAR_FACE=models/avatar.jpg
-PIPER_VOICE_DEFAULT=models/voices/dii_pt-PT.onnx
-SADTALKER_PREPROCESS_DEFAULT=crop
-SADTALKER_SIZE_DEFAULT=256
-SADTALKER_ENHANCER_DEFAULT=
-```
+Algumas combinações de `torchvision` podem quebrar dependências (ex.: `basicsr`) por causa de `functional_tensor`.
+O `setup.py` na raiz inclui um patch para corrigir imports incompatíveis.
 
-## Integrating into another project
+### `GFPGANer __init__ unexpected keyword argument 'model_rootpath'`
 
-For a Flask / chatbot or other backend service:
+A correção foi aplicada no código vendorizado em `src/utils/face_enhancer.py` para compatibilidade com a versão instalada.
 
-- Treat this repo as a local package: pip install -e . inside your main project venv.
-- Mirror the logic in `src/inference.py` inside your own service layer, or wrap it in a small helper that returns the generated video path.
-- Ensure the models/checkpoints/ directory is available in your deployed environment and points to the correct model weights.
+### Performance
 
-At runtime you generally:
-
-1. Save the user image and audio to disk.
-2. Call the inference script (directly, via main.py, or via a thin Python wrapper) with those paths and a result_dir you control.
-3. Return the resulting mp4 path or URL from your Flask API so your chatbot can display or link it.
-
-If you install this repo into another project with pip install -e ., you can
-import the modules directly (e.g. import src.utils.preprocess) and build a
-generate_talking_video(...) helper in that project that mirrors what
-`src/inference.py` does.
-
-### Windows notes
-
-On Windows, inside a venv, you can run:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\activate
-
-# Install PyTorch for your CPU/GPU from pytorch.org
-pip install "torch==1.12.1" "torchvision==0.13.1" "torchaudio==0.12.1" `
-  --extra-index-url https://download.pytorch.org/whl/cpu
-
-pip install -r requirements.txt
-python setup.py --models-only
-python main.py
-```
-
-If you see compiler errors when installing basicsr or similar packages, install Build Tools for Visual Studio first so you have a working C/C++ toolchain.
-
-### Troubleshooting
-
-- If basicsr or gfpgan fail to install with wheel warnings, upgrade pip/setuptools/wheel in your venv and retry.
-- If you see ModuleNotFoundError for torchvision.transforms.functional_tensor, pin torch/torchvision to 1.12.1 / 0.13.1 as in the README install example.
-- On Apple Silicon (M1/M2), use a PyTorch build with MPS support so the heavy steps can run on the GPU instead of CPU.
-- If `piper` is not found, ensure your venv is activated and `piper-tts` is installed; the CLI should be available as `piper`.
+- `batch_size=1` é o mais estável para macOS/CPU.
+- Se estiveres em Apple Silicon e usares PyTorch com MPS, o ganho pode variar; o pipeline atual privilegia estabilidade.

@@ -370,6 +370,13 @@ function mostrarSpinnerVideoFaq(faqId) {
   const checkVideoReady = async () => {
     try {
       const res = await fetch(`/video/faq/status/${faqId}`);
+      if (res.status === 404) {
+        // FAQ apagada/cancelada: parar polling e voltar ao fallback
+        spinnerEl.style.display = "none";
+        if (imgEl) imgEl.style.display = "block";
+        if (videoEl) videoEl.style.display = "none";
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         if (data && data.success && data.video_status === "ready") {

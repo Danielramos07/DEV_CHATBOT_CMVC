@@ -6,6 +6,17 @@ async function atualizarIndicadorVideoJob() {
 
   try {
     const res = await fetch("/video/status");
+    // Se o endpoint não existir neste contexto (ex.: página sem API montada),
+    // parar o polling para não gerar spam/404 no console.
+    if (res.status === 404 || res.status === 401 || res.status === 403) {
+      indicador.style.display = "none";
+      if (cancelBtn) cancelBtn.style.display = "none";
+      if (window.__videoStatusPollIntervalId) {
+        clearInterval(window.__videoStatusPollIntervalId);
+        window.__videoStatusPollIntervalId = null;
+      }
+      return;
+    }
     if (!res.ok) {
       indicador.style.display = "none";
       return;
@@ -46,7 +57,8 @@ function fecharModalCancelVideoJob() {
 document.addEventListener("DOMContentLoaded", () => {
   // Atualizar logo no início e depois de 5 em 5 segundos
   atualizarIndicadorVideoJob();
-  setInterval(atualizarIndicadorVideoJob, 5000);
+  // Guardar ID do interval para permitir cancelar o polling se o endpoint devolver 404/401/403.
+  window.__videoStatusPollIntervalId = setInterval(atualizarIndicadorVideoJob, 5000);
 
   const cancelBtn = document.getElementById("indicadorVideoJobCancelBtn");
   const confirmarBtn = document.getElementById("btnConfirmarCancelVideoJob");
