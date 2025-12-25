@@ -310,48 +310,46 @@ function isAtivo(chatbot_id) {
   return String(localStorage.getItem("chatbotAtivo")) === String(chatbot_id);
 }
 
-window.tornarBotAtivo = function (chatbot_id, btn) {
+window.tornarBotAtivo = async function (chatbot_id, btn) {
   localStorage.setItem("chatbotAtivo", chatbot_id);
+  try {
+    window.chatbotAtivo = parseInt(chatbot_id);
+  } catch (e) {}
+
+  // Garantir que localStorage tem o nome/icon/cor do bot ativo ANTES de reiniciar o chat
+  try {
+    const res = await fetch(`/chatbots/${chatbot_id}`);
+    const data = await res.json();
+    if (data && data.success) {
+      if (data.nome) localStorage.setItem("nomeBot", data.nome);
+      if (data.cor) localStorage.setItem("corChatbot", data.cor);
+      if (data.icon) localStorage.setItem("iconBot", data.icon);
+      if (data.genero !== undefined) localStorage.setItem("generoBot", data.genero || "");
+      if (data.video_greeting_path) localStorage.setItem("videoGreetingPath", data.video_greeting_path);
+      if (data.video_idle_path) localStorage.setItem("videoIdlePath", data.video_idle_path);
+    }
+  } catch (e) {}
+
+  try {
+    if (typeof window.atualizarNomeChatHeader === "function") {
+      await window.atualizarNomeChatHeader();
+    }
+    if (typeof window.reiniciarConversa === "function") {
+      try {
+        if (typeof hasPlayedGreeting !== "undefined") {
+          hasPlayedGreeting = false;
+        }
+      } catch (e) {}
+      await window.reiniciarConversa();
+    }
+  } catch (e) {}
+
   carregarTabelaBots();
 };
 
 document.addEventListener("DOMContentLoaded", function () {
-  const novoBotForm = document.getElementById("novoBotForm");
-  if (novoBotForm) {
-    novoBotForm.onsubmit = async function (e) {
-      e.preventDefault();
-      const nome = novoBotForm.elements["nome"].value.trim();
-      const descricao = novoBotForm.elements["descricao"].value.trim();
-      const mensagem_sem_resposta =
-        novoBotForm.elements["mensagem_sem_resposta"].value.trim();
-      const cor = novoBotForm.elements["cor"].value.trim();
-      const genero = novoBotForm.elements["genero"].value;
-      if (!nome) {
-        alert("Nome obrigatório");
-        return;
-      }
-      const body = { nome, descricao, mensagem_sem_resposta, cor, genero };
-      try {
-        const res = await fetch(`/chatbots`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (res.ok) {
-          window.fecharModalNovoBot();
-          carregarTabelaBots();
-        } else {
-          const result = await res.json().catch(() => ({}));
-          alert(
-            "Erro ao criar chatbot: " +
-              (result.error || result.erro || res.statusText)
-          );
-        }
-      } catch (err) {
-        alert("Erro ao criar chatbot: " + err.message);
-      }
-    };
-  }
+  // NOTE: criação de chatbot (modal Novo Bot) é tratada por `AdicionarBot.js`
+  // para suportar upload de icon + video_enabled via multipart/form-data.
 
   const editarForm = document.getElementById("editarChatbotForm");
   if (editarForm) {
@@ -403,10 +401,10 @@ document.addEventListener("DOMContentLoaded", function () {
             localStorage.setItem("nomeBot", nome);
             localStorage.setItem("corChatbot", cor || "#d4af37");
             if (window.atualizarNomeChatHeader) {
-              window.atualizarNomeChatHeader();
+              await window.atualizarNomeChatHeader();
             }
             if (window.reiniciarConversa) {
-              window.reiniciarConversa();
+              await window.reiniciarConversa();
             }
           }
           window.fecharModalEditarChatbot();
@@ -486,6 +484,8 @@ window.abrirModalAtualizar = async function (chatbot_id) {
     document.getElementById("editarMensagemSemResposta").value =
       bot.mensagem_sem_resposta || "";
     document.getElementById("editarGeneroChatbot").value = bot.genero || "";
+    const cbVideo = document.getElementById("editarVideoEnabledChatbot");
+    if (cbVideo) cbVideo.checked = !!bot.video_enabled;
     document.getElementById("previewIcon").src =
       bot.icon_path || "/static/images/chatbot-icon.png";
     document.getElementById("previewIcon").style.display = bot.icon_path

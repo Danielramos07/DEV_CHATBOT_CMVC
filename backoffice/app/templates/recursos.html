@@ -32,7 +32,7 @@ content %}
 >
   <div class="modal-box modal-box-novo-bot-exclusivo">
     <h2>Novo Chatbot</h2>
-    <form id="novoBotForm">
+    <form id="novoBotForm" enctype="multipart/form-data">
       <input type="text" name="nome" placeholder="Nome do Chatbot" required />
       <textarea name="descricao" placeholder="Descrição"></textarea>
       <div class="form-group">
@@ -71,6 +71,19 @@ content %}
           />
         </label>
       </div>
+      <div class="form-group">
+        <label for="novoIconChatbot">Ícone (avatar):</label>
+        <input
+          type="file"
+          name="icon"
+          id="novoIconChatbot"
+          accept="image/*"
+        />
+      </div>
+      <label class="video-enabled-row">
+        <input type="checkbox" name="video_enabled" />
+        <span>Ativar vídeos do avatar (gerar greeting + idle automaticamente)</span>
+      </label>
       <div class="btn-bar-novo-bot">
         <button type="submit" class="btn-novo-bot-modal">Criar Chatbot</button>
         <button

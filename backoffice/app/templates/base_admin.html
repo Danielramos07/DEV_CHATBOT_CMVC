@@ -132,6 +132,24 @@
             "
           ></span>
           <span id="indicadorVideoJobTexto">A gerar vídeo...</span>
+          <button
+            id="indicadorVideoJobCancelBtn"
+            type="button"
+            title="Cancelar"
+            style="
+              margin-left: auto;
+              border: none;
+              background: transparent;
+              color: #92400e;
+              font-size: 18px;
+              font-weight: 700;
+              cursor: pointer;
+              line-height: 1;
+              padding: 0 6px;
+            "
+          >
+            ×
+          </button>
           <div
             style="
               flex: 1;
@@ -151,6 +169,19 @@
                 transition: width 0.4s ease;
               "
             ></div>
+          </div>
+        </div>
+
+        <!-- Modal: cancelar job de vídeo -->
+        <div id="modalCancelVideoJob" class="modal-overlay" style="display: none">
+          <div class="modal-box modal-box-confirmacao modal-box-cancel-video">
+            <p id="modalCancelVideoJobMsg" class="modal-cancel-title">
+              Cancelar geração do vídeo?
+            </p>
+            <div class="modal-buttons" style="margin-top: 14px;">
+              <button id="btnConfirmarCancelVideoJob">Confirmar</button>
+              <button onclick="fecharModalCancelVideoJob()">Voltar</button>
+            </div>
           </div>
         </div>
         {% block content %}{% endblock %}
@@ -195,7 +226,7 @@
                   style="display: none"
                 ></video>
                 <img
-                  src="{{ url_for('static', filename='images/face.jpg') }}"
+                  src="{{ url_for('static', filename='images/chatbot-icon.png') }}"
                   alt="Assistente Virtual"
                   class="chat-avatar-image"
                 />

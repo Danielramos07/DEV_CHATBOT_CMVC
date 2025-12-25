@@ -25,6 +25,7 @@ def _resolve_path(value: str) -> str:
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change")
+    REQUIRE_SIGNED_MEDIA = os.getenv("REQUIRE_SIGNED_MEDIA", "0").strip().lower() in {"1", "true", "yes", "on"}
     PG_HOST = os.getenv("PG_HOST", "localhost")
     PG_PORT = int(os.getenv("PG_PORT", "5432"))
     PG_DB   = os.getenv("PG_DB", "ai4governance")

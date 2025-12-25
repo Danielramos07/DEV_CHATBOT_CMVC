@@ -25,32 +25,38 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     mensagemNovoBot.textContent = "";
 
-    const nome = this.nome.value.trim();
-    const descricao = this.descricao.value.trim();
-    const genero = this.genero ? this.genero.value : "";
-    const mensagem_sem_resposta = this.mensagem_sem_resposta
-      ? this.mensagem_sem_resposta.value.trim()
-      : "";
-    const cor = this.cor ? this.cor.value : "#d4af37";
-
-    const data = {
-      nome,
-      descricao,
-      genero,
-      mensagem_sem_resposta,
-      cor,
-    };
+    const fd = new FormData();
+    fd.append("nome", (this.nome?.value || "").trim());
+    fd.append("descricao", (this.descricao?.value || "").trim());
+    fd.append("genero", this.genero ? this.genero.value : "");
+    fd.append(
+      "mensagem_sem_resposta",
+      this.mensagem_sem_resposta ? this.mensagem_sem_resposta.value.trim() : ""
+    );
+    fd.append("cor", this.cor ? this.cor.value : "#d4af37");
+    fd.append(
+      "video_enabled",
+      this.video_enabled && this.video_enabled.checked ? "true" : "false"
+    );
+    const iconInput = this.querySelector('input[type="file"][name="icon"]');
+    if (iconInput && iconInput.files && iconInput.files.length > 0) {
+      fd.append("icon", iconInput.files[0]);
+    }
 
     fetch("/chatbots", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
+      body: fd,
     })
       .then((r) => r.json())
       .then((resp) => {
         if (resp.success) {
           mensagemNovoBot.style.color = "green";
           mensagemNovoBot.textContent = "Chatbot criado com sucesso!";
+          if (resp.video_busy && typeof mostrarModalVideoBusy === "function") {
+            mostrarModalVideoBusy(
+              "O chatbot foi criado, mas já existe um vídeo a ser gerado neste momento. Os vídeos (greeting + idle) vão ter de ser gerados mais tarde."
+            );
+          }
           setTimeout(() => {
             fecharModalNovoBot();
             window.location.reload();

@@ -393,7 +393,7 @@ function mostrarSpinnerVideoFaq(faqId) {
   checkVideoReady();
 }
 
-function mostrarVideoFaqNoAvatar(faqId) {
+async function mostrarVideoFaqNoAvatar(faqId) {
   if (!avatarAtivo) return;
   const avatarPanel = document.getElementById("chatAvatarPanel");
   if (!avatarPanel || !faqId) return;
@@ -411,8 +411,18 @@ function mostrarVideoFaqNoAvatar(faqId) {
     videoEl.pause();
   } catch (e) {}
 
-  // Bust cache para evitar mostrar vídeo antigo após regeneração
-  videoEl.src = `/video/faq/${faqId}?t=${Date.now()}`;
+  // Prefer signed/controlled stream url (from status endpoint), fallback to direct route
+  let streamUrl = null;
+  try {
+    const sres = await fetch(`/video/faq/status/${faqId}`);
+    if (sres.ok) {
+      const sdata = await sres.json();
+      if (sdata && sdata.success && sdata.stream_url) {
+        streamUrl = sdata.stream_url;
+      }
+    }
+  } catch (e) {}
+  videoEl.src = streamUrl || `/video/faq/${faqId}`;
   videoEl.style.display = "block";
   videoEl.muted = true;
   videoEl.loop = false;
@@ -448,7 +458,7 @@ function mostrarVideoFaqNoAvatar(faqId) {
   currentFaqVideoId = faqId;
 }
 
-function reiniciarConversa() {
+async function reiniciarConversa() {
   const chat = document.getElementById("chatBody");
   if (chat) {
     chat.innerHTML = "";
@@ -483,7 +493,9 @@ function reiniciarConversa() {
 
   initialMessageShown = false;
   limparTimersAutoChat();
-  apresentarMensagemInicial();
+  try {
+    await apresentarMensagemInicial();
+  } catch (e) {}
   iniciarTimerAutoMensagem();
 }
 
@@ -491,6 +503,7 @@ async function atualizarNomeChatHeader() {
   const headerNome = document.getElementById("chatHeaderNomeBot");
 
   const headerImg = document.querySelector(".chat-header-avatar");
+  const avatarImg = document.querySelector(".chat-avatar-image");
   let nomeBot = localStorage.getItem("nomeBot") || "Assistente Municipal";
   let corBot = localStorage.getItem("corChatbot") || "#d4af37";
   let iconBot =
@@ -549,6 +562,10 @@ async function atualizarNomeChatHeader() {
   }
   if (headerImg) {
     headerImg.src = iconBot;
+  }
+  if (avatarImg) {
+    // keep inner avatar image in sync with chosen bot icon
+    avatarImg.src = iconBot;
   }
   const chatHeader = document.querySelector(".chat-header");
   if (chatHeader) {
@@ -819,7 +836,7 @@ function enviarMensagemAutomatica() {
   adicionarMensagem(
     "bot",
     "Se precisar de ajuda, basta escrever a sua pergunta!",
-    localStorage.getItem("iconBot") || "images/chatbot-icon.png",
+    localStorage.getItem("iconBot") || "/static/images/chatbot-icon.png",
     localStorage.getItem("nomeBot") || "Assistente Municipal"
   );
   autoFecharTimeout = setTimeout(() => {
@@ -838,9 +855,17 @@ function limparTimersAutoChat() {
   }
 }
 
-function abrirChat() {
+async function abrirChat() {
   document.getElementById("chatSidebar").style.display = "flex";
-  apresentarMensagemInicial();
+  // Evitar race conditions: primeiro carregar dados do bot ativo, depois renderizar mensagem inicial
+  try {
+    if (typeof atualizarNomeChatHeader === "function") {
+      await atualizarNomeChatHeader();
+    }
+  } catch (e) {}
+  try {
+    await apresentarMensagemInicial();
+  } catch (e) {}
   iniciarTimerAutoMensagem();
   atualizarCorChatbot();
   const toggleCard = document.querySelector(".chat-toggle-card");
@@ -878,6 +903,12 @@ async function apresentarMensagemInicial() {
           ? data.icon
           : "/static/images/chatbot-icon.png";
       generoBot = data.success && data.genero ? data.genero : "";
+      if (data.success && data.video_greeting_path) {
+        localStorage.setItem("videoGreetingPath", data.video_greeting_path);
+      }
+      if (data.success && data.video_idle_path) {
+        localStorage.setItem("videoIdlePath", data.video_idle_path);
+      }
       localStorage.setItem("nomeBot", nomeBot);
       localStorage.setItem("corChatbot", corBot);
       localStorage.setItem("iconBot", iconBot);
@@ -910,6 +941,10 @@ async function apresentarMensagemInicial() {
     localStorage.setItem("generoBot", generoBot || "");
   }
   atualizarCorChatbot();
+  try {
+    const avatarImg = document.querySelector(".chat-avatar-image");
+    if (avatarImg) avatarImg.src = iconBot;
+  } catch (e) {}
 
   adicionarMensagem("bot", TEXTO_RGPD, null, null, null, true);
 
@@ -960,7 +995,7 @@ function responderPergunta(pergunta) {
     return adicionarMensagem(
       "bot",
       "⚠️ Nenhum chatbot está ativo. Por favor, selecione um chatbot ativo no menu de recursos.",
-      localStorage.getItem("iconBot") || "images/chatbot-icon.png",
+      localStorage.getItem("iconBot") || "/static/images/chatbot-icon.png",
       localStorage.getItem("nomeBot") || "Assistente Municipal"
     );
   }

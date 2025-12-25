@@ -43,7 +43,8 @@ Adjust the path if your clone is elsewhere.
 
 ## 3. Environment variables (`.env`)
 
-At the project root there is a `.env` file. Example contents:
+At the project root there is a `.env` file. We keep a tracked template at `env.example`.
+Copy it to `.env` and adjust as needed.
 
 ```dotenv
 PG_HOST=localhost
@@ -58,6 +59,10 @@ PDF_PATH=backoffice/pdfs
 ICON_PATH=backoffice/app/static/icons
 
 CORS_ORIGINS=http://localhost:5000,http://127.0.0.1:5000,http://localhost:3000,http://127.0.0.1:3000
+
+# Segurança de media (vídeos)
+REQUIRE_SIGNED_MEDIA=0
+# MEDIA_SIGNING_KEY=trocar-por-uma-chave-forte
 ```
 
 Adjust values only if your DB or paths differ.

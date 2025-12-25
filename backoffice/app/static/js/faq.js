@@ -540,12 +540,11 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
                 resultado.error ||
                   "Já existe um vídeo a ser gerado neste momento. Aguarde que termine."
               );
-            } else {
-              alert(
-                resultado.error ||
-                  "Já existe um vídeo a ser gerado neste momento. Aguarde que termine."
-              );
             }
+            // Não duplicar a mensagem em texto abaixo do botão quando o modal abre
+            statusDiv.innerHTML = "";
+            statusDiv.style.color = "";
+            return;
           }
           statusDiv.innerHTML = `❌ Erro: ${
             resultado.error || resultado.erro || "Erro desconhecido."

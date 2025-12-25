@@ -8,6 +8,19 @@ from ..config import Config
 
 app = Blueprint('chatbots', __name__)
 
+def _save_chatbot_icon(file, chatbot_id: int, nome: str) -> str:
+    """Save uploaded icon into static/icons with deterministic name 'nome_id.ext'."""
+    original = secure_filename(file.filename or "")
+    _, ext = os.path.splitext(original)
+    ext = (ext or ".png").lower()
+    safe_nome = secure_filename((nome or "").strip()) or "chatbot"
+    filename = f"{safe_nome}_{chatbot_id}{ext}"
+    icons_dir = os.path.join(current_app.static_folder, "icons")
+    os.makedirs(icons_dir, exist_ok=True)
+    fs_path = os.path.join(icons_dir, filename)
+    file.save(fs_path)
+    return url_for("static", filename=f"icons/{filename}")
+
 
 @app.route("/chatbots", methods=["GET"])
 def get_chatbots():
@@ -69,15 +82,31 @@ def get_chatbots():
 def criar_chatbot():
     conn = get_conn()
     cur = conn.cursor()
-    data = request.get_json()
-    nome = data.get("nome", "").strip()
-    descricao = data.get("descricao", "").strip()
-    categorias = data.get("categorias", [])
-    cor = data.get("cor", "").strip() or "#d4af37"
-    icon_path = data.get("icon_path", "/static/images/chatbot-icon.png")
-    mensagem_sem_resposta = data.get("mensagem_sem_resposta", "").strip()
-    genero = data.get("genero") or None
-    video_enabled = bool(data.get("video_enabled", False))
+    data = request.get_json(silent=True) if request.is_json else None
+
+    def _get_field(key: str, default=""):
+        if data is not None:
+            return data.get(key, default)
+        return request.form.get(key, default)
+
+    nome = (_get_field("nome", "") or "").strip()
+    descricao = (_get_field("descricao", "") or "").strip()
+    categorias = _get_field("categorias", []) or []
+    cor = (_get_field("cor", "") or "").strip() or "#d4af37"
+    mensagem_sem_resposta = (_get_field("mensagem_sem_resposta", "") or "").strip()
+    genero = _get_field("genero") or None
+
+    # video_enabled can come as bool (json) or string (form)
+    raw_video_enabled = _get_field("video_enabled", False)
+    if isinstance(raw_video_enabled, str):
+        video_enabled = raw_video_enabled.strip().lower() in {"1", "true", "yes", "on"}
+    else:
+        video_enabled = bool(raw_video_enabled)
+
+    # icon_path can be provided explicitly (json) or via file upload (form)
+    icon_path = _get_field("icon_path", "/static/images/chatbot-icon.png") or "/static/images/chatbot-icon.png"
+    uploaded_icon = request.files.get("icon")
+
     if not nome:
         return jsonify({"success": False, "error": "Nome obrigatório."}), 400
     try:
@@ -95,6 +124,19 @@ def criar_chatbot():
             conn.rollback()
             return jsonify({"success": False, "error": "Já existe um chatbot com esse nome."}), 409
         chatbot_id = row[0]
+
+        # If icon was uploaded, save with deterministic name and store it
+        if uploaded_icon and uploaded_icon.filename:
+            try:
+                icon_path = _save_chatbot_icon(uploaded_icon, chatbot_id, nome)
+                cur.execute(
+                    "UPDATE chatbot SET icon_path=%s WHERE chatbot_id=%s",
+                    (icon_path, chatbot_id),
+                )
+            except Exception:
+                # Best-effort: keep default icon_path
+                pass
+
         for categoria_id in categorias:
             cur.execute(
                 "INSERT INTO chatbot_categoria (chatbot_id, categoria_id) VALUES (%s, %s)",
@@ -106,12 +148,24 @@ def criar_chatbot():
         )
         conn.commit()
 
-        # If video is enabled, queue idle video generation
+        video_queued = False
+        video_busy = False
+        # If video is enabled, queue idle+greeting generation (may be busy)
         if video_enabled:
             from ..services.video_service import queue_videos_for_chatbot
-            queue_videos_for_chatbot(chatbot_id)
+            video_queued = bool(queue_videos_for_chatbot(chatbot_id))
+            video_busy = not video_queued
 
-        return jsonify({"success": True, "chatbot_id": chatbot_id})
+        return jsonify(
+            {
+                "success": True,
+                "chatbot_id": chatbot_id,
+                "video_enabled": video_enabled,
+                "video_queued": video_queued,
+                "video_busy": video_busy,
+                "icon_path": icon_path,
+            }
+        )
     except Exception as e:
         conn.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
@@ -130,9 +184,31 @@ def obter_nome_chatbot(chatbot_id):
             video_greeting_url = None
             video_idle_url = None
             if row[4]:
-                video_greeting_url = url_for("api.video.video_greeting_for_chatbot", chatbot_id=chatbot_id)
+                import time
+                from ..services.signed_media import sign_media
+                exp = int(time.time()) + 3600
+                nonce = str(int(time.time() * 1000))
+                sig = sign_media("greeting", str(chatbot_id), exp, nonce, secret_fallback=Config.SECRET_KEY)
+                video_greeting_url = url_for(
+                    "api.video.video_greeting_for_chatbot",
+                    chatbot_id=chatbot_id,
+                    exp=exp,
+                    nonce=nonce,
+                    sig=sig,
+                )
             if row[5]:
-                video_idle_url = url_for("api.video.video_idle_for_chatbot", chatbot_id=chatbot_id)
+                import time
+                from ..services.signed_media import sign_media
+                exp = int(time.time()) + 3600
+                nonce = str(int(time.time() * 1000))
+                sig = sign_media("idle", str(chatbot_id), exp, nonce, secret_fallback=Config.SECRET_KEY)
+                video_idle_url = url_for(
+                    "api.video.video_idle_for_chatbot",
+                    chatbot_id=chatbot_id,
+                    exp=exp,
+                    nonce=nonce,
+                    sig=sig,
+                )
             return jsonify({
                 "success": True,
                 "nome": row[0],
@@ -166,17 +242,11 @@ def atualizar_chatbot(chatbot_id):
         icon_path = None
         if 'icon' in request.files:
             file = request.files['icon']
-            if file.filename:
-                filename = secure_filename(file.filename)
-                if filename:
-                    # Guardar sempre os ícones na pasta static/icons
-                    icons_dir = os.path.join(current_app.static_folder, 'icons')
-                    if not os.path.exists(icons_dir):
-                        os.makedirs(icons_dir, exist_ok=True)
-                    fs_path = os.path.join(icons_dir, filename)
-                    file.save(fs_path)
-                    # Caminho usado pelo frontend
-                    icon_path = url_for('static', filename=f'icons/{filename}')
+            if file and file.filename:
+                try:
+                    icon_path = _save_chatbot_icon(file, chatbot_id, nome)
+                except Exception:
+                    icon_path = None
         if not nome:
             return jsonify({"success": False, "error": "O nome do chatbot é obrigatório."}), 400
         if icon_path:

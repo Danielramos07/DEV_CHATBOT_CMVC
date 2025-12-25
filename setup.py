@@ -144,13 +144,13 @@ class SadTalkerSetup:
 
     def patch_functional_tensor_imports(self) -> None:
         """Patch dependências que usam functional_tensor para usar functional."""
-        import importlib.util
         import os
         import sys
-        site_packages = next(p for p in sys.path if 'site-packages' in p)
+        site_packages = next(p for p in sys.path if "site-packages" in p)
         targets = [
-            'basicsr/data/degradations.py',
-            # Adicione outros caminhos se necessário
+            "basicsr/data/degradations.py",
+            # outros paths comuns onde isto aparece
+            "realesrgan/data/degradations.py",
         ]
         for rel_path in targets:
             full_path = os.path.join(site_packages, rel_path)
@@ -159,9 +159,19 @@ class SadTalkerSetup:
                 continue
             with open(full_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            new_content = content.replace(
-                'from torchvision.transforms.functional_tensor import rgb_to_grayscale',
-                'from torchvision.transforms.functional import rgb_to_grayscale'
+            new_content = content
+            # robust: swap any reference to torchvision.transforms.functional_tensor -> functional
+            new_content = new_content.replace(
+                "torchvision.transforms.functional_tensor",
+                "torchvision.transforms.functional",
+            )
+            new_content = new_content.replace(
+                "from torchvision.transforms import functional_tensor",
+                "from torchvision.transforms import functional",
+            )
+            new_content = new_content.replace(
+                "import torchvision.transforms.functional_tensor as",
+                "import torchvision.transforms.functional as",
             )
             if new_content != content:
                 with open(full_path, 'w', encoding='utf-8') as f:

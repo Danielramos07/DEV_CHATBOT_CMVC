@@ -236,7 +236,7 @@ function mostrarFormulario() {
   }
 }
 
-function definirAtivo(event, chatbotId) {
+async function definirAtivo(event, chatbotId) {
   event.stopPropagation();
   localStorage.setItem("chatbotAtivo", chatbotId);
   window.chatbotAtivo = chatbotId;
@@ -271,6 +271,23 @@ function definirAtivo(event, chatbotId) {
     if (typeof carregarFAQsDoBotSelecionado === "function")
       carregarFAQsDoBotSelecionado();
   }
+
+  // Sync chat UI/avatar immediately when active bot changes
+  try {
+    if (typeof atualizarNomeChatHeader === "function") {
+      await atualizarNomeChatHeader();
+    }
+    // Forçar refresh da conversa para aplicar nome/mensagem do chatbot ativo
+    if (typeof reiniciarConversa === "function") {
+      try {
+        // reset greeting playback (chat.js)
+        if (typeof hasPlayedGreeting !== "undefined") {
+          hasPlayedGreeting = false;
+        }
+      } catch (e) {}
+      await reiniciarConversa();
+    }
+  } catch (e) {}
 }
 
 window.carregarBots = carregarBots;

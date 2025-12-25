@@ -3,6 +3,8 @@ from ..db import get_conn
 from ..services.retreival import build_faiss_index
 from ..services.video_service import can_start_new_video_job, queue_video_for_faq
 import os
+from pathlib import Path
+from ..services.video_service import ROOT, RESULTS_DIR
 
 app = Blueprint('faqs', __name__)
 
@@ -245,6 +247,23 @@ def delete_faq(faq_id):
                 os.remove(video_path)
             except Exception:
                 pass
+
+        # Best-effort cleanup for current naming scheme (results/faq_{faq_id}/final.mp4)
+        try:
+            result_root = RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)
+            expected_dir = result_root / f"faq_{faq_id}"
+            if expected_dir.exists() and expected_dir.is_dir():
+                import shutil
+                shutil.rmtree(expected_dir, ignore_errors=True)
+            # also remove any legacy variants
+            for p in result_root.glob(f"faq_{faq_id}*.mp4"):
+                try:
+                    if p.is_file():
+                        p.unlink()
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
         return jsonify({"success": True})
     except Exception as e:

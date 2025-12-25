@@ -10,7 +10,7 @@ backoffice/**/__pycache__/
 *.swp
 *.swo
 tts/
-
+.env
 # macOS
 .DS_Store
 
@@ -25,3 +25,7 @@ backoffice/faq_embeddings.pkl
 # Large model assets (downloaded by setup)
 backoffice/app/extras/models/vosk-model-*/
 backoffice/app/video/results/
+
+# User uploaded chatbot icons (keep folder, ignore contents)
+backoffice/app/static/icons/*
+!backoffice/app/static/icons/.gitkeep

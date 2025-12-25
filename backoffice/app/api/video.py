@@ -2,6 +2,8 @@
 from flask import Blueprint, jsonify, request, send_file
 
 from ..db import get_conn
+from ..config import Config
+from ..services.signed_media import verify_media_sig, sign_media
 from ..services.video_service import (
     queue_video_for_faq,
     get_video_job_status,
@@ -83,12 +85,21 @@ def video_status_for_faq(faq_id: int):
         if not row:
             return jsonify({"success": False, "error": "FAQ não encontrada."}), 404
         video_path, status = row
+        stream_url = None
+        if status == "ready" and video_path:
+            # Always return a fresh signed url to avoid cache issues (nonce)
+            import time
+            nonce = str(int(time.time() * 1000))
+            exp = int(time.time()) + 3600
+            sig = sign_media("faq", str(faq_id), exp, nonce, secret_fallback=Config.SECRET_KEY)
+            stream_url = f"/video/faq/{faq_id}?exp={exp}&nonce={nonce}&sig={sig}"
         return jsonify(
             {
                 "success": True,
                 "faq_id": faq_id,
                 "video_status": status,
                 "video_path": video_path,
+                "stream_url": stream_url,
             }
         )
     finally:
@@ -119,11 +130,78 @@ def video_for_faq(faq_id: int):
                 ),
                 404,
             )
+        if Config.REQUIRE_SIGNED_MEDIA:
+            exp = request.args.get("exp")
+            nonce = request.args.get("nonce", "")
+            sig = request.args.get("sig")
+            if not (exp and sig and verify_media_sig("faq", str(faq_id), int(exp), str(nonce), str(sig), secret_fallback=Config.SECRET_KEY)):
+                return jsonify({"success": False, "error": "Unauthorized"}), 403
     finally:
         cur.close()
         conn.close()
 
     return send_file(video_path, mimetype="video/mp4", as_attachment=False)
+
+
+@app.route("/video/cancel", methods=["POST"])
+def cancel_video_job():
+    """Cancel the current job.
+
+    If cancelling a chatbot job, requires {"delete_chatbot": true} and will delete the chatbot.
+    """
+    data = request.get_json(silent=True) or {}
+    delete_chatbot = bool(data.get("delete_chatbot"))
+
+    job = get_video_job_status()
+    status = (job.get("status") or "idle")
+    kind = job.get("kind")
+    chatbot_id = job.get("chatbot_id")
+    faq_id = job.get("faq_id")
+
+    if status not in {"queued", "processing"}:
+        return jsonify({"success": False, "error": "No job running."}), 409
+
+    if kind == "chatbot" and not delete_chatbot:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Cancelling chatbot videos requires deleting the chatbot.",
+                }
+            ),
+            400,
+        )
+
+    from ..services.video_service import request_cancel_current_job
+
+    request_cancel_current_job()
+
+    # If chatbot job: delete chatbot (and related content) as requested
+    if kind == "chatbot" and chatbot_id:
+        conn = get_conn()
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                "DELETE FROM faq_relacionadas WHERE faq_id IN (SELECT faq_id FROM faq WHERE chatbot_id = %s)",
+                (chatbot_id,),
+            )
+            cur.execute(
+                "DELETE FROM faq_documento WHERE faq_id IN (SELECT faq_id FROM faq WHERE chatbot_id = %s)",
+                (chatbot_id,),
+            )
+            cur.execute("DELETE FROM faq WHERE chatbot_id = %s", (chatbot_id,))
+            cur.execute("DELETE FROM fonte_resposta WHERE chatbot_id = %s", (chatbot_id,))
+            cur.execute("DELETE FROM pdf_documents WHERE chatbot_id = %s", (chatbot_id,))
+            cur.execute("DELETE FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            return jsonify({"success": False, "error": str(e)}), 500
+        finally:
+            cur.close()
+            conn.close()
+
+    return jsonify({"success": True, "kind": kind, "chatbot_id": chatbot_id, "faq_id": faq_id})
 
 
 @app.route("/video/chatbot/<int:chatbot_id>/idle", methods=["GET"])
@@ -142,6 +220,12 @@ def video_idle_for_chatbot(chatbot_id: int):
     finally:
         cur.close()
         conn.close()
+    if Config.REQUIRE_SIGNED_MEDIA:
+        exp = request.args.get("exp")
+        nonce = request.args.get("nonce", "")
+        sig = request.args.get("sig")
+        if not (exp and sig and verify_media_sig("idle", str(chatbot_id), int(exp), str(nonce), str(sig), secret_fallback=Config.SECRET_KEY)):
+            return jsonify({"success": False, "error": "Unauthorized"}), 403
     return send_file(path, mimetype="video/mp4", as_attachment=False)
 
 
@@ -161,4 +245,10 @@ def video_greeting_for_chatbot(chatbot_id: int):
     finally:
         cur.close()
         conn.close()
+    if Config.REQUIRE_SIGNED_MEDIA:
+        exp = request.args.get("exp")
+        nonce = request.args.get("nonce", "")
+        sig = request.args.get("sig")
+        if not (exp and sig and verify_media_sig("greeting", str(chatbot_id), int(exp), str(nonce), str(sig), secret_fallback=Config.SECRET_KEY)):
+            return jsonify({"success": False, "error": "Unauthorized"}), 403
     return send_file(path, mimetype="video/mp4", as_attachment=False)
