@@ -124,6 +124,21 @@ def queue_video_for_faq(faq_id: int) -> bool:
             }
         )
 
+    # Update DB status early so UI doesn't get stuck waiting with NULL
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("UPDATE faq SET video_status=%s WHERE faq_id=%s", ("queued", faq_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception:
+        # Best-effort only; the worker will update status again.
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+
     from flask import current_app
     app = current_app._get_current_object()
     worker = Thread(target=_run_video_job, args=(faq_id, app), daemon=True)
@@ -131,7 +146,14 @@ def queue_video_for_faq(faq_id: int) -> bool:
     return True
 
 
-def _generate_video(text: str, genero: Optional[str], avatar_path: Optional[Path], chatbot_id: int, is_idle: bool = False, video_type: str = "faq") -> str:
+def _generate_video(
+    text: str,
+    genero: Optional[str],
+    avatar_path: Optional[Path],
+    *,
+    final_name: str,
+    is_idle: bool = False,
+) -> str:
     """Generate a talking-head video for the given text and gender.
 
     Returns the absolute path to the resulting MP4 file.
@@ -159,7 +181,7 @@ def _generate_video(text: str, genero: Optional[str], avatar_path: Optional[Path
     batch_size = str(SADTALKER_BATCH_SIZE_DEFAULT or "1")
 
     result_root = RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)
-    result_root.mkdir(exist_ok=True)
+    result_root.mkdir(parents=True, exist_ok=True)
 
     run_id = str(uuid.uuid4())
     result_dir = result_root / run_id
@@ -225,9 +247,14 @@ def _generate_video(text: str, genero: Optional[str], avatar_path: Optional[Path
         if not mp4_files:
             raise RuntimeError(f"Nenhum ficheiro mp4 encontrado em {result_dir}.")
 
-        # Move the MP4 to results/{video_type}_{chatbot_id}.mp4
+        # Move the MP4 to results/{final_name}
         final_mp4 = mp4_files[-1]
-        final_path = result_root / f"{video_type}_{chatbot_id}.mp4"
+        final_path = result_root / final_name
+        if final_path.exists():
+            try:
+                final_path.unlink()
+            except Exception:
+                pass
         final_mp4.rename(final_path)
 
         return str(final_path.resolve())
@@ -288,7 +315,13 @@ def _run_video_job(faq_id: int, app) -> None:
                 except Exception:
                     avatar_file = None
 
-            video_path = _generate_video(video_text, genero, avatar_file, chatbot_id, is_idle=False, video_type="faq")
+            video_path = _generate_video(
+                video_text,
+                genero,
+                avatar_file,
+                final_name=f"faq_{faq_id}.mp4",
+                is_idle=False,
+            )
 
             _set_job(progress=90, message="A finalizar vídeo...")
             cur.execute(
@@ -345,11 +378,23 @@ def _run_idle_video_job(chatbot_id: int, app) -> None:
             # Generate greeting video
             _set_job(progress=25, message="A gerar vídeo de saudação...")
             video_text = f"Olá, sou o {nome}. Como posso ajudar?"
-            greeting_path = _generate_video(video_text, genero, avatar_file, chatbot_id, is_idle=False, video_type="greeting")
+            greeting_path = _generate_video(
+                video_text,
+                genero,
+                avatar_file,
+                final_name=f"greeting_{chatbot_id}.mp4",
+                is_idle=False,
+            )
 
             # Generate idle video
             _set_job(progress=60, message="A gerar vídeo idle...")
-            idle_path = _generate_video("", genero, avatar_file, chatbot_id, is_idle=True, video_type="idle")
+            idle_path = _generate_video(
+                "",
+                genero,
+                avatar_file,
+                final_name=f"idle_{chatbot_id}.mp4",
+                is_idle=True,
+            )
 
             _set_job(progress=90, message="A finalizar vídeos...")
             cur.execute(

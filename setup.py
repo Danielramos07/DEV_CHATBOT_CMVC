@@ -16,9 +16,11 @@ downloads all SadTalker/GFPGAN/Piper assets under:
 import sys
 import subprocess
 import shutil
+import os
 from pathlib import Path
 from typing import Iterable, Tuple, Optional
 import urllib.request
+import zipfile
 
 
 class SadTalkerSetup:
@@ -33,6 +35,10 @@ class SadTalkerSetup:
         self.checkpoints_dir = models_root / "checkpoints"
         self.gfpgan_weights_dir = models_root / "gfpgan" / "weights"
         self.piper_voices_dir = models_root / "voices"
+
+        # Vosk model location (used by STT service)
+        self.vosk_models_dir = self.project_root / "backoffice" / "app" / "extras" / "models"
+        self.vosk_model_dir = self.vosk_models_dir / "vosk-model-small-pt-0.3"
 
     # --- helpers ---------------------------------------------------------
 
@@ -313,6 +319,47 @@ class SadTalkerSetup:
         print(f"Expected directory: {voices_dir}")
         return False
 
+    def download_vosk_model(self) -> bool:
+        """Download and extract the Vosk Portuguese small model (pt) if missing."""
+
+        self.print_header("Downloading Vosk model (pt) for STT")
+
+        # Allow override via env (useful for mirrors/offline)
+        default_url = "https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip"
+        url = os.environ.get("VOSK_MODEL_URL", default_url)
+
+        # Quick success path
+        expected_file = self.vosk_model_dir / "README"
+        if self.vosk_model_dir.exists() and expected_file.exists():
+            print(f"Vosk model already present: {self.vosk_model_dir}")
+            return True
+
+        self.vosk_models_dir.mkdir(parents=True, exist_ok=True)
+        zip_path = self.vosk_models_dir / "vosk-model-small-pt-0.3.zip"
+
+        if not self._download_file(url, zip_path):
+            return False
+
+        try:
+            print(f"Extracting: {zip_path} -> {self.vosk_models_dir}")
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                zf.extractall(self.vosk_models_dir)
+        except Exception as exc:
+            print(f"Failed to extract Vosk model zip: {exc}")
+            return False
+        finally:
+            try:
+                zip_path.unlink()
+            except Exception:
+                pass
+
+        if self.vosk_model_dir.exists():
+            print(f"Vosk model ready: {self.vosk_model_dir}")
+            return True
+
+        print(f"Vosk model directory not found after extract: {self.vosk_model_dir}")
+        return False
+
     def verify_setup(self) -> bool:
         self.print_header("Verifying SadTalker setup")
 
@@ -321,6 +368,7 @@ class SadTalkerSetup:
             ("models/checkpoints directory", self.checkpoints_dir),
             ("models/gfpgan/weights directory", self.gfpgan_weights_dir),
             ("models/voices directory", self.piper_voices_dir),
+            ("vosk model directory", self.vosk_model_dir),
         ]
 
         ok = True
@@ -366,6 +414,7 @@ class SadTalkerSetup:
 
         self.download_models()
         self.download_piper_voices()
+        self.download_vosk_model()
         all_good = self.verify_setup()
 
         self.print_header("Setup summary")
@@ -390,8 +439,10 @@ def main() -> None:
             setup.verify_setup()
         elif arg == "--patch-only":
             setup.patch_functional_tensor_imports()
+        elif arg == "--vosk-only":
+            setup.download_vosk_model()
         else:
-            print("Usage: python setup.py [--requirements-only|--models-only|--verify|--patch-only]")
+            print("Usage: python setup.py [--requirements-only|--models-only|--vosk-only|--verify|--patch-only]")
     else:
         setup.run_complete_setup()
 

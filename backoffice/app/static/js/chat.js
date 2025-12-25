@@ -369,21 +369,83 @@ function mostrarSpinnerVideoFaq(faqId) {
   // Polling para verificar se o vídeo está pronto
   const checkVideoReady = async () => {
     try {
-      const res = await fetch(`/video/faq/${faqId}`);
+      const res = await fetch(`/video/faq/status/${faqId}`);
       if (res.ok) {
-        // Vídeo pronto, mostrar
-        spinnerEl.style.display = "none";
-        mostrarVideoFaqNoAvatar(faqId);
-      } else {
-        // Ainda não pronto, tentar novamente em 2 segundos
-        setTimeout(checkVideoReady, 2000);
+        const data = await res.json();
+        if (data && data.success && data.video_status === "ready") {
+          spinnerEl.style.display = "none";
+          mostrarVideoFaqNoAvatar(faqId);
+          return;
+        }
+        if (data && data.success && data.video_status === "failed") {
+          spinnerEl.style.display = "none";
+          if (imgEl) imgEl.style.display = "block";
+          if (videoEl) videoEl.style.display = "none";
+          return;
+        }
       }
+      setTimeout(checkVideoReady, 2000);
     } catch (e) {
       setTimeout(checkVideoReady, 2000);
     }
   };
 
   checkVideoReady();
+}
+
+function mostrarVideoFaqNoAvatar(faqId) {
+  if (!avatarAtivo) return;
+  const avatarPanel = document.getElementById("chatAvatarPanel");
+  if (!avatarPanel || !faqId) return;
+
+  const videoEl = avatarPanel.querySelector("video.chat-avatar-video");
+  const imgEl = avatarPanel.querySelector("img.chat-avatar-image");
+  const spinnerEl = avatarPanel.querySelector(".video-spinner");
+
+  if (!videoEl) return;
+
+  if (spinnerEl) spinnerEl.style.display = "none";
+  if (imgEl) imgEl.style.display = "none";
+
+  try {
+    videoEl.pause();
+  } catch (e) {}
+
+  // Bust cache para evitar mostrar vídeo antigo após regeneração
+  videoEl.src = `/video/faq/${faqId}?t=${Date.now()}`;
+  videoEl.style.display = "block";
+  videoEl.muted = true;
+  videoEl.loop = false;
+
+  const onEnded = () => {
+    // Ao terminar, voltar ao idle (se existir) ou manter imagem
+    try {
+      videoEl.removeEventListener("ended", onEnded);
+    } catch (e) {}
+    const idlePath = localStorage.getItem("videoIdlePath");
+    if (idlePath) {
+      videoEl.src = idlePath;
+      videoEl.loop = true;
+      videoEl.style.display = "block";
+      if (imgEl) imgEl.style.display = "none";
+      videoEl.play().catch(() => {});
+    } else {
+      videoEl.style.display = "none";
+      if (imgEl) imgEl.style.display = "block";
+    }
+  };
+  videoEl.addEventListener("ended", onEnded);
+
+  videoEl
+    .play()
+    .then(() => {})
+    .catch(() => {
+      // fallback: se autoplay falhar, manter imagem
+      videoEl.style.display = "none";
+      if (imgEl) imgEl.style.display = "block";
+    });
+
+  currentFaqVideoId = faqId;
 }
 
 function reiniciarConversa() {
@@ -962,6 +1024,13 @@ function responderPergunta(pergunta) {
               if (data.video_status === "ready") {
                 mostrarVideoFaqNoAvatar(data.faq_id);
               } else {
+                if (data.video_busy) {
+                  if (typeof mostrarModalVideoBusy === "function") {
+                    mostrarModalVideoBusy(
+                      "Já existe um vídeo a ser gerado neste momento. Aguarde que termine."
+                    );
+                  }
+                }
                 mostrarSpinnerVideoFaq(data.faq_id);
               }
             } catch (e) {}

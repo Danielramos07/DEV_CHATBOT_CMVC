@@ -55,7 +55,7 @@ PG_PASS=admin
 INDEX_PATH=backoffice/faiss.index
 FAQ_EMB_PATH=backoffice/faq_embeddings.pkl
 PDF_PATH=backoffice/pdfs
-ICON_PATH=backoffice/static/icons
+ICON_PATH=backoffice/app/static/icons
 
 CORS_ORIGINS=http://localhost:5000,http://127.0.0.1:5000,http://localhost:3000,http://127.0.0.1:3000
 ```

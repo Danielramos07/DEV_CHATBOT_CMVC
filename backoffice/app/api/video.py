@@ -1,6 +1,5 @@
 
 from flask import Blueprint, jsonify, request, send_file
-from backoffice.app.video.main import queue_video_job, get_video_job_status
 
 from ..db import get_conn
 from ..services.video_service import (
@@ -11,42 +10,6 @@ from ..services.video_service import (
 
 
 app = Blueprint("video", __name__)
-
-# --- Generic video job endpoints ---
-
-@app.route("/video/job/queue", methods=["POST"])
-def queue_generic_video():
-    data = request.get_json() or {}
-    text = data.get("text")
-    avatar_path = data.get("avatar_path")
-    voice = data.get("voice")
-    preprocess = data.get("preprocess")
-    size = data.get("size")
-    enhancer = data.get("enhancer")
-    batch_size = data.get("batch_size")
-    results_dir = data.get("results_dir")
-
-    if not text or not avatar_path:
-        return jsonify({"success": False, "error": "text and avatar_path are required."}), 400
-
-    job_id = queue_video_job(
-        text=text,
-        avatar_path=avatar_path,
-        voice=str(voice) if voice is not None else None,
-        preprocess=str(preprocess) if preprocess is not None else None,
-        size=str(size) if size is not None else None,
-        enhancer=str(enhancer) if enhancer is not None else None,
-        batch_size=int(batch_size) if batch_size is not None else None,
-        results_dir=str(results_dir) if results_dir is not None else None,
-    )
-    return jsonify({"success": True, "job_id": job_id})
-
-
-@app.route("/video/job/status/<job_id>", methods=["GET"])
-def generic_video_status(job_id):
-    status = get_video_job_status(job_id)
-    return jsonify({"success": True, "job": status})
-
 
 @app.route("/video/queue", methods=["POST"])
 def queue_video():
@@ -106,6 +69,33 @@ def video_status():
     return jsonify({"success": True, "job": status})
 
 
+@app.route("/video/faq/status/<int:faq_id>", methods=["GET"])
+def video_status_for_faq(faq_id: int):
+    """DB-backed per-FAQ status (used by frontend polling)."""
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT video_path, video_status FROM faq WHERE faq_id = %s",
+            (faq_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"success": False, "error": "FAQ não encontrada."}), 404
+        video_path, status = row
+        return jsonify(
+            {
+                "success": True,
+                "faq_id": faq_id,
+                "video_status": status,
+                "video_path": video_path,
+            }
+        )
+    finally:
+        cur.close()
+        conn.close()
+
+
 @app.route("/video/faq/<int:faq_id>", methods=["GET"])
 def video_for_faq(faq_id: int):
     conn = get_conn()
@@ -134,3 +124,41 @@ def video_for_faq(faq_id: int):
         conn.close()
 
     return send_file(video_path, mimetype="video/mp4", as_attachment=False)
+
+
+@app.route("/video/chatbot/<int:chatbot_id>/idle", methods=["GET"])
+def video_idle_for_chatbot(chatbot_id: int):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT video_idle_path FROM chatbot WHERE chatbot_id = %s",
+            (chatbot_id,),
+        )
+        row = cur.fetchone()
+        if not row or not row[0]:
+            return jsonify({"success": False, "error": "Vídeo idle não disponível."}), 404
+        path = row[0]
+    finally:
+        cur.close()
+        conn.close()
+    return send_file(path, mimetype="video/mp4", as_attachment=False)
+
+
+@app.route("/video/chatbot/<int:chatbot_id>/greeting", methods=["GET"])
+def video_greeting_for_chatbot(chatbot_id: int):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT video_greeting_path FROM chatbot WHERE chatbot_id = %s",
+            (chatbot_id,),
+        )
+        row = cur.fetchone()
+        if not row or not row[0]:
+            return jsonify({"success": False, "error": "Vídeo de saudação não disponível."}), 404
+        path = row[0]
+    finally:
+        cur.close()
+        conn.close()
+    return send_file(path, mimetype="video/mp4", as_attachment=False)

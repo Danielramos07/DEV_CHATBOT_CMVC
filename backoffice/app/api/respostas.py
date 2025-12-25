@@ -3,6 +3,7 @@ from ..db import get_conn
 from ..services.text import detectar_saudacao, registar_pergunta_nao_respondida
 from ..services.retreival import obter_faq_mais_semelhante, pesquisar_faiss, build_faiss_index
 from ..services.rag import pesquisar_pdf_ollama, get_pdfs_from_db, obter_mensagem_sem_resposta
+from ..services.video_service import can_start_new_video_job, queue_video_for_faq
 import traceback
 
 app = Blueprint('respostas', __name__)
@@ -61,6 +62,25 @@ def obter_resposta():
                 """, (resultado["pergunta"], chatbot_id))
                 row = cur.fetchone()
                 faq_id, categoria_id, video_status = row if row else (None, None, None)
+
+                # Se o chatbot tiver vídeo ativo e o vídeo ainda não estiver pronto, tentar enfileirar.
+                video_enabled = False
+                try:
+                    cur.execute("SELECT video_enabled FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
+                    r = cur.fetchone()
+                    video_enabled = bool(r[0]) if r else False
+                except Exception:
+                    video_enabled = False
+
+                video_queued = False
+                video_busy = False
+                if video_enabled and faq_id and video_status != "ready":
+                    if can_start_new_video_job():
+                        video_queued = queue_video_for_faq(int(faq_id))
+                        video_busy = not video_queued
+                    else:
+                        video_busy = True
+
                 cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
                 docs = [r[0] for r in cur.fetchall()]
                 return jsonify({
@@ -70,6 +90,9 @@ def obter_resposta():
                     "faq_id": faq_id,
                     "categoria_id": categoria_id,
                     "video_status": video_status,
+                    "video_enabled": video_enabled,
+                    "video_queued": video_queued,
+                    "video_busy": video_busy,
                     "score": resultado["score"],
                     "pergunta_faq": resultado["pergunta"],
                     "documentos": docs

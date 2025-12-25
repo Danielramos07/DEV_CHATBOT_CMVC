@@ -302,6 +302,22 @@ async function carregarTabelaFAQsBackoffice() {
         </tbody>
       </table>
     `;
+
+    // Auto-refresh enquanto houver FAQs com vídeo em processamento/queued
+    try {
+      if (
+        Array.isArray(faqsFiltradas) &&
+        faqsFiltradas.some(
+          (f) => f.video_status === "processing" || f.video_status === "queued"
+        )
+      ) {
+        setTimeout(() => {
+          try {
+            carregarTabelaFAQsBackoffice();
+          } catch (e) {}
+        }, 5000);
+      }
+    } catch (e) {}
   } catch (err) {
     lista.innerHTML = "<p style='color:red;'>Erro ao carregar FAQs.</p>";
   }
@@ -518,6 +534,19 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
           carregarTabelaFAQs(parseInt(chatbotIdRaw), true);
           mostrarRespostas();
         } else {
+          if (res.status === 409 && resultado && resultado.busy) {
+            if (typeof mostrarModalVideoBusy === "function") {
+              mostrarModalVideoBusy(
+                resultado.error ||
+                  "Já existe um vídeo a ser gerado neste momento. Aguarde que termine."
+              );
+            } else {
+              alert(
+                resultado.error ||
+                  "Já existe um vídeo a ser gerado neste momento. Aguarde que termine."
+              );
+            }
+          }
           statusDiv.innerHTML = `❌ Erro: ${
             resultado.error || resultado.erro || "Erro desconhecido."
           }`;

@@ -127,14 +127,20 @@ def obter_nome_chatbot(chatbot_id):
         cur.execute("SELECT nome, cor, icon_path, genero, video_greeting_path, video_idle_path FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
         row = cur.fetchone()
         if row:
+            video_greeting_url = None
+            video_idle_url = None
+            if row[4]:
+                video_greeting_url = url_for("api.video.video_greeting_for_chatbot", chatbot_id=chatbot_id)
+            if row[5]:
+                video_idle_url = url_for("api.video.video_idle_for_chatbot", chatbot_id=chatbot_id)
             return jsonify({
                 "success": True,
                 "nome": row[0],
                 "cor": row[1] or "#d4af37",
                 "icon": row[2] or "/static/images/chatbot-icon.png",
                 "genero": row[3],
-                "video_greeting_path": row[4],
-                "video_idle_path": row[5]
+                "video_greeting_path": video_greeting_url,
+                "video_idle_path": video_idle_url
             })
         return jsonify({"success": False, "erro": "Chatbot não encontrado."}), 404
     except Exception as e:
@@ -186,7 +192,7 @@ def atualizar_chatbot(chatbot_id):
         cur.execute("DELETE FROM chatbot_categoria WHERE chatbot_id=%s", (chatbot_id,))
         for categoria_id in categorias:
             cur.execute(
-                "INSERT INTO ChatbotCategoria (chatbot_id, categoria_id) VALUES (%s, %s)",
+                "INSERT INTO chatbot_categoria (chatbot_id, categoria_id) VALUES (%s, %s)",
                 (chatbot_id, int(categoria_id))
             )
         cur.execute("SELECT 1 FROM fonte_resposta WHERE chatbot_id=%s", (chatbot_id,))

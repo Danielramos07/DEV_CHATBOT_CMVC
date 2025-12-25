@@ -276,6 +276,18 @@
       </div>
     </footer>
 
+    <!-- Modal: vídeo busy (global) -->
+    <div id="modalVideoBusy" class="modal-overlay" style="display: none">
+      <div class="modal-box modal-box-confirmacao">
+        <p id="modalVideoBusyMsg">
+          Já existe um vídeo a ser gerado neste momento. Aguarde que termine.
+        </p>
+        <div class="modal-buttons">
+          <button onclick="fecharModalVideoBusy()">Fechar</button>
+        </div>
+      </div>
+    </div>
+
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="{{ url_for('static', filename='js/globals.js') }}"></script>

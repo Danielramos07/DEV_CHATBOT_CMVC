@@ -1,6 +1,27 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
-load_dotenv()
+
+# Project root (where `.env` and `wsgi.py` live)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(PROJECT_ROOT / ".env")
+
+
+def _resolve_path(value: str) -> str:
+    """Resolve a filesystem path.
+
+    If `value` is relative, we anchor it at PROJECT_ROOT so running the app from
+    different CWDs won't create paths like backoffice/backoffice/...
+    """
+    if value is None:
+        return value
+    value = str(value).strip()
+    if not value:
+        return value
+    p = Path(value)
+    if p.is_absolute():
+        return str(p)
+    return str((PROJECT_ROOT / p).resolve())
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change")
@@ -9,8 +30,8 @@ class Config:
     PG_DB   = os.getenv("PG_DB", "ai4governance")
     PG_USER = os.getenv("PG_USER", "postgres")
     PG_PASS = os.getenv("PG_PASS", "admin")
-    INDEX_PATH = os.getenv("INDEX_PATH", "data/vectorstore/faiss.index")
-    FAQ_EMBEDDINGS_PATH = os.getenv("FAQ_EMB_PATH", "data/vectorstore/faq_embeddings.pkl")
-    PDF_STORAGE_PATH = os.getenv("PDF_PATH", "data/docs")
-    ICON_STORAGE_PATH = os.getenv("ICON_PATH", "data/icons")
+    INDEX_PATH = _resolve_path(os.getenv("INDEX_PATH", "backoffice/faiss.index"))
+    FAQ_EMBEDDINGS_PATH = _resolve_path(os.getenv("FAQ_EMB_PATH", "backoffice/faq_embeddings.pkl"))
+    PDF_STORAGE_PATH = _resolve_path(os.getenv("PDF_PATH", "backoffice/pdfs"))
+    ICON_STORAGE_PATH = _resolve_path(os.getenv("ICON_PATH", "backoffice/app/static/icons"))
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
