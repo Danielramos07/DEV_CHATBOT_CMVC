@@ -1,4 +1,7 @@
 
+import os
+import shutil
+
 from flask import Blueprint, jsonify, request, send_file, current_app
 
 from ..db import get_conn
@@ -176,6 +179,17 @@ def cancel_video_job():
 
     request_cancel_current_job()
 
+    # If FAQ job: clean up temporary files
+    if kind == "faq" and faq_id:
+        try:
+            from ..services.video_service import ROOT, RESULTS_DIR
+            result_root = RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)
+            faq_dir = result_root / f"faq_{faq_id}"
+            if faq_dir.exists() and faq_dir.is_dir():
+                shutil.rmtree(faq_dir, ignore_errors=True)
+        except Exception:
+            pass
+
     # If chatbot job: delete chatbot (and related content) as requested
     if kind == "chatbot" and chatbot_id:
         conn = get_conn()
@@ -186,6 +200,10 @@ def cancel_video_job():
             row = cur.fetchone()
             icon_path = row[0] if row else None
 
+            # Fetch FAQ IDs before deleting to clean up their video files
+            cur.execute("SELECT faq_id FROM faq WHERE chatbot_id = %s", (chatbot_id,))
+            faq_ids = [row[0] for row in cur.fetchall()]
+            
             cur.execute(
                 "DELETE FROM faq_relacionadas WHERE faq_id IN (SELECT faq_id FROM faq WHERE chatbot_id = %s)",
                 (chatbot_id,),
@@ -199,6 +217,17 @@ def cancel_video_job():
             cur.execute("DELETE FROM pdf_documents WHERE chatbot_id = %s", (chatbot_id,))
             cur.execute("DELETE FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
             conn.commit()
+
+            # Clean up FAQ video files
+            try:
+                from ..services.video_service import ROOT, RESULTS_DIR
+                result_root = RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)
+                for faq_id in faq_ids:
+                    faq_dir = result_root / f"faq_{faq_id}"
+                    if faq_dir.exists() and faq_dir.is_dir():
+                        shutil.rmtree(faq_dir, ignore_errors=True)
+            except Exception:
+                pass
 
             # Best-effort cleanup: uploaded icon + results folder
             try:

@@ -315,10 +315,29 @@ def _generate_video(
 
         _set_job(progress=80, message="A finalizar vídeo...")
 
+        # Wait a bit for the file to be fully written (inference.py creates save_dir + ".mp4")
+        time.sleep(1)
+        
         # Search for MP4 files in result_dir (including subdirectories like timestamp folders)
+        # The inference.py creates the file as save_dir + ".mp4" (e.g., "2025_12_27_17.58.02.mp4")
+        # save_dir is result_dir / timestamp, so the file is created as result_dir / (timestamp + ".mp4")
         mp4_files = sorted(result_dir.rglob("*.mp4"), key=os.path.getmtime)
+        # Also check if the file was created directly in result_dir (inference.py pattern: save_dir + ".mp4")
+        # Since save_dir = result_dir / timestamp, the file is at result_dir / (timestamp + ".mp4")
+        if result_dir.exists():
+            result_dir_mp4s = list(result_dir.glob("*.mp4"))
+            if result_dir_mp4s:
+                mp4_files.extend(result_dir_mp4s)
+        # Also check the expected location: result_dir / (timestamp + ".mp4")
+        expected_file = result_dir / (timestamp + ".mp4")
+        if expected_file.exists() and expected_file not in mp4_files:
+            mp4_files.append(expected_file)
+        # Remove duplicates and sort by modification time
+        mp4_files = sorted(set(mp4_files), key=os.path.getmtime)
         if not mp4_files:
-            raise RuntimeError(f"Nenhum ficheiro mp4 encontrado em {result_dir}.")
+            # Debug: list what's actually in result_dir
+            debug_files = list(result_dir.iterdir()) if result_dir.exists() else []
+            raise RuntimeError(f"Nenhum ficheiro mp4 encontrado em {result_dir}. Ficheiros encontrados: {[str(f) for f in debug_files]}. Esperado: {expected_file}")
 
         # Move the MP4 to final_dir/{final_filename}
         final_mp4 = mp4_files[-1]
@@ -348,6 +367,7 @@ def _run_video_job(faq_id: int, app) -> None:
     with app.app_context():
         conn = get_conn()
         cur = conn.cursor()
+        chatbot_id = None  # Initialize to ensure it's available in exception handlers
         try:
             _set_job(status="processing", progress=10, message="A preparar dados da FAQ...")
 
@@ -391,14 +411,21 @@ def _run_video_job(faq_id: int, app) -> None:
                     candidate = icon_base / filename
                     if candidate.exists():
                         avatar_file = candidate
-                except Exception:
-                    avatar_file = None
+                    else:
+                        raise FileNotFoundError(f"Avatar image not found at: {candidate}")
+                except Exception as e:
+                    raise FileNotFoundError(f"Could not resolve avatar path from icon_path '{icon_path}': {e}")
+            
+            if avatar_file is None:
+                raise FileNotFoundError(f"Chatbot {chatbot_id} não tem um avatar (icon_path) configurado. Configure um avatar antes de gerar vídeos.")
 
+            # Store FAQ videos inside the chatbot's folder: chatbot_{id}/faq_{faq_id}/
+            base_dir = (RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)) / f"chatbot_{chatbot_id}"
             video_path = _generate_video(
                 video_text,
                 genero,
                 avatar_file,
-                final_dir=(RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)) / f"faq_{faq_id}",
+                final_dir=base_dir / f"faq_{faq_id}",
                 final_filename="final.mp4",
                 is_idle=False,
             )
@@ -421,7 +448,8 @@ def _run_video_job(faq_id: int, app) -> None:
                 conn.rollback()
             # remove final folder entirely
             try:
-                final_dir = (RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)) / f"faq_{faq_id}"
+                base_dir = (RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)) / f"chatbot_{chatbot_id}"
+                final_dir = base_dir / f"faq_{faq_id}"
                 shutil.rmtree(final_dir, ignore_errors=True)
             except Exception:
                 pass
@@ -491,20 +519,33 @@ def _run_idle_video_job(chatbot_id: int, app) -> None:
 
             # Generate idle video
             _set_job(progress=60, message="A gerar vídeo idle...")
-            idle_path = _generate_video(
-                "",
-                genero,
-                avatar_file,
-                final_dir=base_dir,
-                final_filename="idle.mp4",
-                is_idle=True,
-            )
+            idle_path = None
+            try:
+                idle_path = _generate_video(
+                    "",
+                    genero,
+                    avatar_file,
+                    final_dir=base_dir,
+                    final_filename="idle.mp4",
+                    is_idle=True,
+                )
+            except Exception as idle_error:
+                # If idle generation fails, log but continue (greeting is already saved)
+                print(f"Erro ao gerar vídeo idle: {idle_error}")
+                _set_job(progress=90, message=f"Vídeo idle falhou, mas greeting foi gerado. Erro: {str(idle_error)}")
 
             _set_job(progress=90, message="A finalizar vídeos...")
-            cur.execute(
-                "UPDATE chatbot SET video_greeting_path=%s, video_idle_path=%s WHERE chatbot_id=%s",
-                (greeting_path, idle_path, chatbot_id),
-            )
+            if idle_path:
+                cur.execute(
+                    "UPDATE chatbot SET video_greeting_path=%s, video_idle_path=%s WHERE chatbot_id=%s",
+                    (greeting_path, idle_path, chatbot_id),
+                )
+            else:
+                # Only update greeting if idle failed
+                cur.execute(
+                    "UPDATE chatbot SET video_greeting_path=%s WHERE chatbot_id=%s",
+                    (greeting_path, chatbot_id),
+                )
             conn.commit()
 
             _set_job(status="done", progress=100, message="Vídeos gerados com sucesso.", error=None)
@@ -526,6 +567,16 @@ def _run_idle_video_job(chatbot_id: int, app) -> None:
                     cur.execute(
                         "UPDATE chatbot SET video_greeting_path=%s WHERE chatbot_id=%s",
                         (greeting_path, chatbot_id),
+                    )
+                    conn.commit()
+            except Exception:
+                conn.rollback()
+            # Also try to save idle_path if it was generated but not saved
+            try:
+                if 'idle_path' in locals() and idle_path:
+                    cur.execute(
+                        "UPDATE chatbot SET video_idle_path=%s WHERE chatbot_id=%s",
+                        (idle_path, chatbot_id),
                     )
                     conn.commit()
             except Exception:

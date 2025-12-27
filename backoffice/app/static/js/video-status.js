@@ -59,7 +59,7 @@ function startVideoStatusPolling() {
   // Evitar múltiplos intervals
   if (window.__videoStatusPollIntervalId) return;
   atualizarIndicadorVideoJob();
-  window.__videoStatusPollIntervalId = setInterval(atualizarIndicadorVideoJob, 5000);
+  window.__videoStatusPollIntervalId = setInterval(atualizarIndicadorVideoJob, 15000);
   try {
     localStorage.setItem("videoJobPolling", "1");
   } catch (e) {}

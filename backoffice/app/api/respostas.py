@@ -13,112 +13,150 @@ app = Blueprint('respostas', __name__)
 def obter_resposta():
     conn = get_conn()
     cur = conn.cursor()
-    dados = request.get_json()
-    pergunta = dados.get("pergunta", "").strip()
-    chatbot_id = dados.get("chatbot_id")
-    fonte = dados.get("fonte", "faq")
-    idioma = dados.get("idioma", "pt")
-    feedback = dados.get("feedback", None)
-    print("DEBUG /obter-resposta:", {
-        "pergunta": pergunta,
-        "chatbot_id": chatbot_id,
-        "fonte": fonte,
-        "feedback": feedback,
-        "type_feedback": type(feedback)
-    })
     try:
-        chatbot_id = int(chatbot_id)
-    except Exception:
-        return jsonify({"success": False, "erro": "Chatbot ID inválido."}), 400
-    saudacao = detectar_saudacao(pergunta)
-    if saudacao:
-        return jsonify({
-            "success": True,
-            "fonte": "SAUDACAO",
-            "resposta": saudacao,
-            "faq_id": None,
-            "categoria_id": None,
-            "pergunta_faq": None,
-            "documentos": []
+        dados = request.get_json()
+        pergunta = dados.get("pergunta", "").strip()
+        chatbot_id = dados.get("chatbot_id")
+        fonte = dados.get("fonte", "faq")
+        idioma = dados.get("idioma", "pt")
+        feedback = dados.get("feedback", None)
+        print("DEBUG /obter-resposta:", {
+            "pergunta": pergunta,
+            "chatbot_id": chatbot_id,
+            "fonte": fonte,
+            "feedback": feedback,
+            "type_feedback": type(feedback)
         })
-    if not pergunta or (len(pergunta) < 4 and not any(char.isalpha() for char in pergunta)):
-        return jsonify({
-            "success": False,
-            "erro": "Pergunta demasiado curta ou não reconhecida como válida."
-        })
-    if fonte == "faq+raga" and (feedback is None or feedback == "") and pergunta.lower() in ["sim", "yes"]:
-        return jsonify({
-            "success": False,
-            "erro": "Por favor utilize os botões abaixo para confirmar.",
-            "prompt_rag": True
-        })
-    try:
-        if fonte == "faq":
-            resultado = obter_faq_mais_semelhante(pergunta, chatbot_id)
-            if resultado:
-                cur.execute("""
-                    SELECT faq_id, categoria_id, video_status FROM faq
-                    WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
-                """, (resultado["pergunta"], chatbot_id))
-                row = cur.fetchone()
-                faq_id, categoria_id, video_status = row if row else (None, None, None)
-
-                # Se o chatbot tiver vídeo ativo e o vídeo ainda não estiver pronto, tentar enfileirar.
-                video_enabled = False
-                try:
-                    cur.execute("SELECT video_enabled FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
-                    r = cur.fetchone()
-                    video_enabled = bool(r[0]) if r else False
-                except Exception:
-                    video_enabled = False
-
-                video_queued = False
-                video_busy = False
-                if video_enabled and faq_id and video_status != "ready":
-                    if can_start_new_video_job():
-                        video_queued = queue_video_for_faq(int(faq_id))
-                        video_busy = not video_queued
-                    else:
-                        video_busy = True
-
-                cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
-                docs = [r[0] for r in cur.fetchall()]
-                return jsonify({
-                    "success": True,
-                    "fonte": "FAQ",
-                    "resposta": resultado["resposta"],
-                    "faq_id": faq_id,
-                    "categoria_id": categoria_id,
-                    "video_status": video_status,
-                    "video_enabled": video_enabled,
-                    "video_queued": video_queued,
-                    "video_busy": video_busy,
-                    "score": resultado["score"],
-                    "pergunta_faq": resultado["pergunta"],
-                    "documentos": docs
-                })
-            registar_pergunta_nao_respondida(chatbot_id, pergunta, "faq")
+        try:
+            chatbot_id = int(chatbot_id)
+        except Exception:
+            return jsonify({"success": False, "erro": "Chatbot ID inválido."}), 400
+        saudacao = detectar_saudacao(pergunta)
+        if saudacao:
+            return jsonify({
+                "success": True,
+                "fonte": "SAUDACAO",
+                "resposta": saudacao,
+                "faq_id": None,
+                "categoria_id": None,
+                "pergunta_faq": None,
+                "documentos": []
+            })
+        if not pergunta or (len(pergunta) < 4 and not any(char.isalpha() for char in pergunta)):
             return jsonify({
                 "success": False,
-                "erro": obter_mensagem_sem_resposta(chatbot_id)
+                "erro": "Pergunta demasiado curta ou não reconhecida como válida."
             })
-        elif fonte == "faiss":
-            faiss_resultados = pesquisar_faiss(pergunta, chatbot_id=chatbot_id, k=1, min_sim=0.7)
-            if faiss_resultados:
-                faq_id = faiss_resultados[0]['faq_id']
-                cur.execute("SELECT link FROM FAQ_Documento WHERE faq_id = %s", (faq_id,))
-                docs = [r[0] for r in cur.fetchall()]
+        if fonte == "faq+raga" and (feedback is None or feedback == "") and pergunta.lower() in ["sim", "yes"]:
+            return jsonify({
+                "success": False,
+                "erro": "Por favor utilize os botões abaixo para confirmar.",
+                "prompt_rag": True
+            })
+        try:
+            if fonte == "faq":
+                resultado = obter_faq_mais_semelhante(pergunta, chatbot_id)
+                if resultado:
+                    cur.execute("""
+                        SELECT faq_id, categoria_id, video_status FROM faq
+                        WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
+                    """, (resultado["pergunta"], chatbot_id))
+                    row = cur.fetchone()
+                    faq_id, categoria_id, video_status = row if row else (None, None, None)
+
+                    # Se o chatbot tiver vídeo ativo e o vídeo ainda não estiver pronto, tentar enfileirar.
+                    video_enabled = False
+                    try:
+                        cur.execute("SELECT video_enabled FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
+                        r = cur.fetchone()
+                        video_enabled = bool(r[0]) if r else False
+                    except Exception:
+                        video_enabled = False
+
+                    video_queued = False
+                    video_busy = False
+                    # If video_enabled and FAQ exists, try to queue video if not ready
+                    # video_status can be None, "queued", "processing", "ready", "failed", "cancelled"
+                    if video_enabled and faq_id:
+                        if video_status == "ready":
+                            # Video is ready, nothing to do
+                            pass
+                        elif video_status in ("queued", "processing"):
+                            # Video is already queued/processing
+                            video_busy = True
+                        else:
+                            # video_status is None, "failed", "cancelled", or any other status
+                            # Try to queue a new video
+                            if can_start_new_video_job():
+                                video_queued = queue_video_for_faq(int(faq_id))
+                                video_busy = not video_queued
+                            else:
+                                video_busy = True
+
+                    cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
+                    docs = [r[0] for r in cur.fetchall()]
+                    return jsonify({
+                        "success": True,
+                        "fonte": "FAQ",
+                        "resposta": resultado["resposta"],
+                        "faq_id": faq_id,
+                        "categoria_id": categoria_id,
+                        "video_status": video_status,
+                        "video_enabled": video_enabled,
+                        "video_queued": video_queued,
+                        "video_busy": video_busy,
+                        "score": resultado["score"],
+                        "pergunta_faq": resultado["pergunta"],
+                        "documentos": docs
+                    })
+                registar_pergunta_nao_respondida(chatbot_id, pergunta, "faq")
                 return jsonify({
-                    "success": True,
-                    "fonte": "FAISS",
-                    "resposta": faiss_resultados[0]['resposta'],
-                    "faq_id": faq_id,
-                    "score": faiss_resultados[0]['score'],
-                    "pergunta_faq": faiss_resultados[0]['pergunta'],
-                    "documentos": docs
+                    "success": False,
+                    "erro": obter_mensagem_sem_resposta(chatbot_id)
                 })
-            else:
-                resultado = obter_faq_mais_semelhante(pergunta, chatbot_id, threshold=80)
+            elif fonte == "faiss":
+                faiss_resultados = pesquisar_faiss(pergunta, chatbot_id=chatbot_id, k=1, min_sim=0.7)
+                if faiss_resultados:
+                    faq_id = faiss_resultados[0]['faq_id']
+                    cur.execute("SELECT link FROM FAQ_Documento WHERE faq_id = %s", (faq_id,))
+                    docs = [r[0] for r in cur.fetchall()]
+                    return jsonify({
+                        "success": True,
+                        "fonte": "FAISS",
+                        "resposta": faiss_resultados[0]['resposta'],
+                        "faq_id": faq_id,
+                        "score": faiss_resultados[0]['score'],
+                        "pergunta_faq": faiss_resultados[0]['pergunta'],
+                        "documentos": docs
+                    })
+                else:
+                    resultado = obter_faq_mais_semelhante(pergunta, chatbot_id, threshold=80)
+                    if resultado:
+                        cur.execute("""
+                            SELECT faq_id, categoria_id, video_status FROM faq
+                            WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
+                        """, (resultado["pergunta"], chatbot_id))
+                        row = cur.fetchone()
+                        faq_id, categoria_id, video_status = row if row else (None, None, None)
+                        cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
+                        docs = [r[0] for r in cur.fetchall()]
+                        return jsonify({
+                            "success": True,
+                            "fonte": "FUZZY",
+                            "resposta": resultado["resposta"],
+                            "faq_id": faq_id,
+                            "categoria_id": categoria_id,
+                            "video_status": video_status,
+                            "score": resultado["score"],
+                            "pergunta_faq": resultado["pergunta"],
+                            "documentos": docs
+                        })
+                    return jsonify({
+                        "success": False,
+                        "erro": "Não encontrei nenhuma resposta suficientemente semelhante na base de dados."
+                    })
+            elif fonte == "faq+raga":
+                resultado = obter_faq_mais_semelhante(pergunta, chatbot_id)
                 if resultado:
                     cur.execute("""
                         SELECT faq_id, categoria_id, video_status FROM faq
@@ -130,7 +168,7 @@ def obter_resposta():
                     docs = [r[0] for r in cur.fetchall()]
                     return jsonify({
                         "success": True,
-                        "fonte": "FUZZY",
+                        "fonte": "FAQ",
                         "resposta": resultado["resposta"],
                         "faq_id": faq_id,
                         "categoria_id": categoria_id,
@@ -139,68 +177,51 @@ def obter_resposta():
                         "pergunta_faq": resultado["pergunta"],
                         "documentos": docs
                     })
-                return jsonify({
-                    "success": False,
-                    "erro": "Não encontrei nenhuma resposta suficientemente semelhante na base de dados."
-                })
-        elif fonte == "faq+raga":
-            resultado = obter_faq_mais_semelhante(pergunta, chatbot_id)
-            if resultado:
-                cur.execute("""
-                    SELECT faq_id, categoria_id, video_status FROM faq
-                    WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
-                """, (resultado["pergunta"], chatbot_id))
-                row = cur.fetchone()
-                faq_id, categoria_id, video_status = row if row else (None, None, None)
-                cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
-                docs = [r[0] for r in cur.fetchall()]
-                return jsonify({
-                    "success": True,
-                    "fonte": "FAQ",
-                    "resposta": resultado["resposta"],
-                    "faq_id": faq_id,
-                    "categoria_id": categoria_id,
-                    "video_status": video_status,
-                    "score": resultado["score"],
-                    "pergunta_faq": resultado["pergunta"],
-                    "documentos": docs
-                })
-            elif feedback and feedback.strip().lower() == "try_rag":
-                print("DEBUG: A tentar responder via RAG (PDF) via Ollama")
-                resposta_ollama = pesquisar_pdf_ollama(pergunta, chatbot_id=chatbot_id)
-                if resposta_ollama:
-                    pdfs = get_pdfs_from_db(chatbot_id)
-                    file_path = pdfs[0][1] if pdfs else None
-                    return jsonify({
-                        "success": True,
-                        "fonte": "RAG-OLLAMA",
-                        "resposta": resposta_ollama,
-                        "faq_id": None,
-                        "categoria_id": None,
-                        "score": None,
-                        "pergunta_faq": None,
-                        "documentos": [file_path] if file_path else []
-                    })
+                elif feedback and feedback.strip().lower() == "try_rag":
+                    print("DEBUG: A tentar responder via RAG (PDF) via Ollama")
+                    resposta_ollama = pesquisar_pdf_ollama(pergunta, chatbot_id=chatbot_id)
+                    if resposta_ollama:
+                        pdfs = get_pdfs_from_db(chatbot_id)
+                        file_path = pdfs[0][1] if pdfs else None
+                        return jsonify({
+                            "success": True,
+                            "fonte": "RAG-OLLAMA",
+                            "resposta": resposta_ollama,
+                            "faq_id": None,
+                            "categoria_id": None,
+                            "score": None,
+                            "pergunta_faq": None,
+                            "documentos": [file_path] if file_path else []
+                        })
+                    else:
+                        return jsonify({
+                            "success": False,
+                            "erro": "Não foi possível encontrar uma resposta nos documentos PDF usando Ollama."
+                        })
                 else:
+                    print("DEBUG: feedback != 'try_rag' -> devolve prompt_rag")
                     return jsonify({
                         "success": False,
-                        "erro": "Não foi possível encontrar uma resposta nos documentos PDF usando Ollama."
+                        "erro": "Pergunta não encontrada nas FAQs. Deseja tentar encontrar uma resposta nos documentos PDF? Isso pode levar alguns segundos.",
+                        "prompt_rag": True
                     })
             else:
-                print("DEBUG: feedback != 'try_rag' -> devolve prompt_rag")
-                return jsonify({
-                    "success": False,
-                    "erro": "Pergunta não encontrada nas FAQs. Deseja tentar encontrar uma resposta nos documentos PDF? Isso pode levar alguns segundos.",
-                    "prompt_rag": True
-                })
-        else:
-            return jsonify({"success": False, "erro": "Fonte inválida."}), 400
+                return jsonify({"success": False, "erro": "Fonte inválida."}), 400
+        except Exception as inner_e:
+            print(traceback.format_exc())
+            return jsonify({"success": False, "erro": str(inner_e)}), 500
     except Exception as e:
         print(traceback.format_exc())
         return jsonify({"success": False, "erro": str(e)}), 500
     finally:
-        cur.close()
-        conn.close()
+        try:
+            cur.close()
+        except Exception:
+            pass
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 @app.route("/perguntas-semelhantes", methods=["POST"])
 def perguntas_semelhantes():

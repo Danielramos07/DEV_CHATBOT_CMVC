@@ -265,15 +265,18 @@ async function carregarTabelaFAQsBackoffice() {
                 : '<span style="color:#cc2424;font-size:18px;">❌ Não</span>';
 
               let videoCol = "-";
-              if (
-                faq.video_status === "processing" ||
-                faq.video_status === "queued"
-              ) {
-                videoCol = '<span style="color:#d97706;">⏳ a processar</span>';
-              } else if (faq.video_status === "ready" && faq.video_path) {
-                videoCol = `<a href="/video/faq/${faq.faq_id}" target="_blank" style="color:#2563eb;">▶ Ver vídeo</a>`;
-              } else if (faq.video_status === "failed") {
-                videoCol = '<span style="color:#b91c1c;">❌ falhou</span>';
+              // Only show video status if video_status is actually set (not null/undefined)
+              if (faq.video_status) {
+                if (
+                  faq.video_status === "processing" ||
+                  faq.video_status === "queued"
+                ) {
+                  videoCol = '<span style="color:#d97706;">⏳ a processar</span>';
+                } else if (faq.video_status === "ready" && faq.video_path) {
+                  videoCol = `<a href="/video/faq/${faq.faq_id}" target="_blank" style="color:#2563eb;">▶ Ver vídeo</a>`;
+                } else if (faq.video_status === "failed") {
+                  videoCol = '<span style="color:#b91c1c;">❌ falhou</span>';
+                }
               }
               return `
               <tr>
@@ -315,7 +318,7 @@ async function carregarTabelaFAQsBackoffice() {
           try {
             carregarTabelaFAQsBackoffice();
           } catch (e) {}
-        }, 5000);
+        }, 15000);
       }
     } catch (e) {}
   } catch (err) {
@@ -440,13 +443,27 @@ function obterPerguntasSemelhantes(perguntaOriginal, chatbotId) {
 }
 
 document.querySelectorAll(".faqForm").forEach((faqForm) => {
+  // Remove any existing handlers to prevent duplicate submissions
+  const newForm = faqForm.cloneNode(true);
+  faqForm.parentNode.replaceChild(newForm, faqForm);
+  const form = newForm;
+  
   const statusDiv = document.createElement("div");
   statusDiv.className = "faqStatus";
   statusDiv.style.marginTop = "10px";
-  faqForm.appendChild(statusDiv);
+  form.appendChild(statusDiv);
 
-  faqForm.addEventListener("submit", async (e) => {
+  // Prevent duplicate submissions
+  let isSubmitting = false;
+  
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevent other handlers from firing
+    
+    if (isSubmitting) {
+      return; // Already submitting, ignore
+    }
+    isSubmitting = true;
 
     const form = e.target;
     const chatbotIdEl =
@@ -554,6 +571,7 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
             // Não duplicar a mensagem em texto abaixo do botão quando o modal abre
             statusDiv.innerHTML = "";
             statusDiv.style.color = "";
+            isSubmitting = false;
             return;
           }
           statusDiv.innerHTML = `❌ Erro: ${
@@ -566,6 +584,8 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
       statusDiv.innerHTML = "❌ Erro de comunicação com o servidor.";
       statusDiv.style.color = "red";
       console.error(err);
+    } finally {
+      isSubmitting = false;
     }
   });
 });
@@ -820,11 +840,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   ligarBotaoCancelarEditarFAQ();
 
-  // Polling para atualizar status dos vídeos a cada 10 segundos
+  // Polling para atualizar status dos vídeos a cada 30 segundos
   setInterval(() => {
     // Só recarrega se a página estiver visível e se houver vídeos em processamento
     if (document.visibilityState === "visible") {
       carregarTabelaFAQsBackoffice();
     }
-  }, 10000);
+  }, 30000);
 });

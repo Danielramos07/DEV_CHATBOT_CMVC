@@ -116,18 +116,47 @@ def update_faq(faq_id):
         recomendado = data.get("recomendado", False)
         categoria_id = categorias[0] if categorias else None
         # Fetch current values to check if resposta or video_text changed
-        cur.execute("SELECT resposta, video_text, chatbot_id FROM faq WHERE faq_id = %s", (faq_id,))
+        cur.execute("SELECT resposta, video_text, chatbot_id, designacao, pergunta, idioma FROM faq WHERE faq_id = %s", (faq_id,))
         old = cur.fetchone()
         old_resposta = old[0] if old else None
         old_video_text = old[1] if old else None
         chatbot_id = old[2] if old else None
+        old_designacao = old[3] if old else None
+        old_pergunta = old[4] if old else None
+        old_idioma = old[5] if old else None
 
-        cur.execute("""
-            UPDATE faq SET pergunta=%s, resposta=%s, idioma=%s, categoria_id=%s, recomendado=%s
-            WHERE faq_id=%s
-        """, (pergunta, resposta, idioma, categoria_id, recomendado, faq_id))
-        conn.commit()
-        build_faiss_index()
+        # Check if the new values would create a duplicate (excluding current FAQ)
+        # Use old_designacao if designacao is not provided in the update
+        designacao = data.get("designacao", "").strip()
+        if not designacao:
+            designacao = old_designacao or ""
+        
+        # Only check for duplicates if at least one field changed
+        if designacao == (old_designacao or "") and pergunta == (old_pergunta or "") and resposta == (old_resposta or "") and idioma == (old_idioma or "pt"):
+            # No changes, skip duplicate check
+            pass
+        else:
+            cur.execute("""
+                SELECT faq_id FROM faq
+                WHERE chatbot_id = %s AND designacao = %s AND pergunta = %s AND resposta = %s AND idioma = %s
+                AND faq_id != %s
+            """, (chatbot_id, designacao, pergunta, resposta, idioma, faq_id))
+            if cur.fetchone():
+                return jsonify({"success": False, "error": "Esta combinação (chatbot, designação, pergunta, resposta e idioma) já existe noutra FAQ."}), 409
+
+        try:
+            cur.execute("""
+                UPDATE faq SET pergunta=%s, resposta=%s, idioma=%s, categoria_id=%s, recomendado=%s, designacao=%s
+                WHERE faq_id=%s
+            """, (pergunta, resposta, idioma, categoria_id, recomendado, designacao, faq_id))
+            conn.commit()
+            build_faiss_index()
+        except Exception as update_error:
+            error_msg = str(update_error)
+            # Check for unique constraint violation
+            if "duplicate key value violates unique constraint" in error_msg.lower() or "faq_chatbot_id_designacao_pergunta_resposta_idioma_key" in error_msg:
+                return jsonify({"success": False, "error": "Esta combinação (chatbot, designação, pergunta, resposta e idioma) já existe noutra FAQ."}), 409
+            raise  # Re-raise if it's a different error
 
         # Check if chatbot has video_enabled
         video_enabled = False
@@ -185,22 +214,29 @@ def add_faq():
                 "error": "Já existe um vídeo a ser gerado. Aguarde que termine ou desative a opção de gerar vídeo."
             }), 409
 
-        cur.execute("""
-            INSERT INTO faq (chatbot_id, categoria_id, designacao, pergunta, resposta, idioma, links_documentos, recomendado, video_text)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING faq_id
-        """, (
-            data["chatbot_id"],
-            data["categoria_id"],
-            data["designacao"],
-            data["pergunta"],
-            data["resposta"],
-            idioma,
-            links_documentos,
-            recomendado,
-            video_text,
-        ))
-        faq_id = cur.fetchone()[0]
+        try:
+            cur.execute("""
+                INSERT INTO faq (chatbot_id, categoria_id, designacao, pergunta, resposta, idioma, links_documentos, recomendado, video_text)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING faq_id
+            """, (
+                data["chatbot_id"],
+                data["categoria_id"],
+                data["designacao"],
+                data["pergunta"],
+                data["resposta"],
+                idioma,
+                links_documentos,
+                recomendado,
+                video_text,
+            ))
+            faq_id = cur.fetchone()[0]
+        except Exception as insert_error:
+            error_msg = str(insert_error)
+            # Check for unique constraint violation
+            if "duplicate key value violates unique constraint" in error_msg.lower() or "faq_chatbot_id_designacao_pergunta_resposta_idioma_key" in error_msg:
+                return jsonify({"success": False, "error": "Esta FAQ já existe com os mesmos valores (chatbot, designação, pergunta, resposta e idioma)."}), 409
+            raise  # Re-raise if it's a different error
         if links_documentos:
             for link in links_documentos.split(','):
                 link = link.strip()
@@ -232,10 +268,11 @@ def delete_faq(faq_id):
     conn = get_conn()
     cur = conn.cursor()
     try:
-        # Fetch video_path before deleting
-        cur.execute("SELECT video_path FROM faq WHERE faq_id = %s", (faq_id,))
+        # Fetch video_path and chatbot_id before deleting
+        cur.execute("SELECT video_path, chatbot_id FROM faq WHERE faq_id = %s", (faq_id,))
         row = cur.fetchone()
         video_path = row[0] if row else None
+        chatbot_id = row[1] if row else None
 
         cur.execute("DELETE FROM faq WHERE faq_id = %s", (faq_id,))
         conn.commit()
@@ -248,13 +285,20 @@ def delete_faq(faq_id):
             except Exception:
                 pass
 
-        # Best-effort cleanup for current naming scheme (results/faq_{faq_id}/final.mp4)
+        # Best-effort cleanup for current naming scheme (results/chatbot_{id}/faq_{faq_id}/final.mp4)
         try:
             result_root = RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)
-            expected_dir = result_root / f"faq_{faq_id}"
-            if expected_dir.exists() and expected_dir.is_dir():
+            if chatbot_id:
+                # New location: chatbot_{id}/faq_{faq_id}/
+                expected_dir = result_root / f"chatbot_{chatbot_id}" / f"faq_{faq_id}"
+                if expected_dir.exists() and expected_dir.is_dir():
+                    import shutil
+                    shutil.rmtree(expected_dir, ignore_errors=True)
+            # Also try legacy location (results/faq_{faq_id}/) for backwards compatibility
+            legacy_dir = result_root / f"faq_{faq_id}"
+            if legacy_dir.exists() and legacy_dir.is_dir():
                 import shutil
-                shutil.rmtree(expected_dir, ignore_errors=True)
+                shutil.rmtree(legacy_dir, ignore_errors=True)
             # also remove any legacy variants
             for p in result_root.glob(f"faq_{faq_id}*.mp4"):
                 try:

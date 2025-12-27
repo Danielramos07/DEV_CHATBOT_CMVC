@@ -373,6 +373,10 @@ def eliminar_chatbot(chatbot_id):
         row = cur.fetchone()
         icon_path = row[0] if row else None
 
+        # Fetch FAQ IDs before deleting to clean up their video files
+        cur.execute("SELECT faq_id FROM faq WHERE chatbot_id = %s", (chatbot_id,))
+        faq_ids = [row[0] for row in cur.fetchall()]
+        
         cur.execute("DELETE FROM faq_relacionadas WHERE faq_id IN (SELECT faq_id FROM faq WHERE chatbot_id = %s)", (chatbot_id,))
         cur.execute("DELETE FROM faq_documento WHERE faq_id IN (SELECT faq_id FROM faq WHERE chatbot_id = %s)", (chatbot_id,))
         cur.execute("DELETE FROM faq WHERE chatbot_id = %s", (chatbot_id,))
@@ -381,6 +385,25 @@ def eliminar_chatbot(chatbot_id):
         cur.execute("DELETE FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
         conn.commit()
         build_faiss_index()
+        
+        # Clean up FAQ video files (now stored in chatbot_{id}/faq_{faq_id}/)
+        try:
+            from ..services.video_service import ROOT, RESULTS_DIR
+            import shutil
+            result_root = RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)
+            chatbot_dir = result_root / f"chatbot_{chatbot_id}"
+            for faq_id in faq_ids:
+                # New location: chatbot_{id}/faq_{faq_id}/
+                faq_dir = chatbot_dir / f"faq_{faq_id}"
+                if faq_dir.exists() and faq_dir.is_dir():
+                    shutil.rmtree(faq_dir, ignore_errors=True)
+                # Also try legacy location for backwards compatibility
+                legacy_dir = result_root / f"faq_{faq_id}"
+                if legacy_dir.exists() and legacy_dir.is_dir():
+                    shutil.rmtree(legacy_dir, ignore_errors=True)
+        except Exception:
+            pass
+        
         _cleanup_chatbot_files(chatbot_id, icon_path=icon_path)
         return jsonify({"success": True})
     except Exception as e:
