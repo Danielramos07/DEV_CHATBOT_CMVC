@@ -344,22 +344,18 @@ function mostrarSpinnerVideoFaq(faqId) {
   const avatarPanel = document.getElementById("chatAvatarPanel");
   if (!avatarPanel || !faqId) return;
 
-  let videoEl = avatarPanel.querySelector("video.chat-avatar-video");
-  let imgEl = avatarPanel.querySelector("img.chat-avatar-image");
-  let spinnerEl = avatarPanel.querySelector(".video-spinner");
+  const avatarInner = avatarPanel.querySelector(".chat-avatar-inner");
+  if (!avatarInner) return;
+
+  let videoEl = avatarInner.querySelector("video.chat-avatar-video");
+  let imgEl = avatarInner.querySelector("img.chat-avatar-image");
+  let spinnerEl = avatarInner.querySelector(".video-spinner");
 
   if (!spinnerEl) {
     spinnerEl = document.createElement("div");
     spinnerEl.className = "video-spinner";
-    spinnerEl.style.width = "100%";
-    spinnerEl.style.height = "100%";
-    spinnerEl.style.display = "flex";
-    spinnerEl.style.alignItems = "center";
-    spinnerEl.style.justifyContent = "center";
-    spinnerEl.style.backgroundColor = "#f0f0f0";
-    spinnerEl.innerHTML =
-      '<div style="border: 4px solid #ccc; border-top: 4px solid #007bff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div><style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>';
-    avatarPanel.insertBefore(spinnerEl, avatarPanel.firstChild);
+    spinnerEl.innerHTML = '<div class="spinner-ring"></div>';
+    avatarInner.appendChild(spinnerEl);
   }
 
   if (imgEl) imgEl.style.display = "none";
@@ -405,9 +401,12 @@ async function mostrarVideoFaqNoAvatar(faqId) {
   const avatarPanel = document.getElementById("chatAvatarPanel");
   if (!avatarPanel || !faqId) return;
 
-  const videoEl = avatarPanel.querySelector("video.chat-avatar-video");
-  const imgEl = avatarPanel.querySelector("img.chat-avatar-image");
-  const spinnerEl = avatarPanel.querySelector(".video-spinner");
+  const avatarInner = avatarPanel.querySelector(".chat-avatar-inner");
+  if (!avatarInner) return;
+
+  const videoEl = avatarInner.querySelector("video.chat-avatar-video");
+  const imgEl = avatarInner.querySelector("img.chat-avatar-image");
+  const spinnerEl = avatarInner.querySelector(".video-spinner");
 
   if (!videoEl) return;
 

@@ -32,14 +32,47 @@ async function atualizarIndicadorVideoJob() {
       const barra = indicador.querySelector(".indicador-video-bar-inner");
       if (barra) barra.style.width = Math.max(5, Math.min(100, pct)) + "%";
       if (cancelBtn) cancelBtn.style.display = "inline-block";
+      try {
+        localStorage.setItem("videoJobPolling", "1");
+      } catch (e) {}
     } else {
       indicador.style.display = "none";
       if (cancelBtn) cancelBtn.style.display = "none";
+      // Se não há job ativo, parar o polling para não spammar o endpoint.
+      if (typeof window.stopVideoStatusPolling === "function") {
+        window.stopVideoStatusPolling();
+      } else if (window.__videoStatusPollIntervalId) {
+        clearInterval(window.__videoStatusPollIntervalId);
+        window.__videoStatusPollIntervalId = null;
+      }
+      try {
+        localStorage.removeItem("videoJobPolling");
+      } catch (e) {}
     }
   } catch (e) {
     indicador.style.display = "none";
     if (cancelBtn) cancelBtn.style.display = "none";
   }
+}
+
+function startVideoStatusPolling() {
+  // Evitar múltiplos intervals
+  if (window.__videoStatusPollIntervalId) return;
+  atualizarIndicadorVideoJob();
+  window.__videoStatusPollIntervalId = setInterval(atualizarIndicadorVideoJob, 5000);
+  try {
+    localStorage.setItem("videoJobPolling", "1");
+  } catch (e) {}
+}
+
+function stopVideoStatusPolling() {
+  if (window.__videoStatusPollIntervalId) {
+    clearInterval(window.__videoStatusPollIntervalId);
+    window.__videoStatusPollIntervalId = null;
+  }
+  try {
+    localStorage.removeItem("videoJobPolling");
+  } catch (e) {}
 }
 
 function abrirModalCancelVideoJob(msg) {
@@ -55,10 +88,18 @@ function fecharModalCancelVideoJob() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Atualizar logo no início e depois de 5 em 5 segundos
-  atualizarIndicadorVideoJob();
-  // Guardar ID do interval para permitir cancelar o polling se o endpoint devolver 404/401/403.
-  window.__videoStatusPollIntervalId = setInterval(atualizarIndicadorVideoJob, 5000);
+  // Por defeito NÃO fazer polling contínuo.
+  // Fazemos 1 check inicial (caso tenha havido refresh durante um job).
+  // Se o check indicar job ativo (ou se o UI marcou o flag), ligamos o interval.
+  atualizarIndicadorVideoJob()
+    .then(() => {
+      try {
+        if (localStorage.getItem("videoJobPolling") === "1") {
+          startVideoStatusPolling();
+        }
+      } catch (e) {}
+    })
+    .catch(() => {});
 
   const cancelBtn = document.getElementById("indicadorVideoJobCancelBtn");
   const confirmarBtn = document.getElementById("btnConfirmarCancelVideoJob");
@@ -137,3 +178,5 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 window.fecharModalCancelVideoJob = fecharModalCancelVideoJob;
+window.startVideoStatusPolling = startVideoStatusPolling;
+window.stopVideoStatusPolling = stopVideoStatusPolling;

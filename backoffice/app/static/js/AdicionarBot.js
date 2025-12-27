@@ -57,6 +57,27 @@ document.addEventListener("DOMContentLoaded", () => {
               "O chatbot foi criado, mas já existe um vídeo a ser gerado neste momento. Os vídeos (greeting + idle) vão ter de ser gerados mais tarde."
             );
           }
+          // Se o backend começou (ou vai começar) a geração dos vídeos do chatbot, ligar o polling do indicador.
+          if (resp.video_queued || resp.video_processing || resp.video_started) {
+            try {
+              localStorage.setItem("videoJobPolling", "1");
+            } catch (e) {}
+            if (typeof window.startVideoStatusPolling === "function") {
+              window.startVideoStatusPolling();
+            }
+          } else {
+            // fallback: se o utilizador marcou "gerar vídeo" no form, ligar polling (evita perda do indicador)
+            try {
+              const ve =
+                this.video_enabled && this.video_enabled.checked ? true : false;
+              if (ve) {
+                localStorage.setItem("videoJobPolling", "1");
+                if (typeof window.startVideoStatusPolling === "function") {
+                  window.startVideoStatusPolling();
+                }
+              }
+            } catch (e) {}
+          }
           setTimeout(() => {
             fecharModalNovoBot();
             window.location.reload();

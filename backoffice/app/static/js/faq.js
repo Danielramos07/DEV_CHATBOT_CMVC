@@ -533,6 +533,16 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
           form.reset();
           carregarTabelaFAQs(parseInt(chatbotIdRaw), true);
           mostrarRespostas();
+
+          // Se foi pedido vídeo, ligar o polling global do indicador.
+          if (dadosBase.gerar_video) {
+            try {
+              localStorage.setItem("videoJobPolling", "1");
+            } catch (e) {}
+            if (typeof window.startVideoStatusPolling === "function") {
+              window.startVideoStatusPolling();
+            }
+          }
         } else {
           if (res.status === 409 && resultado && resultado.busy) {
             if (typeof mostrarModalVideoBusy === "function") {

@@ -394,6 +394,17 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         await atualizarCategoriasDoChatbot(chatbot_id);
         if (res.ok) {
+          // Se ao atualizar ativaste vídeo, ligar polling global do indicador.
+          // (O backend pode enfileirar geração de greeting+idle dependendo do estado atual.)
+          if (video_enabled) {
+            try {
+              localStorage.setItem("videoJobPolling", "1");
+            } catch (e) {}
+            if (typeof window.startVideoStatusPolling === "function") {
+              window.startVideoStatusPolling();
+            }
+          }
+
           localStorage.setItem(`fonteSelecionada_bot${chatbot_id}`, fonte);
           const ativoId = localStorage.getItem("chatbotAtivo");
           if (ativoId && String(ativoId) === String(chatbot_id)) {
