@@ -330,13 +330,46 @@ function toggleAvatarAtivo() {
   avatarAtivo = !avatarAtivo;
   const avatarPanel = document.getElementById("chatAvatarPanel");
   const btn = document.getElementById("avatarToggleBtn");
+  const videoEl = document.querySelector(".chat-avatar-video");
+  
   if (avatarPanel) {
     avatarPanel.style.display = avatarAtivo ? "flex" : "none";
   }
   if (btn) {
     btn.textContent = avatarAtivo ? "⏻ Desligar avatar" : "⏻ Ligar avatar";
   }
-  // No futuro, este estado controlará também o áudio do avatar.
+  
+  // Mute/unmute video based on avatar state
+  if (videoEl) {
+    if (!avatarAtivo) {
+      // Avatar desligado: mutar vídeo e pausar
+      videoEl.muted = true;
+      videoEl.pause();
+    } else {
+      // Avatar ligado: restaurar estado normal do vídeo
+      // Se for greeting, tentar unmute; se for idle, manter muted
+      const idlePath = localStorage.getItem("videoIdlePath");
+      const greetingPath = localStorage.getItem("videoGreetingPath");
+      const isIdle = videoEl.src && videoEl.src.includes("idle");
+      
+      if (isIdle || (!greetingPath && idlePath)) {
+        // É idle ou só temos idle: manter muted
+        videoEl.muted = true;
+      } else if (greetingPath && !hasPlayedGreeting) {
+        // É greeting e ainda não foi reproduzido: tentar unmute
+        videoEl.muted = false;
+      }
+      
+      // Tentar reproduzir se o vídeo já estava carregado
+      if (videoEl.src) {
+        videoEl.play().catch(() => {
+          // Se falhar, tentar muted
+          videoEl.muted = true;
+          videoEl.play().catch(() => {});
+        });
+      }
+    }
+  }
 }
 
 function mostrarSpinnerVideoFaq(faqId) {
@@ -364,6 +397,14 @@ function mostrarSpinnerVideoFaq(faqId) {
 
   // Polling para verificar se o vídeo está pronto
   const checkVideoReady = async () => {
+    // Stop polling if avatar is disabled
+    if (!avatarAtivo) {
+      spinnerEl.style.display = "none";
+      if (imgEl) imgEl.style.display = "block";
+      if (videoEl) videoEl.style.display = "none";
+      return;
+    }
+    
     try {
       const res = await fetch(`/video/faq/status/${faqId}`);
       if (res.status === 404) {
@@ -418,6 +459,9 @@ async function mostrarVideoFaqNoAvatar(faqId) {
   } catch (e) {}
 
   // Prefer signed/controlled stream url (from status endpoint), fallback to direct route
+  // Only make API calls if avatar is active
+  if (!avatarAtivo) return;
+  
   let streamUrl = null;
   try {
     const sres = await fetch(`/video/faq/status/${faqId}`);
@@ -534,11 +578,18 @@ async function atualizarNomeChatHeader() {
           headerImg.src = iconBot;
         }
       }
-      if (data.success && data.video_greeting_path) {
-        localStorage.setItem("videoGreetingPath", data.video_greeting_path);
-      }
-      if (data.success && data.video_idle_path) {
-        localStorage.setItem("videoIdlePath", data.video_idle_path);
+      // Store video paths (can be null if videos not generated yet)
+      if (data.success) {
+        if (data.video_greeting_path) {
+          localStorage.setItem("videoGreetingPath", data.video_greeting_path);
+        } else {
+          localStorage.removeItem("videoGreetingPath");
+        }
+        if (data.video_idle_path) {
+          localStorage.setItem("videoIdlePath", data.video_idle_path);
+        } else {
+          localStorage.removeItem("videoIdlePath");
+        }
       }
     } catch (e) {
       const botsData = JSON.parse(localStorage.getItem("chatbotsData") || "[]");
@@ -910,11 +961,18 @@ async function apresentarMensagemInicial() {
           ? data.icon
           : "/static/images/chatbot-icon.png";
       generoBot = data.success && data.genero ? data.genero : "";
-      if (data.success && data.video_greeting_path) {
-        localStorage.setItem("videoGreetingPath", data.video_greeting_path);
-      }
-      if (data.success && data.video_idle_path) {
-        localStorage.setItem("videoIdlePath", data.video_idle_path);
+      // Store video paths (can be null if videos not generated yet)
+      if (data.success) {
+        if (data.video_greeting_path) {
+          localStorage.setItem("videoGreetingPath", data.video_greeting_path);
+        } else {
+          localStorage.removeItem("videoGreetingPath");
+        }
+        if (data.video_idle_path) {
+          localStorage.setItem("videoIdlePath", data.video_idle_path);
+        } else {
+          localStorage.removeItem("videoIdlePath");
+        }
       }
       localStorage.setItem("nomeBot", nomeBot);
       localStorage.setItem("corChatbot", corBot);
@@ -1498,6 +1556,20 @@ window.reiniciarConversa = reiniciarConversa;
 let hasPlayedGreeting = false;
 
 function setupAvatarVideo() {
+  // Don't setup video if avatar is disabled
+  if (!avatarAtivo) {
+    const videoEl = document.querySelector(".chat-avatar-video");
+    const imgEl = document.querySelector(".chat-avatar-image");
+    if (videoEl) {
+      videoEl.muted = true;
+      videoEl.pause();
+    }
+    if (imgEl) {
+      imgEl.style.display = "block";
+    }
+    return;
+  }
+  
   const videoEl = document.querySelector(".chat-avatar-video");
   const imgEl = document.querySelector(".chat-avatar-image");
   if (!videoEl || !imgEl) return;
@@ -1505,8 +1577,13 @@ function setupAvatarVideo() {
   const greetingPath = localStorage.getItem("videoGreetingPath");
   const idlePath = localStorage.getItem("videoIdlePath");
 
+  // Debug: log video paths
+  console.log("[setupAvatarVideo] greetingPath:", greetingPath);
+  console.log("[setupAvatarVideo] idlePath:", idlePath);
+
   // If no videos at all, show static image
   if (!greetingPath && !idlePath) {
+    console.log("[setupAvatarVideo] No videos available, showing static image");
     videoEl.style.display = "none";
     imgEl.style.display = "block";
     return;
@@ -1515,7 +1592,6 @@ function setupAvatarVideo() {
   // Show video, hide img
   videoEl.style.display = "block";
   imgEl.style.display = "none";
-  videoEl.muted = true; // Ensure muted for autoplay
 
   // Clear any previous event listeners
   const newVideoEl = videoEl.cloneNode(true);
@@ -1524,31 +1600,42 @@ function setupAvatarVideo() {
 
   if (!hasPlayedGreeting && greetingPath) {
     // Play greeting first, then switch to idle
+    // For greeting, try to play with sound (unmuted)
     currentVideoEl.src = greetingPath;
     currentVideoEl.loop = false;
+    currentVideoEl.muted = false; // Try to play with sound for greeting
+    
     currentVideoEl.onloadeddata = () => {
+      // Try to play with sound first
       currentVideoEl.play().catch((e) => {
-        console.warn("Failed to play greeting video:", e);
-        // Fallback to idle or image
-        if (idlePath) {
-          currentVideoEl.src = idlePath;
-          currentVideoEl.loop = true;
-          currentVideoEl.play().catch(() => {
+        console.warn("Failed to play greeting video with sound (autoplay policy), trying muted:", e);
+        // Browser blocked autoplay with sound, try muted
+        currentVideoEl.muted = true;
+        currentVideoEl.play().catch((e2) => {
+          console.warn("Failed to play greeting video even muted:", e2);
+          // Fallback to idle or image
+          if (idlePath) {
+            currentVideoEl.src = idlePath;
+            currentVideoEl.loop = true;
+            currentVideoEl.muted = true; // Idle should be muted
+            currentVideoEl.play().catch(() => {
+              currentVideoEl.style.display = "none";
+              if (imgEl) imgEl.style.display = "block";
+            });
+          } else {
             currentVideoEl.style.display = "none";
             if (imgEl) imgEl.style.display = "block";
-          });
-        } else {
-          currentVideoEl.style.display = "none";
-          if (imgEl) imgEl.style.display = "block";
-        }
+          }
+        });
       });
     };
     currentVideoEl.onended = () => {
       hasPlayedGreeting = true;
-      // Switch to idle
+      // Switch to idle (muted, as it's just animation)
       if (idlePath) {
         currentVideoEl.src = idlePath;
         currentVideoEl.loop = true;
+        currentVideoEl.muted = true; // Idle should be muted
         currentVideoEl.play().catch(() => {
           currentVideoEl.style.display = "none";
           if (imgEl) imgEl.style.display = "block";
@@ -1564,9 +1651,10 @@ function setupAvatarVideo() {
       currentVideoEl.load();
     }
   } else if (idlePath) {
-    // Already played greeting or no greeting, show idle
+    // Already played greeting or no greeting, show idle (muted)
     currentVideoEl.src = idlePath;
     currentVideoEl.loop = true;
+    currentVideoEl.muted = true; // Idle should be muted
     currentVideoEl.onloadeddata = () => {
       currentVideoEl.play().catch(() => {
         currentVideoEl.style.display = "none";

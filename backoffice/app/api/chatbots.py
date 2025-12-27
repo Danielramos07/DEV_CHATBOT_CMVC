@@ -245,8 +245,8 @@ def obter_nome_chatbot(chatbot_id):
                 "cor": row[1] or "#d4af37",
                 "icon": row[2] or "/static/images/chatbot-icon.png",
                 "genero": row[3],
-                "video_greeting_path": video_greeting_url,
-                "video_idle_path": video_idle_url
+                "video_greeting_path": video_greeting_url or None,
+                "video_idle_path": video_idle_url or None
             })
         return jsonify({"success": False, "erro": "Chatbot não encontrado."}), 404
     except Exception as e:

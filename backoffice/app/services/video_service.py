@@ -315,6 +315,7 @@ def _generate_video(
 
         _set_job(progress=80, message="A finalizar vídeo...")
 
+        # Search for MP4 files in result_dir (including subdirectories like timestamp folders)
         mp4_files = sorted(result_dir.rglob("*.mp4"), key=os.path.getmtime)
         if not mp4_files:
             raise RuntimeError(f"Nenhum ficheiro mp4 encontrado em {result_dir}.")
@@ -327,7 +328,10 @@ def _generate_video(
                 final_path.unlink()
             except Exception:
                 pass
-        final_mp4.rename(final_path)
+        
+        # Use shutil.move instead of rename to handle cross-filesystem moves
+        import shutil
+        shutil.move(str(final_mp4), str(final_path))
 
         return str(final_path.resolve())
     finally:
