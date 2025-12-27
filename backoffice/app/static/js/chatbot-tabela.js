@@ -144,6 +144,20 @@ async function eliminarChatbotConfirmado(chatbot_id) {
   try {
     const res = await fetch(`/chatbots/${chatbot_id}`, { method: "DELETE" });
     if (res.ok) {
+      // If the deleted chatbot was the active one, clear it from localStorage
+      const ativoId = localStorage.getItem("chatbotAtivo");
+      if (ativoId && String(ativoId) === String(chatbot_id)) {
+        localStorage.removeItem("chatbotAtivo");
+        localStorage.removeItem("videoGreetingPath");
+        localStorage.removeItem("videoIdlePath");
+        // Update chat UI to show default/fallback
+        if (typeof window.atualizarNomeChatHeader === "function") {
+          await window.atualizarNomeChatHeader();
+        }
+        if (typeof window.setupAvatarVideo === "function") {
+          window.setupAvatarVideo();
+        }
+      }
       carregarTabelaBots();
     } else {
       const result = await res.json();
@@ -330,19 +344,25 @@ window.tornarBotAtivo = async function (chatbot_id, btn) {
     }
   } catch (e) {}
 
-  try {
-    if (typeof window.atualizarNomeChatHeader === "function") {
-      await window.atualizarNomeChatHeader();
-    }
-    if (typeof window.reiniciarConversa === "function") {
-      try {
-        if (typeof hasPlayedGreeting !== "undefined") {
-          hasPlayedGreeting = false;
-        }
-      } catch (e) {}
-      await window.reiniciarConversa();
-    }
-  } catch (e) {}
+  // Only update chat UI if chat sidebar is actually open/visible
+  const chatSidebar = document.getElementById("chatSidebar");
+  const isChatOpen = chatSidebar && chatSidebar.style.display !== "none";
+  
+  if (isChatOpen) {
+    try {
+      if (typeof window.atualizarNomeChatHeader === "function") {
+        await window.atualizarNomeChatHeader();
+      }
+      if (typeof window.reiniciarConversa === "function") {
+        try {
+          if (typeof hasPlayedGreeting !== "undefined") {
+            hasPlayedGreeting = false;
+          }
+        } catch (e) {}
+        await window.reiniciarConversa();
+      }
+    } catch (e) {}
+  }
 
   carregarTabelaBots();
 };
@@ -473,6 +493,36 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     };
   }
+
+  // Handle video_enabled checkbox to block/unblock nome, icon, genero fields
+  const videoEnabledCheckbox = document.getElementById("editarVideoEnabledChatbot");
+  if (videoEnabledCheckbox) {
+    const toggleFieldsBasedOnVideoEnabled = () => {
+      const isVideoEnabled = videoEnabledCheckbox.checked;
+      const nomeInput = document.getElementById("editarNomeChatbot");
+      const iconInput = document.getElementById("editarIconChatbot");
+      const generoSelect = document.getElementById("editarGeneroChatbot");
+      
+      if (nomeInput) {
+        nomeInput.disabled = isVideoEnabled;
+        nomeInput.style.opacity = isVideoEnabled ? "0.6" : "1";
+        nomeInput.style.cursor = isVideoEnabled ? "not-allowed" : "text";
+      }
+      if (iconInput) {
+        iconInput.disabled = isVideoEnabled;
+        iconInput.style.opacity = isVideoEnabled ? "0.6" : "1";
+        iconInput.style.cursor = isVideoEnabled ? "not-allowed" : "pointer";
+      }
+      if (generoSelect) {
+        generoSelect.disabled = isVideoEnabled;
+        generoSelect.style.opacity = isVideoEnabled ? "0.6" : "1";
+        generoSelect.style.cursor = isVideoEnabled ? "not-allowed" : "pointer";
+      }
+    };
+    
+    videoEnabledCheckbox.addEventListener("change", toggleFieldsBasedOnVideoEnabled);
+    // Also call on modal open (handled in abrirModalAtualizar)
+  }
 });
 
 window.abrirModalAtualizar = async function (chatbot_id) {
@@ -497,6 +547,29 @@ window.abrirModalAtualizar = async function (chatbot_id) {
     document.getElementById("editarGeneroChatbot").value = bot.genero || "";
     const cbVideo = document.getElementById("editarVideoEnabledChatbot");
     if (cbVideo) cbVideo.checked = !!bot.video_enabled;
+    
+    // Block/unblock fields based on video_enabled state
+    const isVideoEnabled = !!bot.video_enabled;
+    const nomeInput = document.getElementById("editarNomeChatbot");
+    const iconInput = document.getElementById("editarIconChatbot");
+    const generoSelect = document.getElementById("editarGeneroChatbot");
+    
+    if (nomeInput) {
+      nomeInput.disabled = isVideoEnabled;
+      nomeInput.style.opacity = isVideoEnabled ? "0.6" : "1";
+      nomeInput.style.cursor = isVideoEnabled ? "not-allowed" : "text";
+    }
+    if (iconInput) {
+      iconInput.disabled = isVideoEnabled;
+      iconInput.style.opacity = isVideoEnabled ? "0.6" : "1";
+      iconInput.style.cursor = isVideoEnabled ? "not-allowed" : "pointer";
+    }
+    if (generoSelect) {
+      generoSelect.disabled = isVideoEnabled;
+      generoSelect.style.opacity = isVideoEnabled ? "0.6" : "1";
+      generoSelect.style.cursor = isVideoEnabled ? "not-allowed" : "pointer";
+    }
+    
     document.getElementById("previewIcon").src =
       bot.icon_path || "/static/images/chatbot-icon.png";
     document.getElementById("previewIcon").style.display = bot.icon_path

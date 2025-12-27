@@ -562,6 +562,22 @@ async function atualizarNomeChatHeader() {
   if (chatbotId && !isNaN(chatbotId)) {
     try {
       const res = await fetch(`/chatbots/${chatbotId}`);
+      if (!res.ok) {
+        // Chatbot doesn't exist (404) or other error - clear chatbotAtivo and video paths
+        if (res.status === 404) {
+          localStorage.removeItem("chatbotAtivo");
+          localStorage.removeItem("videoGreetingPath");
+          localStorage.removeItem("videoIdlePath");
+          // Reset to defaults
+          nomeBot = "Assistente Municipal";
+          corBot = "#d4af37";
+          iconBot = "/static/images/chatbot-icon.png";
+          localStorage.setItem("nomeBot", nomeBot);
+          localStorage.setItem("corChatbot", corBot);
+          localStorage.setItem("iconBot", iconBot);
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
       const data = await res.json();
       if (data.success && data.nome) {
         nomeBot = data.nome;
@@ -592,6 +608,7 @@ async function atualizarNomeChatHeader() {
         }
       }
     } catch (e) {
+      // If fetch failed (404, network error, etc.), check if chatbot still exists in local data
       const botsData = JSON.parse(localStorage.getItem("chatbotsData") || "[]");
       const bot = botsData.find(
         (b) => b.chatbot_id === chatbotId || b.chatbot_id === String(chatbotId)
@@ -599,6 +616,17 @@ async function atualizarNomeChatHeader() {
       if (bot && bot.nome) {
         nomeBot = bot.nome;
         localStorage.setItem("nomeBot", nomeBot);
+      } else {
+        // Bot not found in local data either - clear chatbotAtivo and video paths
+        localStorage.removeItem("chatbotAtivo");
+        localStorage.removeItem("videoGreetingPath");
+        localStorage.removeItem("videoIdlePath");
+        nomeBot = "Assistente Municipal";
+        corBot = "#d4af37";
+        iconBot = "/static/images/chatbot-icon.png";
+        localStorage.setItem("nomeBot", nomeBot);
+        localStorage.setItem("corChatbot", corBot);
+        localStorage.setItem("iconBot", iconBot);
       }
       if (bot && bot.cor) {
         corBot = bot.cor;
@@ -610,8 +638,19 @@ async function atualizarNomeChatHeader() {
         if (headerImg) {
           headerImg.src = iconBot;
         }
+      } else if (!bot) {
+        // Bot not found, use default icon
+        iconBot = "/static/images/chatbot-icon.png";
+        localStorage.setItem("iconBot", iconBot);
+        if (headerImg) {
+          headerImg.src = iconBot;
+        }
       }
     }
+  } else {
+    // No chatbot active - clear video paths
+    localStorage.removeItem("videoGreetingPath");
+    localStorage.removeItem("videoIdlePath");
   }
   if (headerNome) {
     headerNome.textContent =
@@ -979,8 +1018,11 @@ async function apresentarMensagemInicial() {
       localStorage.setItem("iconBot", iconBot);
       localStorage.setItem("generoBot", generoBot || "");
       
-      // Setup avatar video after videos are loaded
-      setupAvatarVideo();
+      // Setup avatar video after videos are loaded (only if chat is open)
+      const chatSidebar = document.getElementById("chatSidebar");
+      if (chatSidebar && chatSidebar.style.display !== "none") {
+        setupAvatarVideo();
+      }
     } catch (e) {
       const botsData = JSON.parse(localStorage.getItem("chatbotsData") || "[]");
       const bot = botsData.find(
@@ -998,8 +1040,11 @@ async function apresentarMensagemInicial() {
       localStorage.setItem("iconBot", iconBot);
       localStorage.setItem("generoBot", generoBot || "");
       
-      // Setup avatar video even if fetch failed
-      setupAvatarVideo();
+      // Setup avatar video even if fetch failed (only if chat is open)
+      const chatSidebar = document.getElementById("chatSidebar");
+      if (chatSidebar && chatSidebar.style.display !== "none") {
+        setupAvatarVideo();
+      }
     }
   } else {
     nomeBot = "Assistente Municipal";
@@ -1011,8 +1056,11 @@ async function apresentarMensagemInicial() {
     localStorage.setItem("iconBot", iconBot);
     localStorage.setItem("generoBot", generoBot || "");
     
-    // Setup avatar video for default bot
-    setupAvatarVideo();
+    // Setup avatar video for default bot (only if chat is open)
+    const chatSidebar = document.getElementById("chatSidebar");
+    if (chatSidebar && chatSidebar.style.display !== "none") {
+      setupAvatarVideo();
+    }
   }
   atualizarCorChatbot();
   try {
@@ -1567,6 +1615,25 @@ function setupAvatarVideo() {
     if (imgEl) {
       imgEl.style.display = "block";
     }
+    return;
+  }
+  
+  // Check if there's an active chatbot - if not, show static image
+  const chatbotId = parseInt(localStorage.getItem("chatbotAtivo"));
+  if (!chatbotId || isNaN(chatbotId)) {
+    const videoEl = document.querySelector(".chat-avatar-video");
+    const imgEl = document.querySelector(".chat-avatar-image");
+    if (videoEl) {
+      videoEl.style.display = "none";
+      videoEl.pause();
+      videoEl.src = "";
+    }
+    if (imgEl) {
+      imgEl.style.display = "block";
+    }
+    // Clear video paths when no chatbot is active
+    localStorage.removeItem("videoGreetingPath");
+    localStorage.removeItem("videoIdlePath");
     return;
   }
   

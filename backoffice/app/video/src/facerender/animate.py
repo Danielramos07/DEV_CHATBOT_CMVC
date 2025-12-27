@@ -207,17 +207,25 @@ class AnimateFromCoeff():
         av_path = os.path.join(video_save_dir, video_name)
         return_path = av_path 
         
-        audio_path =  x['audio_path'] 
-        audio_name = os.path.splitext(os.path.split(audio_path)[-1])[0]
-        new_audio_path = os.path.join(video_save_dir, audio_name+'.wav')
-        start_time = 0
-        # cog will not keep the .mp3 filename
-        sound = AudioSegment.from_file(audio_path)
-        frames = frame_num 
-        end_time = start_time + frames*1/25*1000
-        word1=sound.set_frame_rate(16000)
-        word = word1[start_time:end_time]
-        word.export(new_audio_path, format="wav")
+        audio_path = x.get('audio_path')
+        if audio_path is None:
+            # For idle mode (no audio), create silent audio matching video length
+            frames = frame_num
+            duration_ms = int(frames * 1000 / 25)  # Convert frames to milliseconds at 25fps
+            silent_audio = AudioSegment.silent(duration=duration_ms, frame_rate=16000)
+            new_audio_path = os.path.join(video_save_dir, 'silent_audio.wav')
+            silent_audio.export(new_audio_path, format="wav")
+        else:
+            audio_name = os.path.splitext(os.path.split(audio_path)[-1])[0]
+            new_audio_path = os.path.join(video_save_dir, audio_name+'.wav')
+            start_time = 0
+            # cog will not keep the .mp3 filename
+            sound = AudioSegment.from_file(audio_path)
+            frames = frame_num 
+            end_time = start_time + frames*1/25*1000
+            word1=sound.set_frame_rate(16000)
+            word = word1[start_time:end_time]
+            word.export(new_audio_path, format="wav")
 
         save_video_with_watermark(path, new_audio_path, av_path, watermark= False)
         print(f'The generated video is named {video_save_dir}/{video_name}') 
@@ -228,7 +236,7 @@ class AnimateFromCoeff():
             full_video_path = os.path.join(video_save_dir, video_name_full)
             return_path = full_video_path
             paste_pic(path, pic_path, crop_info, new_audio_path, full_video_path, extended_crop= True if 'ext' in preprocess.lower() else False)
-            print(f'The generated video is named {video_save_dir}/{video_name_full}') 
+            print(f'The generated video is named {video_save_dir}/{video_name_full}')
         else:
             full_video_path = av_path 
 

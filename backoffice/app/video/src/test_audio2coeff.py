@@ -78,8 +78,23 @@ class Audio2Coeff():
             is_idle = batch.get('audio_name', '') == '' or batch['indiv_mels'].shape[1] == 0
             
             if is_idle:
-                # For idle mode, use reference coefficients without audio processing
-                coeffs_pred_numpy = batch['ref'][0].clone().detach().cpu().numpy()
+                # For idle mode, generate subtle movement and blinking
+                # Use reference coefficients as base, but add subtle variations for natural idle animation
+                ref_coeff = batch['ref'][0].clone().detach().cpu().numpy()  # Shape: (num_frames, 70)
+                num_frames = ref_coeff.shape[0]
+                
+                # Add subtle random head movement (yaw, pitch, roll) - columns 64:70 are pose
+                # Small random variations for natural idle movement
+                np.random.seed(42)  # For reproducibility
+                pose_variation = np.random.normal(0, 0.02, (num_frames, 6))  # Small random head movements
+                ref_coeff[:, 64:70] = ref_coeff[:, 64:70] + pose_variation
+                
+                # Expression coefficients (columns 0:64) remain mostly static but with subtle variations
+                # This allows for natural blinking and micro-expressions
+                exp_variation = np.random.normal(0, 0.01, (num_frames, 64))
+                ref_coeff[:, 0:64] = ref_coeff[:, 0:64] + exp_variation
+                
+                coeffs_pred_numpy = ref_coeff
             else:
                 # Normal audio-driven processing
                 results_dict_exp = self.audio2exp_model.test(batch)
