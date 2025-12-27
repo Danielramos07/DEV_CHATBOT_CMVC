@@ -1,0 +1,186 @@
+
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Projeto - SciPROJ</title>
+
+  <link rel="stylesheet" id="contact-form-7-css" href="https://sciproj.ptcris.pt/wp-content/plugins/contact-form-7/includes/css/styles.css?ver=6.1.1" type="text/css" media="all">
+  <link rel="stylesheet" id="sciproj-api-frontend-style-css" href="https://sciproj.ptcris.pt/wp-content/plugins/sciproj-api/includes/../assets/css/app.min.css?ver=1761212896" type="text/css" media="all">
+  <link rel="stylesheet" id="weglot-css-css" href="https://sciproj.ptcris.pt/wp-content/plugins/weglot/dist/css/front-css.css?ver=5.0" type="text/css" media="all">
+  <link rel="stylesheet" id="new-flag-css-css" href="https://sciproj.ptcris.pt/wp-content/plugins/weglot/dist/css/new-flags.css?ver=5.0" type="text/css" media="all">
+  <link rel="stylesheet" id="fct_fccn-style-css" href="https://sciproj.ptcris.pt/wp-content/themes/fct-theme/assets/css/app.min.css?ver=1747649556" type="text/css" media="all">
+  <link rel="stylesheet" id="fct_fccn-vendors-styles-css" href="https://sciproj.ptcris.pt/wp-content/themes/fct-theme/assets/css/vendors.min.css?ver=20200423" type="text/css" media="all">
+  <style>
+    .login-button {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 10000;
+      padding: 10px 16px;
+      background: #fff;
+      color: #000;
+      text-decoration: none;
+      font-weight: 600;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+      transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .login-button:hover {
+      background: #f5f5f5;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.16);
+    }
+    .logos-multi { display: flex; align-items: center; gap: 12px; }
+    .logo-mark { height: 42px; object-fit: contain; }
+    @media (max-width: 1024px) { .logo-mark { height: 32px; } }
+    #headerWrapper .header .logo img { height: 24px; }
+    @media (min-width: 1025px) {
+      #headerWrapper .header .logo img { height: 42px; }
+    }
+    .fccn-header .container { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 8px 16px; }
+    .fccn-header .partner-logo { height: 36px; object-fit: contain; filter: brightness(0) invert(1); }
+    @media (max-width: 768px) {
+      .fccn-header .container { justify-content: center; flex-wrap: wrap; gap: 10px; }
+      .fccn-header .partner-logo { height: 28px; }
+    }
+    .project-content { max-width: 980px; margin: 40px auto 80px; padding: 0 20px; line-height: 1.6; font-size: 16px; color: #1f2937; }
+    .project-content h2 { margin-top: 0; font-size: 26px; }
+    .project-content h3 { margin-top: 24px; font-size: 20px; }
+    .project-content p { margin: 12px 0; }
+    .project-content ul { margin: 12px 0 12px 18px; }
+    .project-content li { margin-bottom: 8px; }
+    .scriproj-detail-intro .title {
+      font-size: 42px;
+      line-height: 1.2;
+    }
+  </style>
+</head>
+<body class="wp-theme-fct-theme wp-child-theme-fct-theme-child">
+  <a class="login-button" href="{{ url_for('auth.login') }}">Login</a>
+
+  <a class="skip-to-main" href="#main">Saltar para o conteúdo principal</a>
+
+  <header id="headerWrapper">
+    <div class="fccn-header">
+      <div class="container">
+        <img src="{{ url_for('static', filename='images/IPVC.png') }}" alt="IPVC" class="partner-logo">
+        <img src="{{ url_for('static', filename='images/FCT.png') }}" alt="FCT" class="partner-logo">
+        <img src="{{ url_for('static', filename='images/DataColab.png') }}" alt="DataColab" class="partner-logo">
+      </div>
+    </div>
+    <div class="header">
+      <div class="header-top container">
+        <div class="logo"><a href="https://ai4governance.ipvc.pt" title="Ir para a página principal de Portal SciPROJ"><img src="https://sciproj.ptcris.pt/wp-content/uploads/2024/12/logo-sciproj.svg" class="attachment-full size-full" alt="Portal SciPROJ" decoding="async"></a></div>
+        <div class="header-description in-desktop">
+         
+        </div>
+      </div>
+      <div class="header-bottom">
+        <div class="container">
+          <nav class="main-nav">
+            <ul>
+              <li><a href="{{ url_for('admin.home') }}">Início</a></li>
+              <li><a href="{{ url_for('admin.projeto') }}" class="--is-active">Projeto</a></li>
+              <li><a href="https://sciproj.ptcris.pt/ficha-tecnica/">Ficha Técnica</a></li>
+            </ul>
+            <div class="nav-hover-border" style="left: 230px; width: 110px;"></div>
+          </nav>
+          <div class="header-actions">
+            
+            <button class="nav-toggle js-nav-toggle" aria-label="Menu de navegação">
+              <span class="nav-closed icon-material" data-icon="menu"></span>
+              <span class="nav-opened icon-material" data-icon="close"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="fct-sciproj-detail-page">
+      <section class="scriproj-detail-intro">
+        <div class="container">
+          <span class="caption" data-wg-notranslate="">Atividade Financiada </span>
+          <h1 class="title" data-wg-notranslate="">Inteligência Artificial para a Governança da Administração Pública</h1>
+          <p class="title-other-lang" data-wg-notranslate="">Artificial Intelligence four Public Administration Governance</p>
+        </div>
+      </section>
+
+      <section class="project-content">
+        <h2>IPVC plataforma de criação de Assistentes Virtuais (chatbots)</h2>
+          <h3>Introdução</h3>
+          <p>Os assistentes virtuais com capacidade de resposta automatizada têm contribuído significativamente graças à integração de técnicas como o Processamento de Linguagem Natural, Sistemas Baseados em Regras e Modelos de IA Generativa. Este documento descreve a arquitetura geral de um sistema de chatbot inteligente que combina diferentes abordagens para garantir respostas rápidas, relevantes e contextuais, conforme a complexidade da questão colocada pelo utilizador.</p>
+          <p>A solução baseia-se num fluxo que integra o carregamento de conteúdos, a indexação semântica e diferentes estratégias de formulação de resposta, incluindo mecanismos baseados em regras, pesquisa por similaridade semântica (FAISS) e geração aumentada por recuperação de dados (RAG) suportada por Modelos de Linguagem de Grande Escala (LLMs).</p>
+          <img src="{{ url_for('static', filename='images/Esquema.png') }}" alt="Esquema de estrutura do projeto." style="max-width: 100%; margin-bottom: 15px;">
+          <h3>Arquitetura do Sistema</h3>
+          <p>A arquitetura do sistema de resposta automatizada com chatbot assenta em dois pontos fundamentais:</p>
+          <ol>
+            <li><strong>Carregamento e Indexação de Conteúdos</strong>
+              <p>O primeiro passo envolve o carregamento de documentos relevantes (por exemplo, ficheros PDF) que contêm a informação essencial para o funcionamento do sistema. Estes documentos são processados e convertidos em vetores semânticos através de modelos de embeddings. Os vetores gerados são armazenados de acordo com a abordagem selecionada:</p>
+              <ul>
+                <li><strong>Modo Baseado em Regras:</strong> A plataforma oferece uma interface de backoffice onde é possível categorizar FAQs (em texto ou PDF), associando palavras-chave e categorias para posterior consulta estruturada.</li>
+                <li><strong>Modo FAISS (Facebook AI Similarity Search):</strong> Os vetores são indexados num motor de pesquisa por similaridade semântica — FAISS — permitindo uma recuperação mais próxima baseada em proximidade semântica. Mais informações.</li>
+                <li><strong>Modo RAG (Retrieval-Augmented Generation):</strong> Os vetores são armazenados num modelo de dados vetorial como ChromaDB, otimizando a recuperação de informação contextual para informações.</li>
+              </ul>
+            </li>
+            <li><strong>Processamento de Perguntas dos Utilizadores</strong>
+              <p>Quando o utilizador coloca uma questão ao chatbot, esta é encaminhada para o módulo de de comportamento conversacional (Chat Behavior), responsável por determinar a estratégia de resposta mais adequada tendo em conta o tipo de questão e o contexto da interação.</p>
+              <p>O sistema pode operar em três modos distintos:</p>
+              <ul>
+                <li><strong>Modo Baseado em Regras:</strong> Utiliza uma lógica fixa para categorizar a questão com base em palavras-chave normalizadas. Após a categorização, consulta-se uma base de dados estruturada de FAQs, atribuindo pontuações às respostas e apresentando a mais adequada. Ideal para perguntas diretas e padronizadas.</li>
+                <li><strong>Modo FAISS:</strong> Para perguntas diretas e não enquadradas em regras fixas, mas onde existe similaridade semântica, o sistema converte a questão num vetor e compara-o com os índices FAISS. Após verificar o limiar de similaridade, apresenta-se a resposta mais próxima com base na informação previamente carregada.</li>
+                <li><strong>Modo LLM + RAG:</strong> Para questões complexas ou abertas, o sistema recorre a uma abordagem de IA Generativa. A questão serve de base para recuperar documentos contextuais da ChromaDB, que são combinados num prompt estruturado e enviados a um Modelo de Linguagem de Grande Escala (por exemplo, Ollama). Este gera uma resposta personalizada e contextualizada.</li>
+              </ul>
+            </li>
+          </ol>
+          <h3>Geração e Entrega de Respostas</h3>
+          <p>Independentemente do modo interno utilizado, a resposta final é gerada e entregue ao utilizador através do módulo de respostas (Bot Answer), garantindo:</p>
+          <ul>
+            <li>Respostas rápidas e estruturadas (modo baseado em regras)</li>
+            <li>Respostas semanticamente relevantes (modo FAISS)</li>
+            <li>Respostas altamente contextualizadas e personalizadas (modo RAG + LLM)</li>
+          </ul>
+          <p>Por defeito, o chatbot privilegia o modo baseado em regras, oferecendo respostas rápidas e consistentes a questões frequentes. Sempre que o sistema deteta a necessidade de maior profundidade ou nuance — pelo tipo de pergunta ou comportamento da conversa — ativa automaticamente técnicas avançadas, incluindo IA Generativa suportada por LLMs, através da abordagem RAG.</p>
+          <img src="{{ url_for('static', filename='images/img.png') }}" alt="Fluxograma de Geração de Respostas" style="max-width: 100%; margin-bottom: 15px;">
+          <h3>Base de Dados</h3>
+          <p>A componente de base de dados desempenha um papel central na arquitetura do Assistente Virtual, sendo responsável pela gestão e armazenamento da informação que suporta as respostas automáticas do sistema. A escolha e configuração das bases de dados variam conforme o modo de funcionamento do chatbot e o tipo de dados envolvidos.</p>
+          <h4>Tipos de Bases de Dados Utilizadas</h4>
+          <p>O sistema integra diferentes soluções de bases de dados, otimizadas para os distintos modos operacionais:</p>
+          <ul>
+            <li><strong>Base de Dados Estruturada para FAQs (Modo Baseado em Regras):</strong> Utiliza-se uma base de dados relacional ou documental, onde se armazenam as perguntas frequentes (FAQs) e respetivas respostas, associadas a categorias e palavras-chave. Esta estrutura permite consultas rápidas e eficazes através de mecanismos de normalização de termos e correspondência direta.</li>
+            <li><strong>Base de Dados Vetorial FAISS (Modo Semântico):</strong> Para o motor de pesquisa por similaridade, é utilizada a biblioteca FAISS, desenvolvida pela Meta (Facebook). Esta tecnologia permite indexar vetores semânticos derivados dos documentos, facilitando a recuperação eficiente de informação com base em proximidade vetorial e correspondência semântica. A FAISS armazena e gere os dados de forma otimizada para garantir tempos de resposta rápidos mesmo em grandes volumes de informação.</li>
+            <li><strong>Base de Dados Vetorial ChromaDB (Modo RAG + LLM):</strong> No contexto de respostas geradas por IA Generativa, o sistema recorre ao ChromaDB, uma base de dados vetorial desenhada especificamente para armazenar embeddings de texto e suportar cenários de Recuperação Aumentada por Geração (RAG). Esta base permite a combinação de documentos contextuais relevantes com os modelos de linguagem de grande escala (LLMs), como o Ollama, garantindo que as respostas geradas sejam altamente relevantes e adaptadas ao contexto.</li>
+          </ul>
+          <h4>Considerações de Desempenho e Segurança</h4>
+          <p>Para garantir a eficiência e segurança do sistema:</p>
+          <ul>
+            <li>As bases de dados estão configuradas para suportar alta disponibilidade e escalabilidade, assegurando um desempenho consistente mesmo sob carga elevada.</li>
+            <li>Implementam-se mecanismos de encriptação e controlo de acesso para proteger a integridade confidencial da informação, especialmente em ambientes com dados sensíveis ou institucionais.</li>
+            <li>Os processos de indexação são automatizados, permitindo que novos conteúdos sejam facilmente integrados no sistema, mantendo a base de dados atualizada sem interrupções no serviço.</li>
+          </ul>
+          <h3>3.3. Modelo de Base de Dados</h3>
+          <p>De acordo com os requisitos funcionais e não funcionais, bem como com o objetivo do assistente virtual no contexto do comportamento baseado em regras, apresenta-se a estrutura da base de dados, ilustrada na Figura 3.</p>
+          <img src="{{ url_for('static', filename='images/bd.jpeg') }}" alt="Modelo de Base de Dados para Comportamento Baseado em Regras" style="max-width: 100%; margin-bottom: 15px;">
+          <p>As principais entidades do modelo incluem:</p>
+          <ul>
+            <li><strong>Utilizador (User):</strong> Armazena informações sobre os utilizadores do sistema, incluindo credenciais de acesso e permissões de administrador.</li>
+            <li><strong>Chatbot:</strong> Entidade central que representa cada instância de chatbot, com atributos como designação, estado (ativo/inativo), comportamento e categorias associadas.</li>
+            <li><strong>FAQ (Perguntas Frequentes):</strong> Contém perguntas e respostas associadas a cada chatbot, suportando conteúdos em vários idiomas.</li>
+            <li><strong>Documento:</strong> Representa as fontes de conhecimento (ficheiros, URLs, etc.) associadas as FAQs e aos chatbots.</li>
+            <li><strong>Doc_FAQ:</strong> Tabela de junção que estabelece uma relação muitos-para-muitos entre documentos e FAQs.</li>
+            <li><strong>Categoria:</strong> Define as classificações temáticas ou linguísticas, agrupando FAQs e chatbots de forma estruturada.</li>
+            <li><strong>Chat_Category:</strong> Permite que cada chatbot pertença a múltiplas categorias, através de uma relação muitos-para-muitos.</li>
+            <li><strong>Registro (Log):</strong> Registra todas as interações dos utilizadores, incluindo as perguntas colocadas, as respostas do bot e as avaliações de precisão.</li>
+          </ul>
+          <p>Este modelo de dados garante escalabilidade, suporte multilíngue, rastreabilidade e uma gestão eficiente do conhecimento reutilizável entre diferentes instâncias de chatbot.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
