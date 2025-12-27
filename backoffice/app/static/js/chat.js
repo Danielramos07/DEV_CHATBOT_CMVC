@@ -579,7 +579,8 @@ async function atualizarNomeChatHeader() {
   }
   atualizarFonteBadge();
   atualizarCorChatbot();
-  setupAvatarVideo();
+  // setupAvatarVideo() is called in apresentarMensagemInicial() after videos are loaded
+  // Don't call it here to avoid race conditions
 }
 
 function atualizarFonteBadge() {
@@ -919,6 +920,9 @@ async function apresentarMensagemInicial() {
       localStorage.setItem("corChatbot", corBot);
       localStorage.setItem("iconBot", iconBot);
       localStorage.setItem("generoBot", generoBot || "");
+      
+      // Setup avatar video after videos are loaded
+      setupAvatarVideo();
     } catch (e) {
       const botsData = JSON.parse(localStorage.getItem("chatbotsData") || "[]");
       const bot = botsData.find(
@@ -935,6 +939,9 @@ async function apresentarMensagemInicial() {
       localStorage.setItem("corChatbot", corBot);
       localStorage.setItem("iconBot", iconBot);
       localStorage.setItem("generoBot", generoBot || "");
+      
+      // Setup avatar video even if fetch failed
+      setupAvatarVideo();
     }
   } else {
     nomeBot = "Assistente Municipal";
@@ -945,6 +952,9 @@ async function apresentarMensagemInicial() {
     localStorage.setItem("corChatbot", corBot);
     localStorage.setItem("iconBot", iconBot);
     localStorage.setItem("generoBot", generoBot || "");
+    
+    // Setup avatar video for default bot
+    setupAvatarVideo();
   }
   atualizarCorChatbot();
   try {
@@ -1495,8 +1505,8 @@ function setupAvatarVideo() {
   const greetingPath = localStorage.getItem("videoGreetingPath");
   const idlePath = localStorage.getItem("videoIdlePath");
 
-  if (!greetingPath || !idlePath) {
-    // No videos, show img
+  // If no videos at all, show static image
+  if (!greetingPath && !idlePath) {
     videoEl.style.display = "none";
     imgEl.style.display = "block";
     return;
@@ -1505,23 +1515,70 @@ function setupAvatarVideo() {
   // Show video, hide img
   videoEl.style.display = "block";
   imgEl.style.display = "none";
+  videoEl.muted = true; // Ensure muted for autoplay
 
-  if (!hasPlayedGreeting) {
-    // Play greeting
-    videoEl.src = greetingPath;
-    videoEl.loop = false;
-    videoEl.play();
-    videoEl.onended = () => {
+  // Clear any previous event listeners
+  const newVideoEl = videoEl.cloneNode(true);
+  videoEl.parentNode.replaceChild(newVideoEl, videoEl);
+  const currentVideoEl = document.querySelector(".chat-avatar-video");
+
+  if (!hasPlayedGreeting && greetingPath) {
+    // Play greeting first, then switch to idle
+    currentVideoEl.src = greetingPath;
+    currentVideoEl.loop = false;
+    currentVideoEl.onloadeddata = () => {
+      currentVideoEl.play().catch((e) => {
+        console.warn("Failed to play greeting video:", e);
+        // Fallback to idle or image
+        if (idlePath) {
+          currentVideoEl.src = idlePath;
+          currentVideoEl.loop = true;
+          currentVideoEl.play().catch(() => {
+            currentVideoEl.style.display = "none";
+            if (imgEl) imgEl.style.display = "block";
+          });
+        } else {
+          currentVideoEl.style.display = "none";
+          if (imgEl) imgEl.style.display = "block";
+        }
+      });
+    };
+    currentVideoEl.onended = () => {
       hasPlayedGreeting = true;
       // Switch to idle
-      videoEl.src = idlePath;
-      videoEl.loop = true;
-      videoEl.play();
+      if (idlePath) {
+        currentVideoEl.src = idlePath;
+        currentVideoEl.loop = true;
+        currentVideoEl.play().catch(() => {
+          currentVideoEl.style.display = "none";
+          if (imgEl) imgEl.style.display = "block";
+        });
+      } else {
+        // No idle video, show image
+        currentVideoEl.style.display = "none";
+        if (imgEl) imgEl.style.display = "block";
+      }
     };
+    // Trigger load if src was already set
+    if (currentVideoEl.src) {
+      currentVideoEl.load();
+    }
+  } else if (idlePath) {
+    // Already played greeting or no greeting, show idle
+    currentVideoEl.src = idlePath;
+    currentVideoEl.loop = true;
+    currentVideoEl.onloadeddata = () => {
+      currentVideoEl.play().catch(() => {
+        currentVideoEl.style.display = "none";
+        if (imgEl) imgEl.style.display = "block";
+      });
+    };
+    if (currentVideoEl.src) {
+      currentVideoEl.load();
+    }
   } else {
-    // Already played greeting, show idle
-    videoEl.src = idlePath;
-    videoEl.loop = true;
-    videoEl.play();
+    // Only greeting available but already played, or no videos
+    currentVideoEl.style.display = "none";
+    if (imgEl) imgEl.style.display = "block";
   }
 }

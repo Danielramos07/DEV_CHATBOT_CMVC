@@ -477,6 +477,13 @@ def _run_idle_video_job(chatbot_id: int, app) -> None:
                 final_filename="greeting.mp4",
                 is_idle=False,
             )
+            
+            # Save greeting_path immediately (even if idle fails later)
+            cur.execute(
+                "UPDATE chatbot SET video_greeting_path=%s WHERE chatbot_id=%s",
+                (greeting_path, chatbot_id),
+            )
+            conn.commit()
 
             # Generate idle video
             _set_job(progress=60, message="A gerar vídeo idle...")
@@ -509,6 +516,16 @@ def _run_idle_video_job(chatbot_id: int, app) -> None:
         except Exception as e:
             conn.rollback()
             _set_job(status="error", progress=100, message="Falha ao gerar vídeos.", error=str(e))
+            # Even if idle failed, try to save greeting_path if it was generated
+            try:
+                if 'greeting_path' in locals() and greeting_path:
+                    cur.execute(
+                        "UPDATE chatbot SET video_greeting_path=%s WHERE chatbot_id=%s",
+                        (greeting_path, chatbot_id),
+                    )
+                    conn.commit()
+            except Exception:
+                conn.rollback()
         finally:
             cur.close()
             conn.close()
