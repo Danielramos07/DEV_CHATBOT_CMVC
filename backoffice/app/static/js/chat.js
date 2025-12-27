@@ -1674,6 +1674,7 @@ window.responderPergunta = responderPergunta;
 window.perguntarCategoria = function () {};
 window.atualizarNomeChatHeader = atualizarNomeChatHeader;
 window.atualizarFonteBadge = atualizarFonteBadge;
+window.atualizarCorChatbot = atualizarCorChatbot;
 window.reiniciarConversa = reiniciarConversa;
 
 let hasPlayedGreeting = false;

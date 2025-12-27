@@ -150,9 +150,14 @@ async function eliminarChatbotConfirmado(chatbot_id) {
         localStorage.removeItem("chatbotAtivo");
         localStorage.removeItem("videoGreetingPath");
         localStorage.removeItem("videoIdlePath");
+        // Reset color to default
+        localStorage.setItem("corChatbot", "#d4af37");
         // Update chat UI to show default/fallback
         if (typeof window.atualizarNomeChatHeader === "function") {
           await window.atualizarNomeChatHeader();
+        }
+        if (typeof window.atualizarCorChatbot === "function") {
+          window.atualizarCorChatbot();
         }
         if (typeof window.setupAvatarVideo === "function") {
           window.setupAvatarVideo();
