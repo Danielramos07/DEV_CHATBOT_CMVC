@@ -37,7 +37,7 @@ Static/UI:
 
 ## Requisitos
 
-- Python 3.9+ (recomendado 3.9–3.10 para compatibilidade com ML deps)
+- Python 3.9+ (recomendado 3.9.6 para compatibilidade com ML deps)
 - PostgreSQL
 - `ffmpeg` no PATH (recomendado para escrita de vídeo)
 
@@ -45,6 +45,12 @@ macOS (Homebrew):
 
 ```bash
 brew install ffmpeg
+```
+
+Windows (Chocolatey):
+
+```bash
+choco install ffmpeg
 ```
 
 ---
@@ -78,7 +84,6 @@ Variáveis principais:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install --upgrade pip
 pip install -r backoffice/requirements.txt
 ```
 
@@ -127,7 +132,7 @@ Em alguns ambientes, `werkzeug` não consegue usar `scrypt`; por isso usa-se PBK
 
 ### 1) Apagar admin existente (opcional)
 
-```bash
+```zsh
 psql -U postgres -d ai4governance -c "DELETE FROM administrador WHERE username='admin';"
 ```
 
@@ -140,11 +145,25 @@ print(generate_password_hash("admin", method="pbkdf2:sha256", salt_length=16))
 PY
 ```
 
+### 2 Alternativo) Criar ficheiro.py, colar código
+
+```python
+from werkzeug.security import generate_password_hash
+
+print(generate_password_hash("admin", method="pbkdf2:sha256", salt_length=16))
+```
+
+#### Depois abrir o terminal e colar este comando para gerar a hash.
+
+```bash
+python ficheiro.py
+```
+
 ### 3) Inserir admin (usar heredoc para não haver problemas com `$` no hash)
 
 Substitui `HASH_AQUI` pelo valor gerado:
 
-```bash
+```sql
 psql -U postgres -d ai4governance <<'SQL'
 INSERT INTO administrador (username,email,password)
 VALUES ('admin','admin@local','HASH_AQUI');
@@ -215,26 +234,38 @@ Chave:
 - O modelo é descarregado automaticamente por `setup.py` para `backoffice/app/extras/models/`
 - A pasta do modelo deve estar ignorada pelo git (já configurado no `.gitignore`)
 
----
-
-## Git hygiene: o que é ignorado
-
-Por defeito, ficam ignorados:
-
-- `backoffice/app/video/results/` (outputs de vídeo)
-- `backoffice/app/extras/models/vosk-model-*/` (modelos grandes)
-- `backoffice/app/static/icons/` (uploads do utilizador)
-
-Se já tinhas ficheiros desses folders trackados, precisas de os remover do index:
-
-```bash
-git rm -r --cached backoffice/app/static/icons
-git rm -r --cached backoffice/app/video/results
-```
 
 ---
 
 ## Troubleshooting
+
+### FFmpeg não encontrado (Windows/Linux/macOS)
+
+**Erro:** `'ffmpeg' is not recognized as an internal or external command` ou `FFmpeg is not installed or not found in PATH`
+
+**Solução:**
+
+1. **Windows:**
+   - Baixar FFmpeg de https://ffmpeg.org/download.html (ou usar https://www.gyan.dev/ffmpeg/builds/)
+   - Extrair o ZIP e adicionar a pasta `bin` ao PATH do sistema:
+     - Abrir "Variáveis de Ambiente" → "Variáveis do sistema" → "Path" → "Editar"
+     - Adicionar o caminho completo para a pasta `bin` do FFmpeg (ex.: `C:\ffmpeg\bin`)
+     - Reiniciar o terminal/IDE após adicionar ao PATH
+   - Verificar instalação: `ffmpeg -version` no terminal
+
+2. **Linux:**
+   ```bash
+   sudo apt-get update
+   sudo apt-get install ffmpeg
+   ```
+
+3. **macOS:**
+   ```bash
+   brew install ffmpeg
+   ```
+
+O código agora verifica automaticamente se FFmpeg está disponível e fornece mensagens de erro mais claras.
+
 
 ### Não consigo fazer login
 

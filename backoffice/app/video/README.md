@@ -102,6 +102,34 @@ O serviço tenta terminar o processo SadTalker em curso e faz cleanup (ex.: apag
 
 ## Troubleshooting
 
+### FFmpeg não encontrado (Windows/Linux/macOS)
+
+**Erro:** `'ffmpeg' is not recognized as an internal or external command` ou `FFmpeg is not installed or not found in PATH`
+
+**Solução:**
+
+1. **Windows:**
+   - Baixar FFmpeg de https://ffmpeg.org/download.html (ou usar https://www.gyan.dev/ffmpeg/builds/)
+   - Extrair o ZIP e adicionar a pasta `bin` ao PATH do sistema:
+     - Abrir "Variáveis de Ambiente" → "Variáveis do sistema" → "Path" → "Editar"
+     - Adicionar o caminho completo para a pasta `bin` do FFmpeg (ex.: `C:\ffmpeg\bin`)
+     - Reiniciar o terminal/IDE após adicionar ao PATH
+   - Verificar instalação: `ffmpeg -version` no terminal
+
+2. **Linux:**
+   ```bash
+   sudo apt-get update
+   sudo apt-get install ffmpeg
+   ```
+
+3. **macOS:**
+   ```bash
+   brew install ffmpeg
+   ```
+
+O código agora verifica automaticamente se FFmpeg está disponível e fornece mensagens de erro mais claras.
+
+
 ### `functional_tensor` vs `functional`
 
 Algumas combinações de `torchvision` podem quebrar dependências (ex.: `basicsr`) por causa de `functional_tensor`.
