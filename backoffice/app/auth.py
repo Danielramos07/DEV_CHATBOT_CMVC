@@ -41,4 +41,5 @@ def login():
 def logout():
     session.pop('admin_id', None)
     flash('Logout realizado com sucesso!', 'success')
-    return redirect(url_for('auth.login'))
+    # After leaving admin area, send user back to public home instead of login
+    return redirect(url_for('admin.home'))

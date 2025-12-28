@@ -115,6 +115,9 @@ def update_faq(faq_id):
         categorias = data.get("categorias", [])
         recomendado = data.get("recomendado", False)
         categoria_id = categorias[0] if categorias else None
+        # Optional field used by video generation (can be null)
+        video_text_in_payload = "video_text" in data
+        video_text_value = (data.get("video_text", "") or "").strip() or None
         # Fetch current values to check if resposta or video_text changed
         cur.execute("SELECT resposta, video_text, chatbot_id, designacao, pergunta, idioma FROM faq WHERE faq_id = %s", (faq_id,))
         old = cur.fetchone()
@@ -145,10 +148,35 @@ def update_faq(faq_id):
                 return jsonify({"success": False, "error": "Esta combinação (chatbot, designação, pergunta, resposta e idioma) já existe noutra FAQ."}), 409
 
         try:
-            cur.execute("""
-                UPDATE faq SET pergunta=%s, resposta=%s, idioma=%s, categoria_id=%s, recomendado=%s, designacao=%s
-                WHERE faq_id=%s
-            """, (pergunta, resposta, idioma, categoria_id, recomendado, designacao, faq_id))
+            if video_text_in_payload:
+                cur.execute(
+                    """
+                    UPDATE faq
+                    SET pergunta=%s,
+                        resposta=%s,
+                        idioma=%s,
+                        categoria_id=%s,
+                        recomendado=%s,
+                        designacao=%s,
+                        video_text=%s
+                    WHERE faq_id=%s
+                    """,
+                    (pergunta, resposta, idioma, categoria_id, recomendado, designacao, video_text_value, faq_id),
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE faq
+                    SET pergunta=%s,
+                        resposta=%s,
+                        idioma=%s,
+                        categoria_id=%s,
+                        recomendado=%s,
+                        designacao=%s
+                    WHERE faq_id=%s
+                    """,
+                    (pergunta, resposta, idioma, categoria_id, recomendado, designacao, faq_id),
+                )
             conn.commit()
             build_faiss_index()
         except Exception as update_error:
@@ -168,7 +196,7 @@ def update_faq(faq_id):
         # Only queue video if resposta or video_text changed (not for recomendado/categorias changes)
         # Check if resposta or video_text actually changed
         resposta_changed = resposta and resposta != old_resposta
-        video_text_changed = "video_text" in data and data["video_text"] != (old_video_text or "")
+        video_text_changed = video_text_in_payload and (video_text_value or "") != (old_video_text or "")
         
         # If resposta or video_text changed, and video_enabled, queue video
         if video_enabled and (resposta_changed or video_text_changed):
@@ -198,7 +226,12 @@ def add_faq():
         links_documentos = data.get("links_documentos", "").strip()
         recomendado = data.get("recomendado", False)
         video_text = data.get("video_text", "").strip() or None
-        gerar_video = bool(data.get("gerar_video"))
+        # gerar_video pode chegar como bool (JSON) ou string (ex: "on")
+        raw_gerar_video = data.get("gerar_video", False)
+        if isinstance(raw_gerar_video, str):
+            gerar_video = raw_gerar_video.strip().lower() in {"1", "true", "yes", "on"}
+        else:
+            gerar_video = bool(raw_gerar_video)
         cur.execute("""
             SELECT faq_id FROM faq
             WHERE chatbot_id = %s AND designacao = %s AND pergunta = %s AND resposta = %s AND idioma = %s
@@ -211,8 +244,12 @@ def add_faq():
         row = cur.fetchone()
         video_enabled = bool(row[0]) if row else False
 
+        # Só enfileirar vídeo se o chatbot permitir E se o utilizador pediu para gerar vídeo.
+        # (evita gerar vídeo quando o chatbot está com vídeo desativado, mesmo que o checkbox venha marcado por engano)
+        should_queue_video = bool(video_enabled and gerar_video)
+
         # Se for para gerar vídeo, garantir que não há outro job em curso.
-        if (gerar_video or video_enabled) and not can_start_new_video_job():
+        if should_queue_video and not can_start_new_video_job():
             return jsonify({
                 "success": False,
                 "busy": True,
@@ -256,7 +293,7 @@ def add_faq():
         conn.commit()
         build_faiss_index()
 
-        if gerar_video or video_enabled:
+        if should_queue_video:
             queue_video_for_faq(faq_id)
             return jsonify({"success": True, "faq_id": faq_id, "video_queued": True})
 

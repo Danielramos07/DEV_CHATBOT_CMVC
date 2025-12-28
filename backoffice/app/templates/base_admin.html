@@ -38,12 +38,7 @@
     />
     {% block extra_head %}{% endblock %}
   </head>
-  {% if 'admin_id' not in session %} {% with messages =
-  get_flashed_messages(with_categories=true) %} {% if messages %}
-  <script>
-    window.location.href = "{{ url_for('login') }}";
-  </script>
-  {% endif %} {% endwith %} {% endif %}
+  {# Auth is enforced server-side via @login_required on admin routes. #}
   <body>
     <div class="layout">
       <aside>
@@ -52,35 +47,40 @@
           <li
             id="menuContexto"
             class="{% block menu_contexto_class %}{% endblock %}"
-            onclick="window.location.href='{{ url_for('admin.contexto') }}'"
+            data-href="{{ url_for('admin.contexto') }}"
+            onclick="window.location.href=this.dataset.href;"
           >
             Contexto
           </li>
           <li
             id="menuRecursos"
             class="{% block menu_recursos_class %}{% endblock %}"
-            onclick="window.location.href='{{ url_for('admin.index') }}'"
+            data-href="{{ url_for('admin.index') }}"
+            onclick="window.location.href=this.dataset.href;"
           >
             Recursos
           </li>
           <li
             id="menuRespostas"
             class="{% block menu_respostas_class %}{% endblock %}"
-            onclick="window.location.href='{{ url_for('admin.respostas') }}'"
+            data-href="{{ url_for('admin.respostas') }}"
+            onclick="window.location.href=this.dataset.href;"
           >
             FAQs
           </li>
           <li
             id="menuNaoRespondidas"
             class="{% block menu_nao_respondidas_class %}{% endblock %}"
-            onclick="window.location.href='{{ url_for('admin.nao_respondidas') }}'"
+            data-href="{{ url_for('admin.nao_respondidas') }}"
+            onclick="window.location.href=this.dataset.href;"
           >
             Não respondidas
           </li>
           <li
             id="menuMetricas"
             class="{% block menu_metricas_class %}{% endblock %}"
-            onclick="window.location.href='{{ url_for('admin.metricas') }}'"
+            data-href="{{ url_for('admin.metricas') }}"
+            onclick="window.location.href=this.dataset.href;"
           >
             Métricas
           </li>
@@ -103,7 +103,8 @@
           </div>
           <button
             id="publicarBtn"
-            onclick="window.location.href='{{ url_for('auth.logout') }}'"
+            data-href="{{ url_for('auth.logout') }}"
+            onclick="window.location.href=this.dataset.href;"
           >
             Sair
           </button>

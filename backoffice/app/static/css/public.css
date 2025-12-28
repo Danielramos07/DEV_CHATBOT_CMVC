@@ -11,6 +11,28 @@
   --c-secondary-dark: #0578A8;
 }
 
+/* Force a local font on public pages to avoid loading remote theme webfonts (CORS errors in console). */
+html,
+body,
+#headerWrapper,
+#footerWrapper {
+  font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif !important;
+}
+
+/* Replace external Material Symbols dependency: our markup uses text icons. */
+.nav-toggle .nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 700;
+  color: currentColor;
+  user-select: none;
+}
+
 /* Logo heights */
 #headerWrapper .header .logo img {
   height: 24px;
@@ -33,8 +55,10 @@
 /* Login button */
 .login-button {
   position: fixed;
-  top: 16px;
-  right: 16px;
+  /* Requested: more top margin and on the left instead of the right */
+  top: 28px;
+  left: 16px;
+  right: auto;
   z-index: 10000;
   padding: 10px 16px;
   background: #fff;

@@ -75,7 +75,15 @@ function adicionarListenersFormulariosFAQ(allBots = []) {
           data.gerar_video = false;
         }
       } catch (e) {
-        // Se falhar, não bloquear o fluxo; apenas não mostra info extra.
+        // Fail-safe: se não conseguimos verificar, assumimos vídeo OFF para evitar jobs indevidos.
+        try {
+          if (infoDiv)
+            infoDiv.textContent =
+              "Não foi possível verificar a configuração de vídeo deste chatbot. Por segurança, a criação de FAQs não irá gerar vídeos.";
+          if (gerarWrapper) gerarWrapper.style.display = "none";
+          if (gerarCheckbox) gerarCheckbox.checked = false;
+          data.gerar_video = false;
+        } catch (e2) {}
       }
 
       if (data.chatbot_id === "todos") {

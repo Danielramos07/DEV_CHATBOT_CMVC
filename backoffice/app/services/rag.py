@@ -8,9 +8,9 @@ def get_pdfs_from_db(chatbot_id=None):
     cur = conn.cursor()
     try:
         if chatbot_id:
-            cur.execute("SELECT pdf_id, file_path FROM PDF_Documents WHERE chatbot_id = %s", (chatbot_id,))
+            cur.execute("SELECT pdf_id, file_path FROM pdf_documents WHERE chatbot_id = %s", (chatbot_id,))
         else:
-            cur.execute("SELECT pdf_id, file_path FROM PDF_Documents")
+            cur.execute("SELECT pdf_id, file_path FROM pdf_documents")
         return cur.fetchall()
     finally:
         cur.close()
@@ -19,7 +19,7 @@ def obter_mensagem_sem_resposta(chatbot_id):
     conn = get_conn()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT mensagem_sem_resposta FROM Chatbot WHERE chatbot_id = %s", (chatbot_id,))
+        cur.execute("SELECT mensagem_sem_resposta FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
         row = cur.fetchone()
         if row and row[0]:
             return row[0]

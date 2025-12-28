@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS chatbot_categoria (
 -- Tabela: faq
 CREATE TABLE IF NOT EXISTS faq (
     faq_id SERIAL PRIMARY KEY,
-    chatbot_id INT REFERENCES Chatbot(chatbot_id) ON DELETE CASCADE,
-    categoria_id INT REFERENCES Categoria(categoria_id) ON DELETE SET NULL,
+    chatbot_id INT REFERENCES chatbot(chatbot_id) ON DELETE CASCADE,
+    categoria_id INT REFERENCES categoria(categoria_id) ON DELETE SET NULL,
     designacao VARCHAR(255),
     pergunta TEXT NOT NULL,
     resposta TEXT NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS faq_relacionadas (
 -- Tabela: log
 CREATE TABLE IF NOT EXISTS log (
     log_id SERIAL PRIMARY KEY,
-    chatbot_id INT REFERENCES Chatbot(chatbot_id) ON DELETE CASCADE,
+    chatbot_id INT REFERENCES chatbot(chatbot_id) ON DELETE CASCADE,
     data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     pergunta_utilizador TEXT,
     respondido BOOLEAN

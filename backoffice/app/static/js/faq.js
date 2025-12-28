@@ -536,6 +536,22 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
         mostrarRespostas();
       } else {
         const data = { chatbot_id: parseInt(chatbotIdRaw), ...dadosBase };
+
+        // Fail-safe: mesmo que o checkbox venha marcado, não pedir vídeo se o chatbot não tiver vídeo ativo.
+        try {
+          const resBots = await fetch("/chatbots");
+          const bots = await resBots.json();
+          const botAtual = bots.find(
+            (b) => String(b.chatbot_id) === String(data.chatbot_id)
+          );
+          if (!botAtual || !botAtual.video_enabled) {
+            data.gerar_video = false;
+          }
+        } catch (e) {
+          // Se falhar, por segurança não pedir vídeo.
+          data.gerar_video = false;
+        }
+
         const res = await fetch("/faqs", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

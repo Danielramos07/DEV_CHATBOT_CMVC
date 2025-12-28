@@ -41,13 +41,33 @@ def queue_video():
             409,
         )
 
-    # Confirm that the FAQ exists before queueing
+    # Confirm that the FAQ exists before queueing and that its chatbot has video enabled
     conn = get_conn()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT 1 FROM faq WHERE faq_id = %s", (faq_id,))
-        if not cur.fetchone():
+        cur.execute(
+            """
+            SELECT c.video_enabled
+            FROM faq f
+            JOIN chatbot c ON f.chatbot_id = c.chatbot_id
+            WHERE f.faq_id = %s
+            """,
+            (faq_id,),
+        )
+        row = cur.fetchone()
+        if not row:
             return jsonify({"success": False, "error": "FAQ não encontrada."}), 404
+        video_enabled = bool(row[0]) if row else False
+        if not video_enabled:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Vídeo está desativado para o chatbot desta FAQ.",
+                    }
+                ),
+                409,
+            )
     finally:
         cur.close()
         conn.close()

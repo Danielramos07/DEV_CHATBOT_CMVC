@@ -7,7 +7,21 @@
   <link rel="icon" href="https://sciproj.ptcris.pt/wp-content/uploads/2025/03/sciproj-favicon_v2-150x150.png" sizes="32x32">
   <title>{% block title %}Portal SciPROJ{% endblock %}</title>
 
+  <!-- Prevent loading remote theme webfonts (IBM Plex Sans) that trigger CORS errors on localhost -->
+  <style>
+    html body.wp-theme-fct-theme,
+    html body.wp-child-theme-fct-theme-child,
+    html body.wp-theme-fct-theme *,
+    html body.wp-child-theme-fct-theme-child * {
+      font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif !important;
+    }
+  </style>
+
   <!-- External CSS -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
   <link rel="stylesheet" id="contact-form-7-css" href="https://sciproj.ptcris.pt/wp-content/plugins/contact-form-7/includes/css/styles.css?ver=6.1.1" type="text/css" media="all">
   <link rel="stylesheet" id="sciproj-api-frontend-style-css" href="https://sciproj.ptcris.pt/wp-content/plugins/sciproj-api/includes/../assets/css/app.min.css?ver=1761212896" type="text/css" media="all">
   <link rel="stylesheet" id="weglot-css-css" href="https://sciproj.ptcris.pt/wp-content/plugins/weglot/dist/css/front-css.css?ver=5.0" type="text/css" media="all">
@@ -55,8 +69,8 @@
           </nav>
           <div class="header-actions">
             <button class="nav-toggle js-nav-toggle" aria-label="Menu de navegação">
-              <span class="nav-closed icon-material" data-icon="menu"></span>
-              <span class="nav-opened icon-material" data-icon="close"></span>
+              <span class="nav-closed nav-icon" aria-hidden="true">☰</span>
+              <span class="nav-opened nav-icon" aria-hidden="true">×</span>
             </button>
           </div>
         </div>
@@ -210,10 +224,6 @@
     <button id="chatToggleBtn" class="chat-toggle-btn" aria-label="Abrir chatbot">
       <img src="{{ url_for('static', filename='images/icon-botao.png') }}" alt="Chatbot" />
     </button>
-    <div class="chat-toggle-card">
-      <div class="bold">Fale connosco</div>
-      <div>Precisa de ajuda?</div>
-    </div>
   </div>
 
   <!-- Scripts -->

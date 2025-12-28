@@ -475,6 +475,10 @@ async function mostrarVideoFaqNoAvatar(faqId) {
   videoEl.src = streamUrl || `/video/faq/${faqId}`;
   videoEl.style.display = "block";
   videoEl.loop = false;
+  // Ensure FAQ video plays at normal speed
+  try {
+    videoEl.playbackRate = 1.0;
+  } catch (e) {}
   // Try to play FAQ video with sound (unmuted)
   videoEl.muted = false;
 
@@ -502,6 +506,10 @@ async function mostrarVideoFaqNoAvatar(faqId) {
         // Ensure video is visible and image is hidden before playing
         videoEl.style.display = "block";
         if (imgEl) imgEl.style.display = "none";
+        // Slow-motion idle animation (requested)
+        try {
+          videoEl.playbackRate = 0.3;
+        } catch (e) {}
         videoEl.play()
           .then(() => {
             // Double-check that video is visible and image is hidden after successful play
@@ -1751,6 +1759,9 @@ function setupAvatarVideo() {
     currentVideoEl.src = greetingPath;
     currentVideoEl.loop = false;
     currentVideoEl.muted = false; // Try to play with sound for greeting
+    try {
+      currentVideoEl.playbackRate = 1.0;
+    } catch (e) {}
     
     currentVideoEl.onloadeddata = () => {
       // Try to play with sound first
@@ -1763,6 +1774,9 @@ function setupAvatarVideo() {
             currentVideoEl.src = idlePath;
             currentVideoEl.loop = true;
             currentVideoEl.muted = true; // Idle should be muted
+            try {
+              currentVideoEl.playbackRate = 0.3;
+            } catch (e) {}
             currentVideoEl.play().catch(() => {
               currentVideoEl.style.display = "none";
               if (imgEl) imgEl.style.display = "block";
@@ -1781,6 +1795,9 @@ function setupAvatarVideo() {
         currentVideoEl.src = idlePath;
         currentVideoEl.loop = true;
         currentVideoEl.muted = true; // Idle should be muted
+        try {
+          currentVideoEl.playbackRate = 0.3;
+        } catch (e) {}
         currentVideoEl.play().catch(() => {
           currentVideoEl.style.display = "none";
           if (imgEl) imgEl.style.display = "block";
@@ -1801,6 +1818,9 @@ function setupAvatarVideo() {
     currentVideoEl.loop = true;
     currentVideoEl.muted = true; // Idle should be muted
     currentVideoEl.onloadeddata = () => {
+      try {
+        currentVideoEl.playbackRate = 0.3;
+      } catch (e) {}
       currentVideoEl.play().catch(() => {
         currentVideoEl.style.display = "none";
         if (imgEl) imgEl.style.display = "block";

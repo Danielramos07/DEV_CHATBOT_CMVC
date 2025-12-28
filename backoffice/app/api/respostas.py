@@ -118,7 +118,7 @@ def obter_resposta():
                 faiss_resultados = pesquisar_faiss(pergunta, chatbot_id=chatbot_id, k=1, min_sim=0.7)
                 if faiss_resultados:
                     faq_id = faiss_resultados[0]['faq_id']
-                    cur.execute("SELECT link FROM FAQ_Documento WHERE faq_id = %s", (faq_id,))
+                    cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
                     docs = [r[0] for r in cur.fetchall()]
                     return jsonify({
                         "success": True,
@@ -391,7 +391,7 @@ def metricas_nao_respondidas():
                 COALESCE(p.tratadas, 0) AS tratadas,
                 COALESCE(p.ignoradas, 0) AS ignoradas,
                 p.ultimo_registo
-            FROM Chatbot c
+                FROM chatbot c
             LEFT JOIN (
                 SELECT
                     chatbot_id,

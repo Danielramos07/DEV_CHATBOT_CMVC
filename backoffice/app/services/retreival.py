@@ -20,9 +20,9 @@ def build_faiss_index(chatbot_id=None):
     cur = conn.cursor()
     try:
         if chatbot_id:
-            cur.execute("SELECT faq_id, pergunta, resposta, chatbot_id FROM FAQ WHERE chatbot_id = %s", (chatbot_id,))
+            cur.execute("SELECT faq_id, pergunta, resposta, chatbot_id FROM faq WHERE chatbot_id = %s", (chatbot_id,))
         else:
-            cur.execute("SELECT faq_id, pergunta, resposta, chatbot_id FROM FAQ")
+            cur.execute("SELECT faq_id, pergunta, resposta, chatbot_id FROM faq")
         faqs = cur.fetchall()
         perguntas = [f[1] for f in faqs]
         if not perguntas:
@@ -113,9 +113,9 @@ def get_faqs_from_db(chatbot_id=None):
     cur = conn.cursor()
     try:
         if chatbot_id:
-            cur.execute("SELECT faq_id, pergunta, resposta, chatbot_id FROM FAQ WHERE chatbot_id = %s", (chatbot_id,))
+            cur.execute("SELECT faq_id, pergunta, resposta, chatbot_id FROM faq WHERE chatbot_id = %s", (chatbot_id,))
         else:
-            cur.execute("SELECT faq_id, pergunta, resposta, chatbot_id FROM FAQ")
+            cur.execute("SELECT faq_id, pergunta, resposta, chatbot_id FROM faq")
         return cur.fetchall()
     finally:
         cur.close()
@@ -126,7 +126,7 @@ def obter_faq_mais_semelhante(pergunta, chatbot_id, threshold=70):
     conn = get_conn()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT faq_id, pergunta, resposta FROM FAQ WHERE chatbot_id = %s", (chatbot_id,))
+        cur.execute("SELECT faq_id, pergunta, resposta FROM faq WHERE chatbot_id = %s", (chatbot_id,))
         faqs = cur.fetchall()
         if not faqs:
             return None
