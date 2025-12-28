@@ -17,14 +17,6 @@ def index():
 def contexto():
     return render_template("contexto.html")
 
-@app.route("/landing")
-def landing():
-    return render_template("landing.html")
-
-@app.route("/landing-2")
-def landing_2():
-    return render_template("landing-2.html")
-
 @app.route("/projeto")
 def projeto():
     return render_template("projeto.html")

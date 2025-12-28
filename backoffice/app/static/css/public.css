@@ -1,0 +1,185 @@
+/* Public Pages CSS - Shared styles for home.html and projeto.html */
+
+:root {
+  --c-primary: #7c51fa;
+  --c-primary-base: #7c51fa;
+  --c-primary-light: #B39AFD;
+  --c-primary-dark: #4b19e6;
+  --c-secondary: #159FD8;
+  --c-secondary-base: #159FD8;
+  --c-secondary-light: #59C9F7;
+  --c-secondary-dark: #0578A8;
+}
+
+/* Logo heights */
+#headerWrapper .header .logo img {
+  height: 24px;
+}
+@media (min-width: 1025px) {
+  #headerWrapper .header .logo img {
+    height: 42px;
+  }
+}
+
+#footerWrapper .footer-top .row-1 .footer-logo img {
+  height: 50px;
+}
+@media (min-width: 1025px) {
+  #footerWrapper .footer-top .row-1 .project-network > :first-child img {
+    height: 76px;
+  }
+}
+
+/* Login button */
+.login-button {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10000;
+  padding: 10px 16px;
+  background: #fff;
+  color: #000;
+  text-decoration: none;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+.login-button:hover {
+  background: #f5f5f5;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.16);
+}
+
+/* Partner logos */
+.logos-multi {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.logo-mark {
+  height: 42px;
+  object-fit: contain;
+}
+@media (max-width: 1024px) {
+  .logo-mark {
+    height: 32px;
+  }
+}
+
+/* Partner header bar */
+.fccn-header .container {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+}
+.fccn-header .partner-logo {
+  height: 36px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+@media (max-width: 768px) {
+  .fccn-header .container {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .fccn-header .partner-logo {
+    height: 28px;
+  }
+}
+
+/* Chat toggle placement */
+.chat-toggle-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.chat-toggle-btn {
+  background: #1d4ed8;
+  border: none;
+  border-radius: 50%;
+  width: 64px;
+  height: 64px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.25);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.chat-toggle-btn img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+.chat-toggle-btn:hover {
+  background: #153aa4;
+  transform: translateY(-2px);
+  box-shadow: 0 14px 24px rgba(0,0,0,0.3);
+}
+.chat-toggle-card {
+  background: #0f172a;
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+  font-weight: 600;
+  display: grid;
+  gap: 2px;
+}
+@media (max-width: 640px) {
+  .chat-toggle-container {
+    right: 16px;
+    bottom: 16px;
+  }
+  .chat-toggle-btn {
+    width: 56px;
+    height: 56px;
+  }
+  .chat-toggle-btn img {
+    width: 30px;
+    height: 30px;
+  }
+  .chat-toggle-card {
+    display: none;
+  }
+}
+
+/* Project content styles */
+.project-content {
+  max-width: 980px;
+  margin: 40px auto 80px;
+  padding: 0 20px;
+  line-height: 1.6;
+  font-size: 16px;
+  color: #1f2937;
+}
+.project-content h2 {
+  margin-top: 0;
+  font-size: 26px;
+}
+.project-content h3 {
+  margin-top: 24px;
+  font-size: 20px;
+}
+.project-content p {
+  margin: 12px 0;
+}
+.project-content ul {
+  margin: 12px 0 12px 18px;
+}
+.project-content li {
+  margin-bottom: 8px;
+}
+.scriproj-detail-intro .title {
+  font-size: 42px;
+  line-height: 1.2;
+}
+

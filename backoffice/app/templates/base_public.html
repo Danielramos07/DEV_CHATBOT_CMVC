@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="https://sciproj.ptcris.pt/wp-content/uploads/2025/03/sciproj-favicon_v2-150x150.png" sizes="32x32">
+  <title>{% block title %}Portal SciPROJ{% endblock %}</title>
+
+  <!-- External CSS -->
+  <link rel="stylesheet" id="contact-form-7-css" href="https://sciproj.ptcris.pt/wp-content/plugins/contact-form-7/includes/css/styles.css?ver=6.1.1" type="text/css" media="all">
+  <link rel="stylesheet" id="sciproj-api-frontend-style-css" href="https://sciproj.ptcris.pt/wp-content/plugins/sciproj-api/includes/../assets/css/app.min.css?ver=1761212896" type="text/css" media="all">
+  <link rel="stylesheet" id="weglot-css-css" href="https://sciproj.ptcris.pt/wp-content/plugins/weglot/dist/css/front-css.css?ver=5.0" type="text/css" media="all">
+  <link rel="stylesheet" id="new-flag-css-css" href="https://sciproj.ptcris.pt/wp-content/plugins/weglot/dist/css/new-flags.css?ver=5.0" type="text/css" media="all">
+  <link rel="stylesheet" id="fct_fccn-style-css" href="https://sciproj.ptcris.pt/wp-content/themes/fct-theme/assets/css/app.min.css?ver=1747649556" type="text/css" media="all">
+  <link rel="stylesheet" id="fct_fccn-vendors-styles-css" href="https://sciproj.ptcris.pt/wp-content/themes/fct-theme/assets/css/vendors.min.css?ver=20200423" type="text/css" media="all">
+  
+  <!-- Project CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+  
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="wp-theme-fct-theme wp-child-theme-fct-theme-child">
+  <a class="login-button" href="{{ url_for('auth.login') }}">Login</a>
+
+  <a class="skip-to-main" href="#main">Saltar para o conteúdo principal</a>
+
+  <header id="headerWrapper">
+    <div class="fccn-header">
+      <div class="container">
+        <img src="{{ url_for('static', filename='images/IPVC.png') }}" alt="IPVC" class="partner-logo">
+        <img src="{{ url_for('static', filename='images/FCT.png') }}" alt="FCT" class="partner-logo">
+        <img src="{{ url_for('static', filename='images/DataColab.png') }}" alt="DataColab" class="partner-logo">
+      </div>
+    </div>
+    <div class="header">
+      <div class="header-top container">
+        <div class="logo">
+          <a href="https://ai4governance.ipvc.pt" title="Ir para a página principal">
+            <img src="https://sciproj.ptcris.pt/wp-content/uploads/2024/12/logo-sciproj.svg" class="attachment-full size-full" alt="Portal SciPROJ" decoding="async">
+          </a>
+        </div>
+        <div class="header-description in-desktop"></div>
+      </div>
+      <div class="header-bottom">
+        <div class="container">
+          <nav class="main-nav">
+            <ul>
+              <li><a href="{{ url_for('admin.home') }}">Início</a></li>
+              <li><a href="{{ url_for('admin.projeto') }}" {% block projeto_active %}{% endblock %}>Projeto</a></li>
+              <li><a href="https://sciproj.ptcris.pt/ficha-tecnica/">Ficha Técnica</a></li>
+            </ul>
+            <div class="nav-hover-border" style="left: 230px; width: 110px;"></div>
+          </nav>
+          <div class="header-actions">
+            <button class="nav-toggle js-nav-toggle" aria-label="Menu de navegação">
+              <span class="nav-closed icon-material" data-icon="menu"></span>
+              <span class="nav-opened icon-material" data-icon="close"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer id="footerWrapper">
+    <div class="footer-bottom">
+      <div class="container">
+        <div class="row-1">
+          <div class="legal-logos">
+            <div class="logo">
+              <img src="https://sciproj.ptcris.pt/wp-content/uploads/2025/02/legal-logo-1.svg" class="attachment-full size-full" alt="República Portuguesa - Educação, Ciência e Inovação" decoding="async" loading="lazy">
+            </div>
+            <div class="logo">
+              <a href="https://www.fccn.pt/en/" target="_blank">
+                <img src="https://sciproj.ptcris.pt/wp-content/uploads/2025/02/legal-logo-2.svg" class="attachment-full size-full" alt="FCCN - Serviços digitais FCT" decoding="async" loading="lazy">
+              </a>
+            </div>
+            <div class="logo">
+              <a href="https://www.facebook.com/fccnpt/" target="_blank">
+                <img src="https://sciproj.ptcris.pt/wp-content/uploads/2025/02/legal-logo-3.svg" class="attachment-full size-full" alt="FCT - Fundação para a Ciência e Tecnologia" decoding="async" loading="lazy">
+              </a>
+            </div>
+          </div>
+          <div class="social-info">
+            <ul class="social-links">
+              <li><a href="https://twitter.com/fccnpt"><svg width="44px" height="44px"><title>Facebook</title><use xlink:href="#icon-facebook"></use></svg></a></li>
+              <li><a href="https://www.x.com"><svg width="44px" height="44px"><title>X</title><use xlink:href="#icon-twitter"></use></svg></a></li>
+              <li><a href="https://www.instagram.com/unidadefccn/"><svg width="44px" height="44px"><title>Instagram</title><use xlink:href="#icon-instagram"></use></svg></a></li>
+              <li><a href="https://www.linkedin.com/company/fccn/"><svg width="44px" height="44px"><title>LinkedIn</title><use xlink:href="#icon-linkedin"></use></svg></a></li>
+            </ul>
+            <div class="newsletter">
+              <a href="https://lp.egoi.page/1eGeT0S/subscrever" class="c-button --outlined in-mobile" target="_blank">Newsletter</a>
+              <a href="https://lp.egoi.page/1eGeT0S/subscrever" class="c-button --outlined in-desktop" target="_blank">Newsletter FCCN</a>
+            </div>
+          </div>
+        </div>
+        <div class="row-2">
+          <nav class="legal-nav">
+            <ul>
+              <li><a href="https://sciproj.ptcris.pt/acessibilidade/">Acessibilidade</a></li>
+              <li><a href="https://sciproj.ptcris.pt/politica-de-privacidade/">Política de Privacidade</a></li>
+              <li><a href="https://sciproj.ptcris.pt/politica-de-cookies/">Política de Cookies</a></li>
+            </ul>
+          </nav>
+          <div class="copyright"><p>© 2025 FCCN-FCT</p></div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <div class="illustration-right" style="background-image: url('https://sciproj.ptcris.pt/wp-content/uploads/2024/12/illustration-right.svg'); display: block;"></div>
+  <div class="illustration-left" style="background-image: url('https://sciproj.ptcris.pt/wp-content/uploads/2024/12/illustration-left.svg'); display: block;"></div>
+
+  <!-- Chatbot Sidebar (same structure as base_admin.html) -->
+  <div class="chat-sidebar" id="chatSidebar" style="display: none">
+    <div class="chat-sidebar-inner">
+      <div class="chat-header">
+        <button class="chat-close-btn" onclick="fecharChat()">&times;</button>
+        <img
+          src="{{ url_for('static', filename='images/chatbot-icon.png') }}"
+          alt="Chatbot"
+          class="chat-header-avatar"
+        />
+        <div class="chat-header-info">
+          <h3 id="chatHeaderNomeBot"></h3>
+          <div id="chatFonteBadge"></div>
+        </div>
+      </div>
+
+      <div class="chat-main">
+        <div class="chat-avatar-column">
+          <div class="chat-avatar-header-row">
+            <button
+              id="avatarToggleBtn"
+              class="avatar-toggle-btn"
+              type="button"
+              onclick="toggleAvatarAtivo()"
+            >
+              ⏻ Desligar avatar
+            </button>
+          </div>
+
+          <div class="chat-avatar-panel" id="chatAvatarPanel">
+            <div class="chat-avatar-inner">
+              <video
+                class="chat-avatar-video"
+                autoplay
+                loop
+                style="display: none"
+              ></video>
+              <img
+                src="{{ url_for('static', filename='images/chatbot-icon.png') }}"
+                alt="Assistente Virtual"
+                class="chat-avatar-image"
+              />
+            </div>
+          </div>
+
+          <button
+            id="chatResetBtn"
+            class="chat-reset-btn"
+            type="button"
+            onclick="reiniciarConversa()"
+          >
+            🔄 Reiniciar Conversa
+          </button>
+
+          <div class="chat-suggestions" id="chatAvatarSuggestions"></div>
+        </div>
+
+        <div class="chat-body" id="chatBody"></div>
+      </div>
+
+      <div class="chat-input">
+        <input
+          type="text"
+          placeholder="Digite uma mensagem..."
+          id="chatInput"
+          onkeydown="if(event.key==='Enter') enviarPergunta()"
+        />
+        <button
+          id="chatMicBtn"
+          class="chat-mic-btn"
+          type="button"
+          onclick="toggleMic()"
+          title="Usar o microfone"
+        >
+          <span class="mic-icon">🎤</span>
+        </button>
+        <button
+          id="chatSendBtn"
+          class="chat-send-btn"
+          type="button"
+          onclick="enviarPergunta()"
+          title="Enviar"
+        >
+          ➤
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-toggle-container">
+    <button id="chatToggleBtn" class="chat-toggle-btn" aria-label="Abrir chatbot">
+      <img src="{{ url_for('static', filename='images/icon-botao.png') }}" alt="Chatbot" />
+    </button>
+    <div class="chat-toggle-card">
+      <div class="bold">Fale connosco</div>
+      <div>Precisa de ajuda?</div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="{{ url_for('static', filename='js/globals.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/toggleChat.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/video-status.js') }}"></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>
+

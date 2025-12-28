@@ -165,8 +165,13 @@ def update_faq(faq_id):
             row = cur.fetchone()
             video_enabled = bool(row[0]) if row else False
 
+        # Only queue video if resposta or video_text changed (not for recomendado/categorias changes)
+        # Check if resposta or video_text actually changed
+        resposta_changed = resposta and resposta != old_resposta
+        video_text_changed = "video_text" in data and data["video_text"] != (old_video_text or "")
+        
         # If resposta or video_text changed, and video_enabled, queue video
-        if video_enabled and ((resposta and resposta != old_resposta) or ("video_text" in data and data["video_text"] != (old_video_text or ""))):
+        if video_enabled and (resposta_changed or video_text_changed):
             if can_start_new_video_job():
                 queue_video_for_faq(faq_id)
                 return jsonify({"success": True, "video_queued": True})

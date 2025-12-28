@@ -551,8 +551,9 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
           carregarTabelaFAQs(parseInt(chatbotIdRaw), true);
           mostrarRespostas();
 
-          // Se foi pedido vídeo, ligar o polling global do indicador.
-          if (dadosBase.gerar_video) {
+          // Se foi pedido vídeo E o resultado indica que foi colocado em fila, ligar o polling global do indicador.
+          // Só iniciar polling se realmente houver um vídeo a ser gerado (video_queued === true)
+          if (dadosBase.gerar_video && resultado.video_queued === true) {
             try {
               localStorage.setItem("videoJobPolling", "1");
             } catch (e) {}

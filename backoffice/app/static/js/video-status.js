@@ -94,8 +94,17 @@ document.addEventListener("DOMContentLoaded", () => {
   atualizarIndicadorVideoJob()
     .then(() => {
       try {
-        if (localStorage.getItem("videoJobPolling") === "1") {
+        // Só iniciar polling se o flag estiver definido E se o indicador realmente estiver visível
+        // (ou seja, há um job ativo)
+        const indicador = document.getElementById("indicadorVideoJob");
+        const hasFlag = localStorage.getItem("videoJobPolling") === "1";
+        const isVisible = indicador && indicador.style.display !== "none";
+        
+        if (hasFlag && isVisible) {
           startVideoStatusPolling();
+        } else if (hasFlag && !isVisible) {
+          // Flag está definido mas não há job ativo - limpar o flag
+          localStorage.removeItem("videoJobPolling");
         }
       } catch (e) {}
     })
