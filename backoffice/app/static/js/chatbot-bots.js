@@ -240,6 +240,10 @@ async function definirAtivo(event, chatbotId) {
   event.stopPropagation();
   localStorage.setItem("chatbotAtivo", chatbotId);
   window.chatbotAtivo = chatbotId;
+  // Persist globally (server-side) so public users/new browsers inherit it.
+  try {
+    await fetch(`/chatbots/${chatbotId}/active`, { method: "PUT" });
+  } catch (e) {}
   document.querySelectorAll(".bot-ativo-btn").forEach(btn => {
     btn.classList.remove("ativo");
     btn.textContent = "Ficar Ativo"; 

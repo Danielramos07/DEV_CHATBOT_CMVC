@@ -335,6 +335,11 @@ window.tornarBotAtivo = async function (chatbot_id, btn) {
     window.chatbotAtivo = parseInt(chatbot_id);
   } catch (e) {}
 
+  // Persist globally (server-side) so public users/new browsers inherit it.
+  try {
+    await fetch(`/chatbots/${chatbot_id}/active`, { method: "PUT" });
+  } catch (e) {}
+
   // Garantir que localStorage tem o nome/icon/cor do bot ativo ANTES de reiniciar o chat
   try {
     const res = await fetch(`/chatbots/${chatbot_id}`);

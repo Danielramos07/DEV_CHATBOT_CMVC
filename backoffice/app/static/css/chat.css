@@ -131,7 +131,8 @@
   display: none;
   align-items: center;
   justify-content: center;
-  background: rgba(240, 240, 240, 0.92);
+  /* Keep the avatar image visible while showing spinner */
+  background: rgba(240, 240, 240, 0.15);
   z-index: 2;
 }
 

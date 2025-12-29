@@ -26,5 +26,56 @@ def close_conn(e=None):
         _pool.putconn(conn)  
 
 
+def ensure_schema() -> None:
+    """Best-effort schema updates required for runtime features.
+
+    - Adds chatbot.ativo (global active chatbot) if missing
+    - Ensures there is at least one active chatbot when any exist
+    """
+    global _pool
+    if _pool is None:
+        return
+    conn = None
+    cur = None
+    try:
+        conn = _pool.getconn()
+        cur = conn.cursor()
+        # Add global active flag for chatbots (safe to run repeatedly)
+        cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS ativo BOOLEAN NOT NULL DEFAULT FALSE;")
+        conn.commit()
+
+        # Ensure at least one chatbot is active (if any exist)
+        cur.execute("SELECT 1 FROM chatbot WHERE ativo = TRUE LIMIT 1;")
+        has_active = cur.fetchone() is not None
+        if not has_active:
+            cur.execute(
+                """
+                UPDATE chatbot
+                SET ativo = TRUE
+                WHERE chatbot_id = (
+                    SELECT chatbot_id FROM chatbot ORDER BY chatbot_id ASC LIMIT 1
+                );
+                """
+            )
+            conn.commit()
+    except Exception:
+        try:
+            if conn:
+                conn.rollback()
+        except Exception:
+            pass
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if conn:
+                _pool.putconn(conn)
+        except Exception:
+            pass
+
+
 
 

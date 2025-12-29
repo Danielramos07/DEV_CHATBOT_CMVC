@@ -6,6 +6,7 @@ import traceback
 import os
 import shutil
 from ..config import Config
+from ..auth import login_required
 
 app = Blueprint('chatbots', __name__)
 
@@ -70,6 +71,7 @@ def get_chatbots():
                    c.icon_path,
                    c.genero,
                    c.video_enabled,
+                   c.ativo,
                    fr.fonte,
                    array_remove(array_agg(cc.categoria_id), NULL) as categorias,
                    c.mensagem_sem_resposta
@@ -84,6 +86,7 @@ def get_chatbots():
                      c.icon_path,
                      c.genero,
                      c.video_enabled,
+                     c.ativo,
                      fr.fonte,
                      c.mensagem_sem_resposta
             ORDER BY c.chatbot_id ASC
@@ -99,12 +102,35 @@ def get_chatbots():
                 "icon_path": row[5] if row[5] else "/static/images/chatbot-icon.png",
                 "genero": row[6] if row[6] else None,
                 "video_enabled": bool(row[7]) if len(row) > 7 else False,
-                "fonte": row[8] if row[8] else "faq",
-                "categorias": row[9] if row[9] is not None else [],
-                "mensagem_sem_resposta": row[10] if len(row) > 10 else ""
+                "ativo": bool(row[8]) if len(row) > 8 else False,
+                "fonte": row[9] if row[9] else "faq",
+                "categorias": row[10] if row[10] is not None else [],
+                "mensagem_sem_resposta": row[11] if len(row) > 11 else ""
             }
             for row in data
         ])
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.route("/chatbots/<int:chatbot_id>/active", methods=["PUT"])
+@login_required
+def set_active_chatbot(chatbot_id: int):
+    """Set the globally active chatbot (shared across all users/browsers)."""
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT 1 FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
+        if not cur.fetchone():
+            return jsonify({"success": False, "error": "Chatbot não encontrado."}), 404
+        cur.execute("UPDATE chatbot SET ativo = FALSE WHERE ativo = TRUE")
+        cur.execute("UPDATE chatbot SET ativo = TRUE WHERE chatbot_id = %s", (chatbot_id,))
+        conn.commit()
+        return jsonify({"success": True, "chatbot_id": chatbot_id})
     except Exception as e:
         conn.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
@@ -368,10 +394,11 @@ def eliminar_chatbot(chatbot_id):
     conn = get_conn()
     cur = conn.cursor()
     try:
-        # Fetch icon before deleting the row (so we can remove the file from disk)
-        cur.execute("SELECT icon_path FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
+        # Fetch icon and active flag before deleting the row (so we can remove the file from disk)
+        cur.execute("SELECT icon_path, ativo FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
         row = cur.fetchone()
         icon_path = row[0] if row else None
+        was_active = bool(row[1]) if row and len(row) > 1 else False
 
         # Fetch FAQ IDs before deleting to clean up their video files
         cur.execute("SELECT faq_id FROM faq WHERE chatbot_id = %s", (chatbot_id,))
@@ -385,6 +412,18 @@ def eliminar_chatbot(chatbot_id):
         cur.execute("DELETE FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
         conn.commit()
         build_faiss_index()
+
+        # If we deleted the active chatbot, promote another one to active (best-effort)
+        if was_active:
+            try:
+                cur.execute("SELECT chatbot_id FROM chatbot ORDER BY chatbot_id ASC LIMIT 1")
+                r = cur.fetchone()
+                if r:
+                    cur.execute("UPDATE chatbot SET ativo = FALSE WHERE ativo = TRUE")
+                    cur.execute("UPDATE chatbot SET ativo = TRUE WHERE chatbot_id = %s", (r[0],))
+                    conn.commit()
+            except Exception:
+                conn.rollback()
         
         # Clean up FAQ video files (now stored in chatbot_{id}/faq_{faq_id}/)
         try:

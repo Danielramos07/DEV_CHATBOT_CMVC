@@ -391,7 +391,8 @@ function mostrarSpinnerVideoFaq(faqId) {
     avatarInner.appendChild(spinnerEl);
   }
 
-  if (imgEl) imgEl.style.display = "none";
+  // Fallback to icon/image while the FAQ video is being generated (avoid blank avatar panel)
+  if (imgEl) imgEl.style.display = "block";
   if (videoEl) videoEl.style.display = "none";
   spinnerEl.style.display = "flex";
 
@@ -1009,6 +1010,12 @@ function limparTimersAutoChat() {
 
 async function abrirChat() {
   document.getElementById("chatSidebar").style.display = "flex";
+  // Ensure there is a globally active chatbot selected (for fresh browsers / public users).
+  try {
+    if (typeof ensureActiveChatbot === "function") {
+      await ensureActiveChatbot();
+    }
+  } catch (e) {}
   // Evitar race conditions: primeiro carregar dados do bot ativo, depois renderizar mensagem inicial
   try {
     if (typeof atualizarNomeChatHeader === "function") {
@@ -1061,7 +1068,15 @@ async function apresentarMensagemInicial(forceUpdate = false) {
   }
 
   let nomeBot, corBot, iconBot, generoBot;
-  const chatbotId = parseInt(localStorage.getItem("chatbotAtivo"));
+  let chatbotId = parseInt(localStorage.getItem("chatbotAtivo"));
+  if (!chatbotId || isNaN(chatbotId)) {
+    try {
+      if (typeof ensureActiveChatbot === "function") {
+        await ensureActiveChatbot();
+        chatbotId = parseInt(localStorage.getItem("chatbotAtivo"));
+      }
+    } catch (e) {}
+  }
   if (chatbotId && !isNaN(chatbotId)) {
     try {
       const res = await fetch(`/chatbots/${chatbotId}`);
@@ -1192,7 +1207,7 @@ function responderPergunta(pergunta) {
   if (!chatbotId || isNaN(chatbotId)) {
     return adicionarMensagem(
       "bot",
-      "⚠️ Nenhum chatbot está ativo. Por favor, selecione um chatbot ativo no menu de recursos.",
+      "⚠️ Nenhum chatbot está ativo neste momento. Tente novamente dentro de instantes.",
       localStorage.getItem("iconBot") || "/static/images/chatbot-icon.png",
       localStorage.getItem("nomeBot") || "Assistente Municipal"
     );
@@ -1686,6 +1701,49 @@ window.atualizarCorChatbot = atualizarCorChatbot;
 window.reiniciarConversa = reiniciarConversa;
 
 let hasPlayedGreeting = false;
+
+async function ensureActiveChatbot() {
+  // Global chatbot selection:
+  // - If server has an active chatbot, always use it
+  // - Otherwise keep local selection if valid
+  // - Otherwise pick the first chatbot
+  try {
+    const res = await fetch("/chatbots");
+    if (!res.ok) return false;
+    const bots = await res.json();
+    if (!Array.isArray(bots) || bots.length === 0) return false;
+
+    try {
+      localStorage.setItem("chatbotsData", JSON.stringify(bots));
+    } catch (e) {}
+
+    const serverActive = bots.find((b) => b && b.ativo);
+    const localId = localStorage.getItem("chatbotAtivo");
+    const localBot = bots.find((b) => String(b.chatbot_id) === String(localId));
+    const chosen = serverActive || localBot || bots[0];
+    if (!chosen) return false;
+
+    localStorage.setItem("chatbotAtivo", String(chosen.chatbot_id));
+    try {
+      window.chatbotAtivo = parseInt(chosen.chatbot_id);
+    } catch (e) {}
+
+    // Best-effort defaults so UI doesn't look empty before /chatbots/<id> fetch.
+    localStorage.setItem("nomeBot", chosen.nome || "Assistente Municipal");
+    localStorage.setItem("corChatbot", chosen.cor || "#d4af37");
+    localStorage.setItem(
+      "iconBot",
+      chosen.icon_path || "/static/images/chatbot-icon.png"
+    );
+    localStorage.setItem("generoBot", chosen.genero || "");
+    if (chosen.fonte) {
+      localStorage.setItem(`fonteSelecionada_bot${chosen.chatbot_id}`, chosen.fonte);
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
 
 function setupAvatarVideo() {
   // Don't setup video if avatar is disabled

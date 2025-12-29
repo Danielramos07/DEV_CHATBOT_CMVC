@@ -3,7 +3,7 @@ from flask_cors import CORS
 import logging
 import os
 from .config import Config
-from .db import init_pool, close_conn
+from .db import init_pool, close_conn, ensure_schema
 from .auth import app as auth
 from .admin import app as admin
 from .api import api
@@ -43,6 +43,8 @@ def create_app():
     CORS(app, resources={r"/*": {"origins": Config.CORS_ORIGINS}})
 
     init_pool(app)
+    # Best-effort schema updates for runtime features (safe to run repeatedly)
+    ensure_schema()
 
     app.register_blueprint(auth)
     app.register_blueprint(admin)
