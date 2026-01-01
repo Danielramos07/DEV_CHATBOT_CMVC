@@ -192,6 +192,7 @@ async function carregarTabelaFAQsBackoffice() {
       let matchPesquisa = true;
       if (textoPesquisa) {
         const target =
+          (faq.identificador || "") +
           (faq.designacao || "") +
           " " +
           (faq.pergunta || "") +
@@ -215,6 +216,7 @@ async function carregarTabelaFAQsBackoffice() {
         <thead>
           <tr>
             <th>Chatbot</th>
+            <th>Identificador</th>
             <th>Descrição</th>
             <th>Pergunta</th>
             <th>Documento</th>
@@ -281,6 +283,7 @@ async function carregarTabelaFAQsBackoffice() {
               return `
               <tr>
                 <td>${chatbotsMap[faq.chatbot_id] || "-"}</td>
+                <td>${faq.identificador || "-"}</td>
                 <td>${faq.designacao || "-"}</td>
                 <td>${faq.pergunta || "-"}</td>
                 <td class="col-pdf">${docLinks || "-"}</td>
@@ -478,6 +481,10 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
       })(),
       designacao: (() => {
         const el = form.querySelector('[name="designacao"]');
+        return el ? el.value.trim() : "";
+      })(),
+      identificador: (() => {
+        const el = form.querySelector('[name="identificador"]');
         return el ? el.value.trim() : "";
       })(),
       pergunta: (() => {
@@ -707,10 +714,20 @@ async function editarFAQ(faq_id) {
 
     document.getElementById("editarPergunta").value = faqAEditar.pergunta || "";
     document.getElementById("editarResposta").value = faqAEditar.resposta || "";
+    const editarIdentificador = document.getElementById("editarIdentificador");
+    if (editarIdentificador) {
+      editarIdentificador.value = faqAEditar.identificador || "";
+    }
     document.getElementById("editarIdioma").value = faqAEditar.idioma || "pt";
     if (document.getElementById("editarRecomendado"))
       document.getElementById("editarRecomendado").checked =
         !!faqAEditar.recomendado;
+    // Preencher FAQs relacionadas
+    await carregarFAQsRelacionadasEditar(
+      faqAEditar.chatbot_id,
+      faqAEditar.relacionadas || [],
+      faqAEditar.faq_id
+    );
 
     const catContainer = document.getElementById("editarCategoriasContainer");
     let categoriasMarcadas = [];
@@ -769,6 +786,9 @@ if (formEditarFAQ) {
     const pergunta = document.getElementById("editarPergunta").value.trim();
     const resposta = document.getElementById("editarResposta").value.trim();
     const idioma = document.getElementById("editarIdioma").value;
+    const identificador = document
+      .getElementById("editarIdentificador")
+      ?.value.trim();
     const recomendado = document.getElementById("editarRecomendado")
       ? document.getElementById("editarRecomendado").checked
       : false;
@@ -778,6 +798,11 @@ if (formEditarFAQ) {
         '#editarCategoriasContainer input[type="checkbox"]:checked'
       )
     ).map((cb) => parseInt(cb.value));
+    const relacionadasSel = Array.from(
+      document.querySelectorAll(
+        '#editarFaqRelacionadasSelect option:checked'
+      )
+    ).map((opt) => parseInt(opt.value));
 
     try {
       const res = await fetch(`/faqs/${faqAEditar.faq_id}`, {
@@ -787,8 +812,10 @@ if (formEditarFAQ) {
           pergunta,
           resposta,
           idioma,
+          identificador,
           recomendado,
           categorias: categoriasSel,
+          relacionadas: relacionadasSel,
         }),
       });
       const out = await res.json();
@@ -818,7 +845,87 @@ function ligarBotaoCancelarEditarFAQ() {
       document.getElementById("modalEditarFAQ").style.display = "none";
       const status = document.getElementById("editarStatusFAQ");
       if (status) status.textContent = "";
+      const relSelect = document.getElementById("editarFaqRelacionadasSelect");
+      if (relSelect && typeof $ !== "undefined" && $(relSelect).length) {
+        try {
+          $(relSelect).val(null).trigger("change").select2("close");
+        } catch (err) {}
+      }
     };
+  }
+}
+
+async function carregarFAQsRelacionadasEditar(
+  chatbotId,
+  selecionadas = [],
+  faqAtualId = null
+) {
+  const select = document.getElementById("editarFaqRelacionadasSelect");
+  if (!select || !chatbotId) return;
+
+  try {
+    const response = await fetch(`/faqs/chatbot/${chatbotId}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const faqs = await response.json();
+
+    let wasInitialized = false;
+    if (typeof $ !== "undefined" && $(select).length) {
+      const $select = $(select);
+      if ($select.hasClass("select2-hidden-accessible")) {
+        wasInitialized = true;
+        $select.select2("destroy");
+      }
+    }
+
+    select.innerHTML = "";
+    const filtered = Array.isArray(faqs)
+      ? faqs.filter((f) => String(f.faq_id) !== String(faqAtualId))
+      : [];
+
+    if (!filtered.length) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "Nenhuma FAQ disponível";
+      opt.disabled = true;
+      select.appendChild(opt);
+    } else {
+      filtered.forEach((faq) => {
+        const opt = document.createElement("option");
+        opt.value = faq.faq_id;
+        const pergunta = faq.pergunta || `FAQ ${faq.faq_id}`;
+        const truncated =
+          pergunta.length > 60 ? pergunta.slice(0, 60) + "..." : pergunta;
+        const label = (faq.identificador || "").trim();
+        opt.textContent = label || truncated;
+        opt.title = label ? `${label} — ${pergunta}` : pergunta;
+        if (
+          selecionadas.includes(faq.faq_id) ||
+          selecionadas.includes(+faq.faq_id)
+        ) {
+          opt.selected = true;
+        }
+        select.appendChild(opt);
+      });
+    }
+
+    if (typeof $ !== "undefined" && $(select).length) {
+      try {
+        const $modal = $("#modalEditarFAQ");
+        $(select).select2({
+          placeholder: "Escolha FAQs relacionadas",
+          width: "100%",
+          allowClear: true,
+          dropdownParent: $modal.length ? $modal : $("body"),
+          language: {
+            noResults: () => "Nenhum resultado encontrado",
+          },
+        });
+      } catch (err) {
+        console.error("Erro ao iniciar select2 no editar FAQ:", err);
+      }
+    }
+  } catch (err) {
+    console.error("Erro ao carregar FAQs relacionadas (editar):", err);
   }
 }
 

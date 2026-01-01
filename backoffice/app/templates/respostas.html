@@ -1,6 +1,13 @@
-{% extends "base_admin.html" %} {% block title %}Chatbot Municipal - Respostas{%
-endblock %} {% block menu_respostas_class %}active{% endblock %} {% block
-content %}
+{% extends "base_admin.html" %}
+{% block title %}Chatbot Municipal - Respostas{% endblock %}
+{% block menu_respostas_class %}active{% endblock %}
+{% block extra_head %}
+<link
+  href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+  rel="stylesheet"
+/>
+{% endblock %}
+{% block content %}
 <div class="panel">
   <div id="indicadorAtivo" style="display: none" class="ativo-indicador"></div>
   <div
@@ -53,7 +60,10 @@ content %}
   class="modal-overlay modal-overlay-editar-faq"
   style="display: none"
 >
-  <div class="modal-box modal-box-editar-faq">
+  <div
+    class="modal-box modal-box-editar-faq"
+    style="max-height: 85vh; overflow-y: auto"
+  >
     <h2 style="margin-bottom: 22px">Editar FAQ</h2>
     <form id="formEditarFAQ" autocomplete="off">
       <label for="editarPergunta">Pergunta</label>
@@ -72,6 +82,18 @@ content %}
         class="input-lg"
         rows="8"
       ></textarea>
+      <label for="editarIdentificador" style="margin-top: 18px"
+        >Identificador</label
+      >
+      <input
+        type="text"
+        name="identificador"
+        id="editarIdentificador"
+        class="input-lg"
+        maxlength="120"
+        placeholder="Identificador "
+        style="max-width: 100%"
+      />
       <label for="editarIdioma" style="margin-top: 18px">Idioma</label>
       <select
         name="idioma"
@@ -86,6 +108,19 @@ content %}
         >Categorias associadas</label
       >
       <div id="editarCategoriasContainer" class="categorias-scroll"></div>
+      <div class="form-group" style="margin-top: 18px">
+        <label for="editarFaqRelacionadasSelect">FAQs relacionadas</label>
+        <select
+          id="editarFaqRelacionadasSelect"
+          name="relacionadas[]"
+          class="form-select"
+          multiple
+          style="width: 100%"
+        ></select>
+        <small class="form-text">
+          Pode selecionar várias FAQs e escrever para pesquisar.
+        </small>
+      </div>
       <label
         for="editarRecomendado"
         style="margin-top: 22px; display: flex; align-items: center; gap: 8px"

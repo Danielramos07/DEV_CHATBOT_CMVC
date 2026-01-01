@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS faq (
     faq_id SERIAL PRIMARY KEY,
     chatbot_id INT REFERENCES chatbot(chatbot_id) ON DELETE CASCADE,
     categoria_id INT REFERENCES categoria(categoria_id) ON DELETE SET NULL,
+    identificador VARCHAR(120),
     designacao VARCHAR(255),
     pergunta TEXT NOT NULL,
     resposta TEXT NOT NULL,

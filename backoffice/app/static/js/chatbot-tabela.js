@@ -751,12 +751,12 @@ async function carregarFAQsRelacionadasModal(chatbot_id) {
       faqs.forEach((faq) => {
         const option = document.createElement("option");
         option.value = faq.faq_id;
-        // Truncar a pergunta para evitar overflow
         const pergunta = faq.pergunta || `FAQ ${faq.faq_id}`;
+        const label = (faq.identificador || "").trim();
         const truncatedPergunta =
           pergunta.length > 60 ? pergunta.substring(0, 60) + "..." : pergunta;
-        option.textContent = truncatedPergunta;
-        option.title = pergunta;
+        option.textContent = label || truncatedPergunta;
+        option.title = label ? `${label} — ${pergunta}` : pergunta;
         select.appendChild(option);
       });
       console.log(`Added ${faqs.length} FAQ options to select`);
@@ -806,6 +806,8 @@ if (formAdicionarFAQ) {
     e.preventDefault();
     const chatbot_id = document.getElementById("faqChatbotId").value;
     const designacao = this.elements["designacao"].value.trim();
+    const identificador =
+      this.elements["identificador"]?.value?.trim() || "";
     const pergunta = this.elements["pergunta"].value.trim();
     const resposta = this.elements["resposta"].value.trim();
     const categoria_id = this.elements["categoria_id"].value;
@@ -832,6 +834,7 @@ if (formAdicionarFAQ) {
     const body = {
       chatbot_id,
       designacao,
+      identificador,
       pergunta,
       resposta,
       categoria_id,

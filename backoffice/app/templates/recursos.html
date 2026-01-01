@@ -248,8 +248,20 @@ content %}
             placeholder="Designação"
             required
           />
+          <input
+            type="text"
+            name="identificador"
+            placeholder="Identificador "
+            maxlength="120"
+          />
           <input type="text" name="pergunta" placeholder="Pergunta" required />
-          <textarea name="resposta" placeholder="Resposta" required></textarea>
+          <textarea
+            name="resposta"
+            placeholder="Resposta"
+            required
+            rows="8"
+            style="min-height: 180px"
+          ></textarea>
           <select name="categoria_id" id="faqCategoriaSelect" required>
             <option value="">Escolha a categoria</option>
           </select>
@@ -398,9 +410,16 @@ content %}
   </div>
 </div>
 <div id="modalCategorias" class="modal-overlay" style="display: none">
-  <div class="modal-box modal-box-categorias-chatbot">
+  <div
+    class="modal-box modal-box-categorias-chatbot"
+    style="max-height: 80vh; overflow-y: auto"
+  >
     <h2>Gerir Categorias do Chatbot</h2>
-    <div id="categoriasContainer" class="categorias-list"></div>
+    <div
+      id="categoriasContainer"
+      class="categorias-list"
+      style="max-height: 60vh; overflow-y: auto"
+    ></div>
     <div
       class="btn-bar-categorias"
       style="display: flex; gap: 14px; margin-top: 18px"

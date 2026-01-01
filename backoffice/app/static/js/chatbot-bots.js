@@ -35,11 +35,12 @@ function carregarFAQsRelacionadas(chatbotId) {
       $select.empty();
 
       data.forEach(faq => {
-        // Truncar a pergunta para evitar overflow
+        // Mostrar identificador prioritário; se não existir, usar pergunta truncada
         const pergunta = faq.pergunta || `FAQ ${faq.faq_id}`;
-        const truncatedPergunta = pergunta.length > 60 ? pergunta.substring(0, 60) + '...' : pergunta;
-        const option = new Option(truncatedPergunta, faq.faq_id, false, false);
-        option.title = pergunta; // Mostrar texto completo no hover
+        const label = (faq.identificador || "").trim();
+        const truncatedPergunta = pergunta.length > 60 ? pergunta.substring(0, 60) + "..." : pergunta;
+        const option = new Option(label || truncatedPergunta, faq.faq_id, false, false);
+        option.title = label ? `${label} — ${pergunta}` : pergunta; // Mostrar info completa no hover
         $select.append(option);
       });
 
@@ -127,6 +128,7 @@ function criarBotHTML(bot, allBots) {
             </select>
             ${idiomaSelectHtml}
             <input type="text" name="designacao" placeholder="Designação" required>
+            <input type="text" name="identificador" placeholder="Identificador" maxlength="120">
             <input type="text" name="pergunta" placeholder="Pergunta" required>
             <textarea name="resposta" placeholder="Resposta" required></textarea>
             <select name="categoria_id" required>

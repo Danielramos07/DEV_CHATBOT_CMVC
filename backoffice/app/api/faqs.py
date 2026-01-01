@@ -14,17 +14,18 @@ def get_faqs():
     conn = get_conn()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT faq_id, chatbot_id, designacao, pergunta, resposta, video_status, video_path FROM faq")
+        cur.execute("SELECT faq_id, chatbot_id, identificador, designacao, pergunta, resposta, video_status, video_path FROM faq")
         data = cur.fetchall()
         return jsonify([
             {
                 "faq_id": f[0],
                 "chatbot_id": f[1],
-                "designacao": f[2],
-                "pergunta": f[3],
-                "resposta": f[4],
-                "video_status": f[5],
-                "video_path": f[6],
+                "identificador": f[2],
+                "designacao": f[3],
+                "pergunta": f[4],
+                "resposta": f[5],
+                "video_status": f[6],
+                "video_path": f[7],
             }
             for f in data
         ])
@@ -41,10 +42,28 @@ def get_faq_by_id(faq_id):
     cur = conn.cursor()
     try:
         cur.execute("""
-            SELECT f.faq_id, f.chatbot_id, f.categoria_id, f.designacao, f.pergunta, f.resposta, f.idioma, f.links_documentos,
-                   c.nome as categoria_nome, f.recomendado, f.video_status, f.video_path, f.video_text
+            SELECT f.faq_id,
+                   f.chatbot_id,
+                   f.categoria_id,
+                   f.designacao,
+                   f.pergunta,
+                   f.resposta,
+                   f.idioma,
+                   f.links_documentos,
+                   c.nome as categoria_nome,
+                   f.recomendado,
+                   f.video_status,
+                   f.video_path,
+                   f.video_text,
+                   f.identificador,
+                   COALESCE(rel.relacionadas, ARRAY[]::int[]) AS relacionadas
             FROM faq f
             LEFT JOIN categoria c ON f.categoria_id = c.categoria_id
+            LEFT JOIN (
+                SELECT faq_id, array_agg(faq_relacionada_id) FILTER (WHERE faq_relacionada_id IS NOT NULL) AS relacionadas
+                FROM faq_relacionadas
+                GROUP BY faq_id
+            ) rel ON rel.faq_id = f.faq_id
             WHERE f.faq_id = %s
         """, (faq_id,))
         faq = cur.fetchone()
@@ -66,6 +85,8 @@ def get_faq_by_id(faq_id):
                 "video_status": faq[10],
                 "video_path": faq[11],
                 "video_text": faq[12],
+                "identificador": faq[13],
+                "relacionadas": faq[14] or [],
             }
         })
     except Exception as e:
@@ -81,7 +102,7 @@ def get_faqs_por_chatbot(chatbot_id):
     cur = conn.cursor()
     try:
         cur.execute("""
-            SELECT f.faq_id, c.nome, f.pergunta, f.resposta
+            SELECT f.faq_id, c.nome, f.pergunta, f.resposta, f.identificador
             FROM faq f
             LEFT JOIN categoria c ON f.categoria_id = c.categoria_id
             WHERE f.chatbot_id = %s
@@ -92,7 +113,8 @@ def get_faqs_por_chatbot(chatbot_id):
                 "faq_id": row[0],
                 "categoria": row[1],
                 "pergunta": row[2],
-                "resposta": row[3]
+                "resposta": row[3],
+                "identificador": row[4],
             }
             for row in data
         ])
@@ -115,11 +137,22 @@ def update_faq(faq_id):
         categorias = data.get("categorias", [])
         recomendado = data.get("recomendado", False)
         categoria_id = categorias[0] if categorias else None
+        identificador = (data.get("identificador") or "").strip()
+        relacionadas_raw = data.get("relacionadas", None)
+        relacionadas_ids = []
+        if relacionadas_raw is not None:
+            if isinstance(relacionadas_raw, list):
+                relacionadas_ids = [int(x) for x in relacionadas_raw if str(x).strip().isdigit()]
+            else:
+                relacionadas_ids = [
+                    int(x.strip()) for x in str(relacionadas_raw).split(",") if x.strip().isdigit()
+                ]
+            relacionadas_ids = [rid for rid in relacionadas_ids if rid != faq_id]
         # Optional field used by video generation (can be null)
         video_text_in_payload = "video_text" in data
         video_text_value = (data.get("video_text", "") or "").strip() or None
         # Fetch current values to check if resposta or video_text changed
-        cur.execute("SELECT resposta, video_text, chatbot_id, designacao, pergunta, idioma FROM faq WHERE faq_id = %s", (faq_id,))
+        cur.execute("SELECT resposta, video_text, chatbot_id, designacao, pergunta, idioma, identificador FROM faq WHERE faq_id = %s", (faq_id,))
         old = cur.fetchone()
         old_resposta = old[0] if old else None
         old_video_text = old[1] if old else None
@@ -127,6 +160,7 @@ def update_faq(faq_id):
         old_designacao = old[3] if old else None
         old_pergunta = old[4] if old else None
         old_idioma = old[5] if old else None
+        old_identificador = old[6] if old else None
 
         # Check if the new values would create a duplicate (excluding current FAQ)
         # Use old_designacao if designacao is not provided in the update
@@ -158,10 +192,11 @@ def update_faq(faq_id):
                         categoria_id=%s,
                         recomendado=%s,
                         designacao=%s,
-                        video_text=%s
+                        video_text=%s,
+                        identificador=%s
                     WHERE faq_id=%s
                     """,
-                    (pergunta, resposta, idioma, categoria_id, recomendado, designacao, video_text_value, faq_id),
+                    (pergunta, resposta, idioma, categoria_id, recomendado, designacao, video_text_value, identificador or None, faq_id),
                 )
             else:
                 cur.execute(
@@ -172,11 +207,20 @@ def update_faq(faq_id):
                         idioma=%s,
                         categoria_id=%s,
                         recomendado=%s,
-                        designacao=%s
+                        designacao=%s,
+                        identificador=%s
                     WHERE faq_id=%s
                     """,
-                    (pergunta, resposta, idioma, categoria_id, recomendado, designacao, faq_id),
+                    (pergunta, resposta, idioma, categoria_id, recomendado, designacao, identificador or None, faq_id),
                 )
+            # Atualizar FAQs relacionadas (se fornecidas)
+            if relacionadas_raw is not None:
+                cur.execute("DELETE FROM faq_relacionadas WHERE faq_id = %s", (faq_id,))
+                for rel_id in relacionadas_ids:
+                    cur.execute(
+                        "INSERT INTO faq_relacionadas (faq_id, faq_relacionada_id) VALUES (%s, %s)",
+                        (faq_id, rel_id),
+                    )
             conn.commit()
             build_faiss_index()
         except Exception as update_error:
@@ -225,6 +269,7 @@ def add_faq():
             return jsonify({"success": False, "error": "O campo 'idioma' é obrigatório."}), 400
         links_documentos = data.get("links_documentos", "").strip()
         recomendado = data.get("recomendado", False)
+        identificador = (data.get("identificador") or "").strip()
         video_text = data.get("video_text", "").strip() or None
         # gerar_video pode chegar como bool (JSON) ou string (ex: "on")
         raw_gerar_video = data.get("gerar_video", False)
@@ -258,13 +303,14 @@ def add_faq():
 
         try:
             cur.execute("""
-                INSERT INTO faq (chatbot_id, categoria_id, designacao, pergunta, resposta, idioma, links_documentos, recomendado, video_text)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO faq (chatbot_id, categoria_id, designacao, identificador, pergunta, resposta, idioma, links_documentos, recomendado, video_text)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING faq_id
             """, (
                 data["chatbot_id"],
                 data["categoria_id"],
                 data["designacao"],
+                identificador or None,
                 data["pergunta"],
                 data["resposta"],
                 idioma,
@@ -287,9 +333,20 @@ def add_faq():
                         "INSERT INTO faq_documento (faq_id, link) VALUES (%s, %s)",
                         (faq_id, link)
                     )
-        if "relacionadas" in data and data["relacionadas"].strip():
-            for rel_id in data["relacionadas"].split(','):
-                cur.execute("INSERT INTO faq_relacionadas (faq_id, faq_relacionada_id) VALUES (%s, %s)", (faq_id, int(rel_id.strip())))
+        if "relacionadas" in data:
+            relacionadas_raw = data.get("relacionadas") or []
+            if isinstance(relacionadas_raw, list):
+                relacionadas_ids = [int(x) for x in relacionadas_raw if str(x).strip().isdigit()]
+            else:
+                relacionadas_ids = [
+                    int(x.strip()) for x in str(relacionadas_raw).split(",") if x.strip().isdigit()
+                ]
+            relacionadas_ids = [rid for rid in relacionadas_ids if rid != faq_id]
+            for rel_id in relacionadas_ids:
+                cur.execute(
+                    "INSERT INTO faq_relacionadas (faq_id, faq_relacionada_id) VALUES (%s, %s)",
+                    (faq_id, rel_id),
+                )
         conn.commit()
         build_faiss_index()
 
@@ -367,7 +424,7 @@ def get_faqs_detalhes():
         cur.execute("""
             SELECT f.faq_id, f.chatbot_id, f.designacao, f.pergunta, f.resposta, f.idioma, f.links_documentos,
                    f.categoria_id, c.nome AS categoria_nome, ch.nome AS chatbot_nome, f.recomendado,
-                   f.video_status, f.video_path, f.video_text
+                   f.video_status, f.video_path, f.video_text, f.identificador
             FROM faq f
             LEFT JOIN categoria c ON f.categoria_id = c.categoria_id
             LEFT JOIN chatbot ch ON f.chatbot_id = ch.chatbot_id
@@ -390,6 +447,7 @@ def get_faqs_detalhes():
                 "video_status": r[11],
                 "video_path": r[12],
                 "video_text": r[13],
+                "identificador": r[14],
             }
             for r in data
         ])
