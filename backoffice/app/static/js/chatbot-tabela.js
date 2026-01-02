@@ -446,6 +446,20 @@ document.addEventListener("DOMContentLoaded", function () {
           method: "PUT",
           body: formData,
         });
+        if (!res.ok && res.status === 409) {
+          const result = await res.json().catch(() => ({}));
+          // When a FAQ video job of this chatbot is running, backend blocks editing.
+          if (result && result.busy) {
+            const statusDiv = document.getElementById("editarChatbotStatus");
+            if (statusDiv) {
+              statusDiv.textContent =
+                result.error ||
+                "Não é possível editar este chatbot enquanto um vídeo está a ser gerado.";
+              statusDiv.style.color = "#b91c1c";
+            }
+            return;
+          }
+        }
         if (res.ok) {
           // Refresh categories view-only list (it may have changed in the categories modal)
           try {

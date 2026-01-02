@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from ..db import get_conn
 from ..services.retreival import build_faiss_index
-from ..services.video_service import can_start_new_video_job, queue_video_for_faq
+from ..services.video_service import can_start_new_video_job, queue_video_for_faq, get_video_job_status
 import os
 from pathlib import Path
 from ..services.video_service import ROOT, RESULTS_DIR
@@ -160,7 +160,10 @@ def update_faq(faq_id):
         video_text_in_payload = "video_text" in data
         video_text_value = (data.get("video_text", "") or "").strip() or None
         # Fetch current values to check if resposta or video_text changed
-        cur.execute("SELECT resposta, video_text, chatbot_id, designacao, pergunta, idioma, identificador FROM faq WHERE faq_id = %s", (faq_id,))
+        cur.execute(
+            "SELECT resposta, video_text, chatbot_id, designacao, pergunta, idioma, identificador, video_status FROM faq WHERE faq_id = %s",
+            (faq_id,),
+        )
         old = cur.fetchone()
         old_resposta = old[0] if old else None
         old_video_text = old[1] if old else None
@@ -169,6 +172,50 @@ def update_faq(faq_id):
         old_pergunta = old[4] if old else None
         old_idioma = old[5] if old else None
         old_identificador = old[6] if old else None
+        old_video_status = old[7] if old else None
+
+        # Block edits during video generation:
+        # - If THIS FAQ video is queued/processing -> block editing this FAQ.
+        # - If any video job is active and THIS FAQ already has a ready video -> block editing.
+        job = get_video_job_status() or {}
+        job_status = job.get("status")
+        job_kind = job.get("kind")
+        job_faq_id = job.get("faq_id")
+        is_job_active = job_status in {"queued", "processing"}
+
+        if old_video_status in {"queued", "processing"}:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "busy": True,
+                        "error": "Não é possível editar esta FAQ enquanto o vídeo desta FAQ está a ser gerado.",
+                    }
+                ),
+                409,
+            )
+        if is_job_active and job_kind == "faq" and job_faq_id and int(job_faq_id) == int(faq_id):
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "busy": True,
+                        "error": "Não é possível editar esta FAQ enquanto o vídeo desta FAQ está a ser gerado.",
+                    }
+                ),
+                409,
+            )
+        if is_job_active and old_video_status == "ready":
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "busy": True,
+                        "error": "Não é possível editar FAQs com vídeo já gerado enquanto existe outro vídeo a ser gerado.",
+                    }
+                ),
+                409,
+            )
 
         # Check if the new values would create a duplicate (excluding current FAQ)
         # Use old_designacao if designacao is not provided in the update

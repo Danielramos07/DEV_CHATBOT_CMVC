@@ -707,6 +707,30 @@ async function editarFAQ(faq_id) {
     }
     faqAEditar = faqResp.faq;
 
+    // Block editing if the FAQ video is being generated
+    if (
+      faqAEditar.video_status === "queued" ||
+      faqAEditar.video_status === "processing"
+    ) {
+      alert(
+        "Não é possível editar esta FAQ enquanto o vídeo desta FAQ está a ser gerado."
+      );
+      return;
+    }
+
+    // Block editing FAQs that already have video when any other video job is running
+    try {
+      const vs = await fetch("/video/status").then((r) => r.json());
+      const job = (vs && vs.job) || {};
+      const isActive = job.status === "queued" || job.status === "processing";
+      if (isActive && faqAEditar.video_status === "ready") {
+        alert(
+          "Não é possível editar FAQs com vídeo já gerado enquanto existe outro vídeo a ser gerado."
+        );
+        return;
+      }
+    } catch (e) {}
+
     const categorias = await fetch(
       `/chatbots/${faqAEditar.chatbot_id}/categorias`
     ).then((r) => r.json());
@@ -821,6 +845,11 @@ if (formEditarFAQ) {
           mostrarRespostas();
         }, 800);
       } else {
+        if (res.status === 409 && out && out.busy) {
+          status.textContent = out.error || "Não é possível editar agora.";
+          status.style.color = "#b91c1c";
+          return;
+        }
         status.textContent = out.error || "Erro ao atualizar.";
         status.style.color = "red";
       }

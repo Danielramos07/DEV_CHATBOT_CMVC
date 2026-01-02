@@ -7,6 +7,7 @@ import os
 import shutil
 from ..config import Config
 from ..auth import login_required
+from ..services.video_service import get_video_job_status
 
 app = Blueprint('chatbots', __name__)
 
@@ -290,6 +291,24 @@ def atualizar_chatbot(chatbot_id):
     conn = get_conn()
     cur = conn.cursor()
     try:
+        # Block editing this chatbot if a FAQ video job for this chatbot is running
+        job = get_video_job_status() or {}
+        if job.get("status") in {"queued", "processing"} and job.get("kind") == "faq":
+            try:
+                jid = job.get("chatbot_id")
+                if jid is not None and int(jid) == int(chatbot_id):
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "busy": True,
+                                "error": "Não é possível editar este chatbot enquanto está a ser gerado o vídeo de uma FAQ deste chatbot.",
+                            }
+                        ),
+                        409,
+                    )
+            except Exception:
+                pass
         print("Dados recebidos:", dict(request.form))
         nome = request.form.get("nome", "").strip()
         descricao = request.form.get("descricao", "").strip()

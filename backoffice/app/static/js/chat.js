@@ -1280,13 +1280,7 @@ function responderPergunta(pergunta) {
                   mostrarVideoFaqNoAvatar(data.faq_id);
                 } else if (data.video_status || data.video_queued || data.video_busy) {
                   // Video is queued, processing, or busy
-                  if (data.video_busy) {
-                    if (typeof mostrarModalVideoBusy === "function") {
-                      mostrarModalVideoBusy(
-                        "Já existe um vídeo a ser gerado neste momento. Aguarde que termine."
-                      );
-                    }
-                  }
+                  // No modal in public chat: spinner is enough UX.
                   mostrarSpinnerVideoFaq(data.faq_id);
                 }
                 // If video_status is null/undefined and not queued, don't show anything
