@@ -280,8 +280,11 @@ def add_faq():
         identificador = (data.get("identificador") or "").strip()
         video_text = data.get("video_text", "").strip() or None
         # gerar_video pode chegar como bool (JSON) ou string (ex: "on")
-        raw_gerar_video = data.get("gerar_video", False)
-        if isinstance(raw_gerar_video, str):
+        # Se não vier no payload e o chatbot tem vídeo ativo, assumimos True (comportamento esperado: gerar vídeo por defeito).
+        raw_gerar_video = data.get("gerar_video", None)
+        if raw_gerar_video is None:
+            gerar_video = True
+        elif isinstance(raw_gerar_video, str):
             gerar_video = raw_gerar_video.strip().lower() in {"1", "true", "yes", "on"}
         else:
             gerar_video = bool(raw_gerar_video)
@@ -296,6 +299,10 @@ def add_faq():
         cur.execute("SELECT video_enabled FROM chatbot WHERE chatbot_id = %s", (data["chatbot_id"],))
         row = cur.fetchone()
         video_enabled = bool(row[0]) if row else False
+
+        # If video is disabled for this chatbot, force-disable gerar_video
+        if not video_enabled:
+            gerar_video = False
 
         # Só enfileirar vídeo se o chatbot permitir E se o utilizador pediu para gerar vídeo.
         # (evita gerar vídeo quando o chatbot está com vídeo desativado, mesmo que o checkbox venha marcado por engano)

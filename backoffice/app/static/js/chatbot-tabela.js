@@ -18,6 +18,14 @@ window.abrirModalCategorias = async function (chatbot_id) {
   await renderizarCategoriasChatbot(chatbot_id);
   const modal = document.getElementById("modalCategorias");
   if (modal) modal.style.display = "flex";
+  // If edit modal is open for this chatbot, refresh the view-only list
+  try {
+    const editarForm = document.getElementById("editarChatbotForm");
+    const editId = editarForm ? editarForm.getAttribute("data-edit-id") : null;
+    if (editId && String(editId) === String(chatbot_id)) {
+      await mostrarModalEditarChatbot(chatbot_id);
+    }
+  } catch (e) {}
 };
 
 window.fecharModalCategorias = function () {
@@ -84,6 +92,14 @@ window.toggleAssociacaoCategoria = async function (
       });
     }
     await renderizarCategoriasChatbot(chatbot_id);
+    // Keep edit modal categories view in sync
+    try {
+      const editarForm = document.getElementById("editarChatbotForm");
+      const editId = editarForm ? editarForm.getAttribute("data-edit-id") : null;
+      if (editId && String(editId) === String(chatbot_id)) {
+        await mostrarModalEditarChatbot(chatbot_id);
+      }
+    } catch (e) {}
   } catch (err) {
     alert("Erro ao atualizar associação de categoria: " + err.message);
   }
@@ -95,6 +111,14 @@ window.removerAssociacaoCategoria = async function (chatbot_id, categoria_id) {
       method: "DELETE",
     });
     await renderizarCategoriasChatbot(chatbot_id);
+    // Keep edit modal categories view in sync
+    try {
+      const editarForm = document.getElementById("editarChatbotForm");
+      const editId = editarForm ? editarForm.getAttribute("data-edit-id") : null;
+      if (editId && String(editId) === String(chatbot_id)) {
+        await mostrarModalEditarChatbot(chatbot_id);
+      }
+    } catch (e) {}
   } catch (err) {
     alert("Erro ao remover associação de categoria: " + err.message);
   }
@@ -423,9 +447,7 @@ document.addEventListener("DOMContentLoaded", function () {
           body: formData,
         });
         if (res.ok) {
-          // Only sync categories if the base chatbot update succeeded (avoid wiping on failures)
-          await atualizarCategoriasDoChatbot(chatbot_id);
-          // Refresh the multi-select from server so removals/additions are reflected immediately
+          // Refresh categories view-only list (it may have changed in the categories modal)
           try {
             await mostrarModalEditarChatbot(chatbot_id);
           } catch (e) {}
@@ -603,64 +625,34 @@ window.abrirModalAtualizar = async function (chatbot_id) {
 };
 
 async function mostrarModalEditarChatbot(chatbot_id) {
-  const catSelect = document.getElementById("editarCategoriasChatbotSelect");
-  if (!catSelect) return;
+  const catView = document.getElementById("editarCategoriasChatbotView");
+  if (!catView) return;
 
   try {
-    const [todasCategorias, categoriasAssociadas] = await Promise.all([
-      fetch("/categorias").then((r) => r.json()),
-      fetch(`/chatbots/${chatbot_id}/categorias`).then((r) => r.json()),
-    ]);
-    const assocIds = new Set(
-      (categoriasAssociadas || []).map((c) => String(c.categoria_id))
-    );
-    catSelect.innerHTML = (todasCategorias || [])
-      .map((cat) => {
-        const selected = assocIds.has(String(cat.categoria_id))
-          ? " selected"
-          : "";
-        return `<option value="${cat.categoria_id}"${selected}>${cat.nome}</option>`;
-      })
+    const categoriasAssociadas = await fetch(
+      `/chatbots/${chatbot_id}/categorias`
+    ).then((r) => r.json());
+    if (!categoriasAssociadas || categoriasAssociadas.length === 0) {
+      catView.innerHTML =
+        '<div style="color:#777;">Nenhuma categoria associada a este chatbot.</div>';
+      return;
+    }
+    catView.innerHTML = categoriasAssociadas
+      .map((c) => `<div class="cat-item">${c.nome}</div>`)
       .join("");
   } catch (err) {
-    catSelect.innerHTML = "";
-    catSelect.insertAdjacentHTML(
-      "beforeend",
-      `<option value="">Erro ao carregar categorias: ${err.message}</option>`
-    );
+    catView.innerHTML = `<div style="color:#b91c1c;">Erro ao carregar categorias: ${err.message}</div>`;
   }
 }
 
 async function atualizarCategoriasDoChatbot(chatbot_id) {
-  const catSelect = document.getElementById("editarCategoriasChatbotSelect");
-  if (!catSelect) return;
+  // Categories are managed via the dedicated "Gerir Categorias" modal now.
+  return;
 
   try {
-    const selecionadas = Array.from(catSelect.selectedOptions)
-      .map((opt) => parseInt(opt.value))
-      .filter((v) => Number.isFinite(v));
-
-    const associadasResp = await fetch(`/chatbots/${chatbot_id}/categorias`);
-    const associadas = await associadasResp.json();
-    const associadasIds = associadas.map((c) => c.categoria_id);
-
-    const toAdd = selecionadas.filter((id) => !associadasIds.includes(id));
-    const toRemove = associadasIds.filter((id) => !selecionadas.includes(id));
-
-    for (const catId of toAdd) {
-      await fetch(`/chatbots/${chatbot_id}/categorias`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ categoria_id: catId }),
-      });
-    }
-    for (const catId of toRemove) {
-      await fetch(`/chatbots/${chatbot_id}/categorias/${catId}`, {
-        method: "DELETE",
-      });
-    }
+    // noop
   } catch (err) {
-    alert("Erro ao atualizar categorias: " + err.message);
+    // noop
   }
 }
 
@@ -682,8 +674,46 @@ window.abrirModalAdicionarFAQ = async function (chatbot_id) {
 
   await atualizarCategoriasFAQForm(chatbot_id);
   await carregarFAQsRelacionadasModal(chatbot_id);
+  await atualizarAvisoVideoFAQ(chatbot_id);
   document.getElementById("mensagemFAQ").textContent = "";
 };
+
+async function atualizarAvisoVideoFAQ(chatbot_id) {
+  const infoDiv = document.getElementById("faqVideoInfo");
+  const gerarWrapper = document.getElementById("faqGerarVideoWrapper");
+  const gerarCheckbox = document.getElementById("faqGerarVideoCheckbox");
+  if (!infoDiv && !gerarWrapper && !gerarCheckbox) return;
+  try {
+    const bots = await fetch("/chatbots").then((r) => r.json());
+    const botAtual = (bots || []).find(
+      (b) => String(b.chatbot_id) === String(chatbot_id)
+    );
+    const enabled = !!(botAtual && botAtual.video_enabled);
+    if (enabled) {
+      if (infoDiv)
+        infoDiv.textContent =
+          "Vídeo está ATIVO para este chatbot. A FAQ pode gerar vídeo (apenas 1 de cada vez em todo o sistema).";
+      if (gerarWrapper) gerarWrapper.style.display = "block";
+      if (gerarCheckbox && typeof gerarCheckbox.checked === "boolean") {
+        // default ON
+        gerarCheckbox.checked = true;
+      }
+    } else {
+      if (infoDiv)
+        infoDiv.textContent =
+          "Vídeo está DESATIVADO para este chatbot. A criação de FAQs não irá gerar vídeos.";
+      if (gerarWrapper) gerarWrapper.style.display = "none";
+      if (gerarCheckbox) gerarCheckbox.checked = false;
+    }
+  } catch (e) {
+    // fail-safe
+    if (infoDiv)
+      infoDiv.textContent =
+        "Não foi possível verificar o estado do vídeo. Por segurança, a criação de FAQs não irá gerar vídeos.";
+    if (gerarWrapper) gerarWrapper.style.display = "none";
+    if (gerarCheckbox) gerarCheckbox.checked = false;
+  }
+}
 
 async function atualizarCategoriasFAQForm(chatbot_id) {
   const select = document.getElementById("faqCategoriaSelect");
@@ -820,6 +850,9 @@ if (formAdicionarFAQ) {
     const categoria_id = this.elements["categoria_id"].value;
     const idioma = this.elements["idioma"].value;
     const links_documentos = this.elements["links_documentos"].value.trim();
+    const gerar_video = this.elements["gerar_video"]
+      ? !!this.elements["gerar_video"].checked
+      : false;
 
     // Obter valores selecionados do select múltiplo
     const relacionadasSelect = this.elements["relacionadas[]"];
@@ -848,6 +881,7 @@ if (formAdicionarFAQ) {
       idioma,
       links_documentos,
       relacionadas,
+      gerar_video,
     };
     try {
       const res = await fetch("/faqs", {
@@ -866,6 +900,19 @@ if (formAdicionarFAQ) {
           carregarTabelaBots();
         }, 1000);
       } else {
+        if (res.status === 409 && result && result.busy) {
+          // Block publish while a video job is active (only relevant when video is enabled)
+          if (typeof mostrarModalVideoBusy === "function") {
+            mostrarModalVideoBusy(
+              result.error ||
+                "Já existe um vídeo a ser gerado neste momento. Aguarde que termine."
+            );
+          } else {
+            const m = document.getElementById("modalVideoBusy");
+            if (m) m.style.display = "flex";
+          }
+          return;
+        }
         document.getElementById("mensagemFAQ").textContent =
           "Erro: " + (result.error || result.erro);
         document.getElementById("mensagemFAQ").style.color = "red";

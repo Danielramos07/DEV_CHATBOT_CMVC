@@ -65,11 +65,26 @@
   transition: border 0.19s;
 }
 
-/* Multi-select categories: keep it compact + scrollable */
-.categorias-select-multi {
-  min-height: 140px;
+/* Categories view-only list (compact + scrollable) */
+.categorias-list-view {
+  width: 100%;
+  min-height: 90px;
   max-height: 220px;
   overflow-y: auto;
+  background: #f7f8fa;
+  border: 1px solid #dadada;
+  border-radius: 7px;
+  padding: 10px 12px;
+  margin-bottom: 13px;
+  font-size: 14px;
+  color: #222;
+}
+.categorias-list-view .cat-item {
+  padding: 4px 0;
+  border-bottom: 1px dashed #e5e7eb;
+}
+.categorias-list-view .cat-item:last-child {
+  border-bottom: none;
 }
 
 /* Checkbox (evitar herdar width:100% dos inputs do modal) */
