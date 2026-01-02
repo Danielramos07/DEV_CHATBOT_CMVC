@@ -648,12 +648,12 @@ document.querySelectorAll(".uploadForm").forEach((uploadForm) => {
       Array.from(pdfInput.files).forEach((file) =>
         formData.append("file", file)
       );
-    } else if (docxInput && docxInput.files.length > 1) {
+    } else if (docxInput && docxInput.files.length > 0) {
+      // Always use the multi endpoint for docx uploads (works for 1+ files and avoids file/files mismatches)
       rota = "upload-faq-docx-multiplos";
       formData.delete("files");
-      Array.from(docxInput.files).forEach((file) =>
-        formData.append("files", file)
-      );
+      formData.delete("file");
+      Array.from(docxInput.files).forEach((file) => formData.append("files", file));
     }
 
     const chatbotId = uploadForm.querySelector(
