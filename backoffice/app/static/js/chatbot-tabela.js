@@ -271,7 +271,7 @@ async function carregarTabelaBots() {
               </td>
               <td class="icone">
                 <img src="${
-                  bot.icon_path || "/static/images/chatbot-icon.png"
+                  bot.icon_path || "/static/images/chatbot/chatbot-icon.png"
                 }" alt="Ícone do Bot" style="width:24px; height:24px; border-radius:4px; object-fit:cover;">
               </td>
               <td>
@@ -538,7 +538,7 @@ document.addEventListener("DOMContentLoaded", function () {
         preview.src = URL.createObjectURL(file);
         preview.style.display = "block";
       } else {
-        preview.src = "/static/images/chatbot-icon.png";
+        preview.src = "/static/images/chatbot/chatbot-icon.png";
         preview.style.display = "none";
         alert("Por favor, selecione um arquivo de imagem válido.");
         iconInput.value = "";
@@ -623,7 +623,7 @@ window.abrirModalAtualizar = async function (chatbot_id) {
     }
     
     document.getElementById("previewIcon").src =
-      bot.icon_path || "/static/images/chatbot-icon.png";
+      bot.icon_path || "/static/images/chatbot/chatbot-icon.png";
     document.getElementById("previewIcon").style.display = bot.icon_path
       ? "block"
       : "none";

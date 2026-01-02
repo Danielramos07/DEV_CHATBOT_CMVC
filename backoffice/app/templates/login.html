@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Login - Backoffice AI4Governance</title>
-    <link rel="icon" href="{{ url_for('static', filename='images/chatbot-icon.png') }}" type="image/png">
+    <link rel="icon" href="{{ url_for('static', filename='images/chatbot/chatbot-icon.png') }}" type="image/png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     <style>
@@ -91,7 +91,7 @@
 <body>
     <div class="login-container">
         <div class="login-header">
-            <img src="{{ url_for('static', filename='images/chatbot-icon.png') }}" alt="Logo AI4Governance">
+            <img src="{{ url_for('static', filename='images/chatbot/chatbot-icon.png') }}" alt="Logo AI4Governance">
             <h1>Backoffice AI4Governance</h1>
         </div>
         {% with messages = get_flashed_messages(with_categories=true) %}

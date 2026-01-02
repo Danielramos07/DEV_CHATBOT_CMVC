@@ -100,7 +100,7 @@ def get_chatbots():
                 "descricao": row[2],
                 "data_criacao": row[3],
                 "cor": row[4] if row[4] else "#d4af37",
-                "icon_path": row[5] if row[5] else "/static/images/chatbot-icon.png",
+                "icon_path": row[5] if row[5] else "/static/images/chatbot/chatbot-icon.png",
                 "genero": row[6] if row[6] else None,
                 "video_enabled": bool(row[7]) if len(row) > 7 else False,
                 "ativo": bool(row[8]) if len(row) > 8 else False,
@@ -165,7 +165,7 @@ def criar_chatbot():
         video_enabled = bool(raw_video_enabled)
 
     # icon_path can be provided explicitly (json) or via file upload (form)
-    icon_path = _get_field("icon_path", "/static/images/chatbot-icon.png") or "/static/images/chatbot-icon.png"
+    icon_path = _get_field("icon_path", "/static/images/chatbot/chatbot-icon.png") or "/static/images/chatbot/chatbot-icon.png"
     uploaded_icon = request.files.get("icon")
 
     if not nome:
@@ -274,7 +274,7 @@ def obter_nome_chatbot(chatbot_id):
                 "success": True,
                 "nome": row[0],
                 "cor": row[1] or "#d4af37",
-                "icon": row[2] or "/static/images/chatbot-icon.png",
+                "icon": row[2] or "/static/images/chatbot/chatbot-icon.png",
                 "genero": row[3],
                 "video_greeting_path": video_greeting_url or None,
                 "video_idle_path": video_idle_url or None

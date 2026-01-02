@@ -613,7 +613,7 @@ async function atualizarNomeChatHeader() {
   let nomeBot = localStorage.getItem("nomeBot") || "Assistente Municipal";
   let corBot = localStorage.getItem("corChatbot") || "#d4af37";
   let iconBot =
-    localStorage.getItem("iconBot") || "/static/images/chatbot-icon.png";
+    localStorage.getItem("iconBot") || "/static/images/chatbot/chatbot-icon.png";
   const chatbotId = parseInt(localStorage.getItem("chatbotAtivo"));
   if (chatbotId && !isNaN(chatbotId)) {
     try {
@@ -627,7 +627,7 @@ async function atualizarNomeChatHeader() {
           // Reset to defaults
           nomeBot = "Assistente Municipal";
           corBot = "#d4af37";
-          iconBot = "/static/images/chatbot-icon.png";
+          iconBot = "/static/images/chatbot/chatbot-icon.png";
           localStorage.setItem("nomeBot", nomeBot);
           localStorage.setItem("corChatbot", corBot);
           localStorage.setItem("iconBot", iconBot);
@@ -679,7 +679,7 @@ async function atualizarNomeChatHeader() {
         localStorage.removeItem("videoIdlePath");
         nomeBot = "Assistente Municipal";
         corBot = "#d4af37";
-        iconBot = "/static/images/chatbot-icon.png";
+        iconBot = "/static/images/chatbot/chatbot-icon.png";
         localStorage.setItem("nomeBot", nomeBot);
         localStorage.setItem("corChatbot", corBot);
         localStorage.setItem("iconBot", iconBot);
@@ -696,7 +696,7 @@ async function atualizarNomeChatHeader() {
         }
       } else if (!bot) {
         // Bot not found, use default icon
-        iconBot = "/static/images/chatbot-icon.png";
+        iconBot = "/static/images/chatbot/chatbot-icon.png";
         localStorage.setItem("iconBot", iconBot);
         if (headerImg) {
           headerImg.src = iconBot;
@@ -743,14 +743,14 @@ function atualizarFonteBadge() {
   if (fonte === "faq" || fonte === "faiss") {
     badgeHTML = `
       <span style="display:inline-flex;align-items:center;gap:7px;font-weight:500;font-size:14px;color:#fff;border-radius:7px;padding:3px 7px 3px 2px;margin-top:4px;margin-left: 0px;">
-        <img src="/static/images/imediato.png" alt="Imediato" style="width:18px;height:18px;object-fit:contain;">
+        <img src="/static/images/ui/imediato.png" alt="Imediato" style="width:18px;height:18px;object-fit:contain;">
         Respostas imediatas.
       </span>
     `;
   } else if (fonte === "faq+raga") {
     badgeHTML = `
       <span style="display:inline-flex;align-items:center;gap:7px;font-weight:500;font-size:14px;color:#fff;border-radius:7px;padding:3px 7px 3px 2px;margin-top:4px;margin-left:20px;">
-        <img src="/static/images/ia.png" alt="IA" style="width:18px;height:18px;object-fit:contain;">
+        <img src="/static/images/ui/ia.png" alt="IA" style="width:18px;height:18px;object-fit:contain;">
         Baseado em IA.
       </span>
     `;
@@ -761,8 +761,8 @@ function atualizarFonteBadge() {
 function criarBlocoFeedback(msgId) {
   return `
     <div class="feedback-icons" data-msg-id="${msgId}">
-      <img src="/static/images/like.png" class="like-btn" title="Boa resposta" alt="Like">
-      <img src="/static/images/dislike.png" class="dislike-btn" title="Má resposta" alt="Dislike">
+      <img src="/static/images/ui/like.png" class="like-btn" title="Boa resposta" alt="Like">
+      <img src="/static/images/ui/dislike.png" class="dislike-btn" title="Má resposta" alt="Dislike">
       <span class="feedback-label" style="display:none;"></span>
     </div>
   `;
@@ -989,7 +989,7 @@ function enviarMensagemAutomatica() {
   adicionarMensagem(
     "bot",
     "Se precisar de ajuda, basta escrever a sua pergunta!",
-    localStorage.getItem("iconBot") || "/static/images/chatbot-icon.png",
+    localStorage.getItem("iconBot") || "/static/images/chatbot/chatbot-icon.png",
     localStorage.getItem("nomeBot") || "Assistente Municipal"
   );
   autoFecharTimeout = setTimeout(() => {
@@ -1086,7 +1086,7 @@ async function apresentarMensagemInicial(forceUpdate = false) {
       iconBot =
         data.success && data.icon
           ? data.icon
-          : "/static/images/chatbot-icon.png";
+          : "/static/images/chatbot/chatbot-icon.png";
       generoBot = data.success && data.genero ? data.genero : "";
       // Store video paths (can be null if videos not generated yet)
       if (data.success) {
@@ -1121,7 +1121,7 @@ async function apresentarMensagemInicial(forceUpdate = false) {
       iconBot =
         bot && bot.icon_path
           ? bot.icon_path
-          : "/static/images/chatbot-icon.png";
+          : "/static/images/chatbot/chatbot-icon.png";
       generoBot = bot && bot.genero ? bot.genero : "";
       localStorage.setItem("nomeBot", nomeBot);
       localStorage.setItem("corChatbot", corBot);
@@ -1137,7 +1137,7 @@ async function apresentarMensagemInicial(forceUpdate = false) {
   } else {
     nomeBot = "Assistente Municipal";
     corBot = "#d4af37";
-    iconBot = "/static/images/chatbot-icon.png";
+    iconBot = "/static/images/chatbot/chatbot-icon.png";
     generoBot = "";
     localStorage.setItem("nomeBot", nomeBot);
     localStorage.setItem("corChatbot", corBot);
@@ -1208,7 +1208,7 @@ function responderPergunta(pergunta) {
     return adicionarMensagem(
       "bot",
       "⚠️ Nenhum chatbot está ativo neste momento. Tente novamente dentro de instantes.",
-      localStorage.getItem("iconBot") || "/static/images/chatbot-icon.png",
+      localStorage.getItem("iconBot") || "/static/images/chatbot/chatbot-icon.png",
       localStorage.getItem("nomeBot") || "Assistente Municipal"
     );
   }
@@ -1224,7 +1224,7 @@ function responderPergunta(pergunta) {
   const idioma = getIdiomaAtual();
   let corBot = localStorage.getItem("corChatbot") || "#d4af37";
   let iconBot =
-    localStorage.getItem("iconBot") || "/static/images/chatbot-icon.png";
+    localStorage.getItem("iconBot") || "/static/images/chatbot/chatbot-icon.png";
   fetch("/obter-resposta", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1732,7 +1732,7 @@ async function ensureActiveChatbot() {
     localStorage.setItem("corChatbot", chosen.cor || "#d4af37");
     localStorage.setItem(
       "iconBot",
-      chosen.icon_path || "/static/images/chatbot-icon.png"
+      chosen.icon_path || "/static/images/chatbot/chatbot-icon.png"
     );
     localStorage.setItem("generoBot", chosen.genero || "");
     if (chosen.fonte) {

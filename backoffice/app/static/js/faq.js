@@ -239,7 +239,7 @@ async function carregarTabelaFAQsBackoffice() {
                     if (!link) return "";
                     return `
                   <a href="${link}" target="_blank" style="display:inline-block;">
-                    <img src="/static/images/pdf-icon.png" alt="PDF" title="Abrir documento PDF" style="width:26px;vertical-align:middle;">
+                    <img src="/static/images/ui/pdf-icon.png" alt="PDF" title="Abrir documento PDF" style="width:26px;vertical-align:middle;">
                   </a>
                 `;
                   })
@@ -251,14 +251,14 @@ async function carregarTabelaFAQsBackoffice() {
                 faq.idioma?.toLowerCase() === "português"
               ) {
                 flag =
-                  '<img src="/static/images/pt.jpg" style="height:20px" title="Português">';
+                  '<img src="/static/images/flags/pt.jpg" style="height:20px" title="Português">';
               } else if (
                 faq.idioma === "en" ||
                 faq.idioma?.toLowerCase() === "inglês" ||
                 faq.idioma?.toLowerCase() === "english"
               ) {
                 flag =
-                  '<img src="/static/images/en.png" style="height:20px" title="English">';
+                  '<img src="/static/images/flags/en.png" style="height:20px" title="English">';
               } else if (faq.idioma) {
                 flag = faq.idioma;
               }
