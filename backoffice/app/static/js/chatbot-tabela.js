@@ -422,8 +422,14 @@ document.addEventListener("DOMContentLoaded", function () {
           method: "PUT",
           body: formData,
         });
-        await atualizarCategoriasDoChatbot(chatbot_id);
         if (res.ok) {
+          // Only sync categories if the base chatbot update succeeded (avoid wiping on failures)
+          await atualizarCategoriasDoChatbot(chatbot_id);
+          // Refresh the multi-select from server so removals/additions are reflected immediately
+          try {
+            await mostrarModalEditarChatbot(chatbot_id);
+          } catch (e) {}
+
           // Se ao atualizar ativaste vídeo, ligar polling global do indicador.
           // (O backend pode enfileirar geração de greeting+idle dependendo do estado atual.)
           if (video_enabled) {
@@ -597,41 +603,42 @@ window.abrirModalAtualizar = async function (chatbot_id) {
 };
 
 async function mostrarModalEditarChatbot(chatbot_id) {
-  const catDiv = document.getElementById("editarCategoriasChatbot");
-  if (!catDiv) return;
+  const catSelect = document.getElementById("editarCategoriasChatbotSelect");
+  if (!catSelect) return;
 
   try {
-    const categoriasAssociadas = await fetch(
-      `/chatbots/${chatbot_id}/categorias`
-    ).then((r) => r.json());
-    if (categoriasAssociadas.length === 0) {
-      catDiv.innerHTML = `<span style="color:#888;">Nenhuma categoria associada a este chatbot.</span>`;
-    } else {
-      catDiv.innerHTML = categoriasAssociadas
-        .map(
-          (cat) => `
-        <label style="display:flex;align-items:center;gap:4px;">
-          <input type="checkbox" name="categorias[]" value="${cat.categoria_id}" checked>
-          ${cat.nome}
-        </label>
-      `
-        )
-        .join("");
-    }
+    const [todasCategorias, categoriasAssociadas] = await Promise.all([
+      fetch("/categorias").then((r) => r.json()),
+      fetch(`/chatbots/${chatbot_id}/categorias`).then((r) => r.json()),
+    ]);
+    const assocIds = new Set(
+      (categoriasAssociadas || []).map((c) => String(c.categoria_id))
+    );
+    catSelect.innerHTML = (todasCategorias || [])
+      .map((cat) => {
+        const selected = assocIds.has(String(cat.categoria_id))
+          ? " selected"
+          : "";
+        return `<option value="${cat.categoria_id}"${selected}>${cat.nome}</option>`;
+      })
+      .join("");
   } catch (err) {
-    catDiv.innerHTML = `<span style="color:red;">Erro ao carregar categorias: ${err.message}</span>`;
+    catSelect.innerHTML = "";
+    catSelect.insertAdjacentHTML(
+      "beforeend",
+      `<option value="">Erro ao carregar categorias: ${err.message}</option>`
+    );
   }
 }
 
 async function atualizarCategoriasDoChatbot(chatbot_id) {
-  const catDiv = document.getElementById("editarCategoriasChatbot");
-  if (!catDiv) return;
+  const catSelect = document.getElementById("editarCategoriasChatbotSelect");
+  if (!catSelect) return;
 
   try {
-    const checks = Array.from(catDiv.querySelectorAll("input[type=checkbox]"));
-    const selecionadas = checks
-      .filter((cb) => cb.checked)
-      .map((cb) => parseInt(cb.value));
+    const selecionadas = Array.from(catSelect.selectedOptions)
+      .map((opt) => parseInt(opt.value))
+      .filter((v) => Number.isFinite(v));
 
     const associadasResp = await fetch(`/chatbots/${chatbot_id}/categorias`);
     const associadas = await associadasResp.json();
@@ -880,7 +887,7 @@ if (formUploadDocxFAQ) {
     formData.append("chatbot_id", chatbot_id);
 
     try {
-      const res = await fetch("/upload-faq-docx", {
+      const res = await fetch("/upload-faq-docx-multiplos", {
         method: "POST",
         body: formData,
       });
@@ -891,6 +898,22 @@ if (formUploadDocxFAQ) {
         document.querySelector("#formUploadDocxFAQ .uploadStatus").style.color =
           "green";
         this.reset();
+        try {
+          if (chatbot_id !== "todos") {
+            carregarTabelaFAQs(parseInt(chatbot_id), true);
+          }
+        } catch (e) {}
+      } else if (res.status === 409 && result && result.busy) {
+        // Show global busy modal (same UX as FAQ video busy)
+        if (typeof mostrarModalVideoBusy === "function") {
+          mostrarModalVideoBusy(
+            result.error ||
+              "Já existe um vídeo a ser gerado neste momento. Aguarde que termine."
+          );
+        } else {
+          const m = document.getElementById("modalVideoBusy");
+          if (m) m.style.display = "flex";
+        }
       } else {
         document.querySelector("#formUploadDocxFAQ .uploadStatus").textContent =
           "Erro: " + (result.error || result.erro);

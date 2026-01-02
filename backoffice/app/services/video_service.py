@@ -389,6 +389,8 @@ def _run_video_job(faq_id: int, app) -> None:
                 raise ValueError(f"FAQ com id {faq_id} não encontrada.")
 
             resposta, video_text, genero, icon_path, chatbot_id = row
+            # Expose chatbot_id in job status for UI label (best-effort)
+            _set_job(chatbot_id=chatbot_id)
             video_text = (video_text or resposta or "").strip()
             if not video_text:
                 raise ValueError("Texto para vídeo vazio.")

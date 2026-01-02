@@ -33,6 +33,7 @@ class Config:
     PG_PASS = os.getenv("PG_PASS", "admin")
     INDEX_PATH = _resolve_path(os.getenv("INDEX_PATH", "backoffice/faiss.index"))
     FAQ_EMBEDDINGS_PATH = _resolve_path(os.getenv("FAQ_EMB_PATH", "backoffice/faq_embeddings.pkl"))
-    PDF_STORAGE_PATH = _resolve_path(os.getenv("PDF_PATH", "backoffice/pdfs"))
+    # Store uploaded PDF documents under extras/documents (ignored by git)
+    PDF_STORAGE_PATH = _resolve_path(os.getenv("PDF_PATH", "backoffice/app/extras/documents"))
     ICON_STORAGE_PATH = _resolve_path(os.getenv("ICON_PATH", "backoffice/app/static/icons"))
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")

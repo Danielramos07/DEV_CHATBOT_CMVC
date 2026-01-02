@@ -30,6 +30,7 @@ def ensure_schema() -> None:
     """Best-effort schema updates required for runtime features.
 
     - Adds chatbot.ativo (global active chatbot) if missing
+    - Adds faq.identificador if missing
     - Ensures there is at least one active chatbot when any exist
     """
     global _pool
@@ -42,6 +43,8 @@ def ensure_schema() -> None:
         cur = conn.cursor()
         # Add global active flag for chatbots (safe to run repeatedly)
         cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS ativo BOOLEAN NOT NULL DEFAULT FALSE;")
+        # Add FAQ identifier (safe to run repeatedly)
+        cur.execute("ALTER TABLE faq ADD COLUMN IF NOT EXISTS identificador VARCHAR(120);")
         conn.commit()
 
         # Ensure at least one chatbot is active (if any exist)

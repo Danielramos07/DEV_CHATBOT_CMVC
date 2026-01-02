@@ -239,7 +239,7 @@ async function carregarTabelaFAQsBackoffice() {
                     if (!link) return "";
                     return `
                   <a href="${link}" target="_blank" style="display:inline-block;">
-                    <img src="images/pdf-icon.png" alt="PDF" title="Abrir documento PDF" style="width:26px;vertical-align:middle;">
+                    <img src="/static/images/pdf-icon.png" alt="PDF" title="Abrir documento PDF" style="width:26px;vertical-align:middle;">
                   </a>
                 `;
                   })
@@ -729,23 +729,19 @@ async function editarFAQ(faq_id) {
       faqAEditar.faq_id
     );
 
-    const catContainer = document.getElementById("editarCategoriasContainer");
-    let categoriasMarcadas = [];
-    if (Array.isArray(faqAEditar.categorias)) {
-      categoriasMarcadas = faqAEditar.categorias.map(Number);
-    } else if (faqAEditar.categoria_id) {
-      categoriasMarcadas = [Number(faqAEditar.categoria_id)];
+    const catSelect = document.getElementById("editarCategoriaSelect");
+    if (catSelect) {
+      const selectedId = faqAEditar.categoria_id ? String(faqAEditar.categoria_id) : "";
+      catSelect.innerHTML =
+        '<option value="">Sem categoria</option>' +
+        categorias
+          .map(
+            (cat) =>
+              `<option value="${cat.categoria_id}">${cat.nome}</option>`
+          )
+          .join("");
+      catSelect.value = selectedId;
     }
-    catContainer.innerHTML = categorias
-      .map((cat) => {
-        const checked = categoriasMarcadas.includes(Number(cat.categoria_id));
-        return `<label style="display:inline-flex;align-items:center;gap:3px;">
-        <input type="checkbox" value="${cat.categoria_id}" ${
-          checked ? "checked" : ""
-        } />${cat.nome}
-      </label>`;
-      })
-      .join("");
 
     document.getElementById("modalEditarFAQ").style.display = "flex";
     const statusDiv = document.getElementById("editarStatusFAQ");
@@ -793,11 +789,9 @@ if (formEditarFAQ) {
       ? document.getElementById("editarRecomendado").checked
       : false;
 
-    const categoriasSel = Array.from(
-      document.querySelectorAll(
-        '#editarCategoriasContainer input[type="checkbox"]:checked'
-      )
-    ).map((cb) => parseInt(cb.value));
+    const categoriaSel = document.getElementById("editarCategoriaSelect")
+      ? parseInt(document.getElementById("editarCategoriaSelect").value || "")
+      : null;
     const relacionadasSel = Array.from(
       document.querySelectorAll(
         '#editarFaqRelacionadasSelect option:checked'
@@ -814,7 +808,7 @@ if (formEditarFAQ) {
           idioma,
           identificador,
           recomendado,
-          categorias: categoriasSel,
+          categoria_id: Number.isFinite(categoriaSel) ? categoriaSel : null,
           relacionadas: relacionadasSel,
         }),
       });

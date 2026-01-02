@@ -136,7 +136,15 @@ def update_faq(faq_id):
         idioma = data.get("idioma", "pt").strip()
         categorias = data.get("categorias", [])
         recomendado = data.get("recomendado", False)
-        categoria_id = categorias[0] if categorias else None
+        # Accept either categoria_id (single select) or categorias[] (legacy multi)
+        if "categoria_id" in data:
+            raw_cat = data.get("categoria_id")
+            try:
+                categoria_id = int(raw_cat) if raw_cat is not None and str(raw_cat).strip() != "" else None
+            except Exception:
+                categoria_id = None
+        else:
+            categoria_id = categorias[0] if categorias else None
         identificador = (data.get("identificador") or "").strip()
         relacionadas_raw = data.get("relacionadas", None)
         relacionadas_ids = []

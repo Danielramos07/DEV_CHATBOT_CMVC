@@ -211,7 +211,13 @@ content %}
       </div>
       <div class="form-group-categorias">
         <label id="editarCategoriasChatbot-label">Categorias:</label>
-        <div class="categorias-row" id="editarCategoriasChatbot" role="group" aria-labelledby="editarCategoriasChatbot-label"></div>
+        <select
+          class="categorias-select-multi"
+          id="editarCategoriasChatbotSelect"
+          name="categorias[]"
+          multiple
+          aria-labelledby="editarCategoriasChatbot-label"
+        ></select>
       </div>
       <div class="btn-bar-editar-bot">
         <button type="submit" class="btn-atualizar-editar-bot">
@@ -418,7 +424,7 @@ content %}
     <div
       id="categoriasContainer"
       class="categorias-list"
-      style="max-height: 60vh; overflow-y: auto"
+      style="max-height: 320px; overflow-y: auto"
     ></div>
     <div
       class="btn-bar-categorias"

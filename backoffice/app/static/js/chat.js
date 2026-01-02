@@ -1246,19 +1246,24 @@ function responderPergunta(pergunta) {
           Array.isArray(data.documentos) &&
           data.documentos.length > 0
         ) {
-          resposta += `
-            <div class="fonte-docs-wrapper" style="margin-top: 18px; display: flex; align-items: center; gap: 10px;">
-              <span class="fonte-label" style="font-weight: 600; margin-right: 7px; color: #fff;">Fonte:</span>
-              <a href="${data.documentos[0]}" target="_blank" rel="noopener" class="fonte-doc-link"
-                 style="background: #fff; color: ${corBot}; border-radius: 7px; padding: 6px 18px; text-decoration: none; font-weight: 600; border: 1.5px solid ${corBot}; transition: all 0.18s; font-size: 15px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;"
-                 onmouseover="this.style.background='${corBot}'; this.style.color='#fff'; this.style.borderColor='${corBot}';"
-                 onmouseout="this.style.background='#fff'; this.style.color='${corBot}'; this.style.borderColor='${corBot}';"
-                 title="Abrir fonte do documento em nova aba">
-                <span>Link</span>
-                <span style="font-size: 12px;">↗</span>
-              </a>
-            </div>
-          `;
+          const rawDoc = String(data.documentos[0] || "").trim();
+          const isValidDocUrl =
+            rawDoc.startsWith("/") || /^https?:\/\//i.test(rawDoc);
+          if (isValidDocUrl) {
+            resposta += `
+              <div class="fonte-docs-wrapper" style="margin-top: 18px; display: flex; align-items: center; gap: 10px;">
+                <span class="fonte-label" style="font-weight: 600; margin-right: 7px; color: #fff;">Fonte:</span>
+                <a href="${rawDoc}" target="_blank" rel="noopener" class="fonte-doc-link"
+                   style="background: #fff; color: ${corBot}; border-radius: 7px; padding: 6px 18px; text-decoration: none; font-weight: 600; border: 1.5px solid ${corBot}; transition: all 0.18s; font-size: 15px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;"
+                   onmouseover="this.style.background='${corBot}'; this.style.color='#fff'; this.style.borderColor='${corBot}';"
+                   onmouseout="this.style.background='#fff'; this.style.color='${corBot}'; this.style.borderColor='${corBot}';"
+                   title="Abrir fonte do documento em nova aba">
+                  <span>Link</span>
+                  <span style="font-size: 12px;">↗</span>
+                </a>
+              </div>
+            `;
+          }
         }
         {
           adicionarMensagemComHTML(

@@ -26,6 +26,10 @@ backoffice/faq_embeddings.pkl
 backoffice/app/extras/models/vosk-model-*/
 backoffice/app/video/results/
 
+# Uploaded PDF documents (RAG knowledge base)
+backoffice/app/extras/documents/*
+!backoffice/app/extras/documents/.gitkeep
+
 # User uploaded chatbot icons (keep folder, ignore contents)
 backoffice/app/static/icons/*
 !backoffice/app/static/icons/.gitkeep
