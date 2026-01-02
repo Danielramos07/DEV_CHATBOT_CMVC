@@ -16,8 +16,25 @@ CREATE TABLE IF NOT EXISTS chatbot (
     genero VARCHAR(20),
     video_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     video_idle_path TEXT,
-    video_greeting_path TEXT
+    video_greeting_path TEXT,
+    ativo BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+-- Tabela: video_job (singleton global status for cross-worker video generation)
+CREATE TABLE IF NOT EXISTS video_job (
+    id INT PRIMARY KEY DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'idle',
+    kind TEXT,
+    faq_id INT,
+    chatbot_id INT,
+    progress INT NOT NULL DEFAULT 0,
+    message TEXT NOT NULL DEFAULT '',
+    error TEXT,
+    cancel_requested BOOLEAN NOT NULL DEFAULT FALSE,
+    started_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO video_job (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
 -- Tabela: chatbot_categoria
 CREATE TABLE IF NOT EXISTS chatbot_categoria (
