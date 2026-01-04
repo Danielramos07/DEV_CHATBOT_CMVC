@@ -30,6 +30,18 @@ function adicionarListenersFormulariosFAQ(allBots = []) {
         data.relacionadas = "";
       }
 
+      // Normalizar links de documentos (um por campo)
+      if (data.links_documentos && Array.isArray(data.links_documentos)) {
+        data.links_documentos = data.links_documentos
+          .map((l) => (l || "").trim())
+          .filter(Boolean)
+          .join(",");
+      } else if (data.links_documentos) {
+        data.links_documentos = String(data.links_documentos).trim();
+      } else {
+        data.links_documentos = "";
+      }
+
       data.idioma = data.idioma?.trim() || "pt";
       // Normalizar flag para geração de vídeo (checkbox)
       data.gerar_video = data.gerar_video === "on" || data.gerar_video === true;

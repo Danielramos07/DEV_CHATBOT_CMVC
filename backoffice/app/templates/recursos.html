@@ -293,11 +293,26 @@ content %}
             />
             Gerar vídeo para esta FAQ (um vídeo de cada vez em todo o sistema)
           </label>
-          <input
-            type="text"
-            name="links_documentos"
-            placeholder="Links de Documentos (separados por vírgula)"
-          />
+          <div class="links-docs-group">
+            <label class="links-docs-label">Links de documentos</label>
+            <div id="faqLinksContainer" class="links-docs-container">
+              <div class="link-doc-row">
+                <input
+                  type="url"
+                  name="links_documentos[]"
+                  class="link-doc-input"
+                  placeholder="https://exemplo.com/documento.pdf"
+                />
+                <button type="button" class="btn-remover-link" title="Remover" disabled>
+                  ×
+                </button>
+              </div>
+            </div>
+            <button type="button" id="faqAddLinkBtn" class="btn-adicionar-link">
+              + Adicionar link
+            </button>
+            <small class="form-text">Um link por campo. Não é preciso usar vírgulas.</small>
+          </div>
           <div class="form-group">
             <label for="faqRelacionadasSelect">FAQs relacionadas</label>
             <select

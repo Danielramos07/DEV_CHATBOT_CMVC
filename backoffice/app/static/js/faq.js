@@ -263,8 +263,8 @@ async function carregarTabelaFAQsBackoffice() {
                 flag = faq.idioma;
               }
               let recomendacao = faq.recomendado
-                ? '<span style="color:green;font-size:18px;">✅ Sim</span>'
-                : '<span style="color:#cc2424;font-size:18px;">❌ Não</span>';
+                ? '<span style="color:green;font-weight:600;">Sim</span>'
+                : '<span style="color:#cc2424;font-weight:600;">Não</span>';
 
               let videoCol = "-";
               // Only show video status if video_status is actually set (not null/undefined)
@@ -450,6 +450,16 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
   const newForm = faqForm.cloneNode(true);
   faqForm.parentNode.replaceChild(newForm, faqForm);
   const form = newForm;
+
+  // Evitar tratar formulários de admin que já têm handlers dedicados
+  const formId = form.id || "";
+  if (
+    formId === "formAdicionarFAQ" ||
+    formId.startsWith("faqForm-") ||
+    form.closest(".modal-box-adicionar-faq-exclusivo")
+  ) {
+    return;
+  }
   
   const statusDiv = document.createElement("div");
   statusDiv.className = "faqStatus";

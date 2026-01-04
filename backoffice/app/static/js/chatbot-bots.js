@@ -19,6 +19,46 @@ async function carregarBots() {
   }
 }
 
+function adicionarCampoLink(btnOrContainer) {
+  const container =
+    btnOrContainer.closest?.(".links-docs-group")?.querySelector(".links-docs-container") ||
+    btnOrContainer.querySelector?.(".links-docs-container") ||
+    null;
+  if (!container) return;
+
+  const row = document.createElement("div");
+  row.className = "link-doc-row";
+
+  const input = document.createElement("input");
+  input.type = "url";
+  input.name = "links_documentos[]";
+  input.className = "link-doc-input";
+  input.placeholder = "https://exemplo.com/documento.pdf";
+
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "btn-remover-link";
+  removeBtn.textContent = "×";
+  removeBtn.onclick = () => removerCampoLink(removeBtn);
+
+  row.appendChild(input);
+  row.appendChild(removeBtn);
+  container.appendChild(row);
+}
+
+function removerCampoLink(btn) {
+  const row = btn.closest(".link-doc-row");
+  const container = btn.closest(".links-docs-container");
+  if (!row || !container) return;
+  const rows = container.querySelectorAll(".link-doc-row");
+  if (rows.length > 1) {
+    row.remove();
+  } else {
+    const input = row.querySelector("input");
+    if (input) input.value = "";
+  }
+}
+
 function carregarFAQsRelacionadas(chatbotId) {
   const selectId = `#faqRelacionadasSelect-${chatbotId}`;
   const $select = $(selectId);
@@ -128,7 +168,7 @@ function criarBotHTML(bot, allBots) {
             </select>
             ${idiomaSelectHtml}
             <input type="text" name="designacao" placeholder="Designação" required>
-            <input type="text" name="identificador" placeholder="Identificador" maxlength="120">
+            <input type="text" name="identificador" placeholder="Identificador (ex: APO-AIC-AM)" maxlength="120">
             <input type="text" name="pergunta" placeholder="Pergunta" required>
             <textarea name="resposta" placeholder="Resposta" required></textarea>
             <select name="categoria_id" required>
@@ -140,7 +180,17 @@ function criarBotHTML(bot, allBots) {
               <option value="5">Desporto</option>
               <option value="6">Ambiente</option>
             </select>
-            <input type="text" name="links_documentos" placeholder="Links de Documentos (separados por vírgula)">
+            <div class="links-docs-group">
+              <label style="display:block; margin-bottom:4px;">Links de documentos</label>
+              <div class="links-docs-container">
+                <div class="link-doc-row">
+                  <input type="url" name="links_documentos[]" class="link-doc-input" placeholder="https://exemplo.com/documento.pdf">
+                  <button type="button" class="btn-remover-link" onclick="removerCampoLink(this)">Remover</button>
+                </div>
+              </div>
+              <button type="button" class="btn-adicionar-link" onclick="adicionarCampoLink(this)">+ Adicionar link</button>
+              <small class="form-text">Um link por campo. Não é preciso vírgulas.</small>
+            </div>
             <label style="display:block; margin-top:6px; font-size: 0.9rem;">
   FAQs relacionadas
 </label>

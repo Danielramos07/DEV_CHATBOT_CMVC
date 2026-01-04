@@ -668,6 +668,7 @@ window.abrirModalAdicionarFAQ = async function (chatbot_id) {
   document.getElementById("faqChatbotId").value = chatbot_id;
   document.getElementById("docxChatbotId").value = chatbot_id;
   document.getElementById("pdfChatbotId").value = chatbot_id;
+  resetarCamposLinksFAQ();
 
   modal.style.display = "flex";
 
@@ -800,6 +801,53 @@ async function carregarFAQsRelacionadasModal(chatbot_id) {
   }
 }
 
+function resetarCamposLinksFAQ() {
+  const container = document.getElementById("faqLinksContainer");
+  if (!container) return;
+  container.innerHTML = "";
+  adicionarCampoLink(container);
+}
+
+function adicionarCampoLink(container) {
+  const row = document.createElement("div");
+  row.className = "link-doc-row";
+  row.style.display = "flex";
+  row.style.gap = "8px";
+
+  const input = document.createElement("input");
+  input.type = "url";
+  input.name = "links_documentos[]";
+  input.className = "link-doc-input";
+  input.placeholder = "https://exemplo.com/documento.pdf";
+  input.style.flex = "1";
+
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.textContent = "×";
+  removeBtn.className = "btn-remover-link";
+  removeBtn.style.minWidth = "90px";
+  removeBtn.onclick = () => {
+    const rows = container.querySelectorAll(".link-doc-row");
+    if (rows.length > 1) {
+      row.remove();
+    } else {
+      input.value = "";
+    }
+  };
+
+  row.appendChild(input);
+  row.appendChild(removeBtn);
+  container.appendChild(row);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const addLinkBtn = document.getElementById("faqAddLinkBtn");
+  const container = document.getElementById("faqLinksContainer");
+  if (addLinkBtn && container) {
+    addLinkBtn.onclick = () => adicionarCampoLink(container);
+  }
+});
+
 const formAdicionarFAQ = document.getElementById("formAdicionarFAQ");
 if (formAdicionarFAQ) {
   formAdicionarFAQ.onsubmit = async function (e) {
@@ -812,7 +860,12 @@ if (formAdicionarFAQ) {
     const resposta = this.elements["resposta"].value.trim();
     const categoria_id = this.elements["categoria_id"].value;
     const idioma = this.elements["idioma"].value;
-    const links_documentos = this.elements["links_documentos"].value.trim();
+    const links_documentos = Array.from(
+      this.querySelectorAll(".link-doc-input")
+    )
+      .map((el) => el.value.trim())
+      .filter(Boolean)
+      .join(",");
 
     // Obter valores selecionados do select múltiplo
     const relacionadasSelect = this.elements["relacionadas[]"];
