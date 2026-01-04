@@ -3,6 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <title>{% block title %}Chatbot Municipal{% endblock %}</title>
+    <script>
+      (function () {
+        try {
+          if (window.localStorage.getItem("ai4ap_sidebar_collapsed") === "1") {
+            document.documentElement.classList.add("sidebar-collapsed");
+          }
+        } catch (e) {
+          // ignore (private mode / blocked storage)
+        }
+      })();
+    </script>
     <link
       rel="icon"
       href="{{ url_for('static', filename='images/chatbot/chatbot-icon.png') }}"
@@ -42,47 +53,69 @@
   <body>
     <div class="layout">
       <aside>
-        <h2>Menu</h2>
+        <div class="aside-header">
+          <h2>Menu</h2>
+          <button
+            id="asideToggleBtn"
+            class="aside-toggle-btn"
+            type="button"
+            aria-label="Colapsar menu"
+            aria-expanded="true"
+            title="Colapsar menu"
+          >
+            ☰
+          </button>
+        </div>
         <ul>
           <li
             id="menuContexto"
             class="{% block menu_contexto_class %}{% endblock %}"
             data-href="{{ url_for('admin.contexto') }}"
             onclick="window.location.href=this.dataset.href;"
+            title="Contexto"
           >
-            Contexto
+            <span class="menu-short" aria-hidden="true">C</span>
+            <span class="menu-label">Contexto</span>
           </li>
           <li
             id="menuRecursos"
             class="{% block menu_recursos_class %}{% endblock %}"
             data-href="{{ url_for('admin.index') }}"
             onclick="window.location.href=this.dataset.href;"
+            title="Recursos"
           >
-            Recursos
+            <span class="menu-short" aria-hidden="true">R</span>
+            <span class="menu-label">Recursos</span>
           </li>
           <li
             id="menuRespostas"
             class="{% block menu_respostas_class %}{% endblock %}"
             data-href="{{ url_for('admin.respostas') }}"
             onclick="window.location.href=this.dataset.href;"
+            title="FAQs"
           >
-            FAQs
+            <span class="menu-short" aria-hidden="true">F</span>
+            <span class="menu-label">FAQs</span>
           </li>
           <li
             id="menuNaoRespondidas"
             class="{% block menu_nao_respondidas_class %}{% endblock %}"
             data-href="{{ url_for('admin.nao_respondidas') }}"
             onclick="window.location.href=this.dataset.href;"
+            title="Não respondidas"
           >
-            Não respondidas
+            <span class="menu-short" aria-hidden="true">N</span>
+            <span class="menu-label">Não respondidas</span>
           </li>
           <li
             id="menuMetricas"
             class="{% block menu_metricas_class %}{% endblock %}"
             data-href="{{ url_for('admin.metricas') }}"
             onclick="window.location.href=this.dataset.href;"
+            title="Métricas"
           >
-            Métricas
+            <span class="menu-short" aria-hidden="true">M</span>
+            <span class="menu-label">Métricas</span>
           </li>
         </ul>
       </aside>
@@ -174,12 +207,16 @@
         </div>
 
         <!-- Modal: cancelar job de vídeo -->
-        <div id="modalCancelVideoJob" class="modal-overlay" style="display: none">
+        <div
+          id="modalCancelVideoJob"
+          class="modal-overlay"
+          style="display: none"
+        >
           <div class="modal-box modal-box-confirmacao modal-box-cancel-video">
             <p id="modalCancelVideoJobMsg" class="modal-cancel-title">
               Cancelar geração do vídeo?
             </p>
-            <div class="modal-buttons" style="margin-top: 14px;">
+            <div class="modal-buttons" style="margin-top: 14px">
               <button id="btnConfirmarCancelVideoJob">Confirmar</button>
               <button onclick="fecharModalCancelVideoJob()">Voltar</button>
             </div>
@@ -329,6 +366,7 @@
     <script src="{{ url_for('static', filename='js/chatbot-tabela.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modal.js') }}"></script>
     <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
     <script src="{{ url_for('static', filename='js/toggleChat.js') }}"></script>
     <script src="{{ url_for('static', filename='js/video-status.js') }}"></script>
     {% block extra_scripts %}{% endblock %}

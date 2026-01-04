@@ -10,11 +10,39 @@ aside {
   color: white;
   display: flex;
   flex-direction: column;
+  transition: width 0.2s ease, padding 0.2s ease;
+}
+
+aside .aside-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
 aside h2 {
   font-size: 16px;
-  margin-bottom: 20px;
+  margin: 0;
+}
+
+aside .aside-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #374151;
+  background: transparent;
+  color: white;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+aside .aside-toggle-btn:hover {
+  background: #374151;
+  border-color: #4b5563;
 }
 
 aside ul {
@@ -29,6 +57,27 @@ aside li {
   cursor: pointer;
   margin-bottom: 5px;
   transition: background 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+aside li .menu-short {
+  display: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #374151;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+}
+
+aside li .menu-label {
+  line-height: 1;
 }
 
 aside li:hover {
@@ -36,8 +85,40 @@ aside li:hover {
 }
 
 aside li.active {
-  background: #d4af37 !important; 
+  background: #d4af37 !important;
   color: black !important;
+}
+
+html.sidebar-collapsed aside,
+body.sidebar-collapsed aside {
+  width: 76px;
+  padding: 16px 10px;
+}
+
+html.sidebar-collapsed aside .aside-header,
+body.sidebar-collapsed aside .aside-header {
+  justify-content: center;
+}
+
+html.sidebar-collapsed aside h2,
+body.sidebar-collapsed aside h2 {
+  display: none;
+}
+
+html.sidebar-collapsed aside li,
+body.sidebar-collapsed aside li {
+  justify-content: center;
+  padding: 10px 8px;
+}
+
+html.sidebar-collapsed aside li .menu-label,
+body.sidebar-collapsed aside li .menu-label {
+  display: none;
+}
+
+html.sidebar-collapsed aside li .menu-short,
+body.sidebar-collapsed aside li .menu-short {
+  display: inline-flex;
 }
 
 .content {
