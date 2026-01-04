@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from flask import url_for
 from ..db import get_conn
 from ..services.text import detectar_saudacao, registar_pergunta_nao_respondida
 from ..services.retreival import obter_faq_mais_semelhante, pesquisar_faiss, build_faiss_index
@@ -182,6 +183,7 @@ def obter_resposta():
                     resposta_ollama = pesquisar_pdf_ollama(pergunta, chatbot_id=chatbot_id)
                     if resposta_ollama:
                         pdfs = get_pdfs_from_db(chatbot_id)
+                        pdf_id = pdfs[0][0] if pdfs else None
                         file_path = pdfs[0][1] if pdfs else None
                         return jsonify({
                             "success": True,
@@ -191,7 +193,8 @@ def obter_resposta():
                             "categoria_id": None,
                             "score": None,
                             "pergunta_faq": None,
-                            "documentos": [file_path] if file_path else []
+                            # Return a URL that is valid behind reverse-proxy (avoid leaking server paths)
+                            "documentos": [url_for("api.uploads.get_pdf", pdf_id=pdf_id)] if pdf_id else []
                         })
                     else:
                         return jsonify({

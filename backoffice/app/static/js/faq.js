@@ -239,7 +239,7 @@ async function carregarTabelaFAQsBackoffice() {
                     if (!link) return "";
                     return `
                   <a href="${link}" target="_blank" style="display:inline-block;">
-                    <img src="images/pdf-icon.png" alt="PDF" title="Abrir documento PDF" style="width:26px;vertical-align:middle;">
+                    <img src="/static/images/ui/pdf-icon.png" alt="PDF" title="Abrir documento PDF" style="width:26px;vertical-align:middle;">
                   </a>
                 `;
                   })
@@ -251,14 +251,14 @@ async function carregarTabelaFAQsBackoffice() {
                 faq.idioma?.toLowerCase() === "português"
               ) {
                 flag =
-                  '<img src="/static/images/pt.jpg" style="height:20px" title="Português">';
+                  '<img src="/static/images/flags/pt.jpg" style="height:20px" title="Português">';
               } else if (
                 faq.idioma === "en" ||
                 faq.idioma?.toLowerCase() === "inglês" ||
                 faq.idioma?.toLowerCase() === "english"
               ) {
                 flag =
-                  '<img src="/static/images/en.png" style="height:20px" title="English">';
+                  '<img src="/static/images/flags/en.png" style="height:20px" title="English">';
               } else if (faq.idioma) {
                 flag = faq.idioma;
               }
@@ -658,12 +658,12 @@ document.querySelectorAll(".uploadForm").forEach((uploadForm) => {
       Array.from(pdfInput.files).forEach((file) =>
         formData.append("file", file)
       );
-    } else if (docxInput && docxInput.files.length > 1) {
+    } else if (docxInput && docxInput.files.length > 0) {
+      // Always use the multi endpoint for docx uploads (works for 1+ files and avoids file/files mismatches)
       rota = "upload-faq-docx-multiplos";
       formData.delete("files");
-      Array.from(docxInput.files).forEach((file) =>
-        formData.append("files", file)
-      );
+      formData.delete("file");
+      Array.from(docxInput.files).forEach((file) => formData.append("files", file));
     }
 
     const chatbotId = uploadForm.querySelector(
@@ -717,6 +717,30 @@ async function editarFAQ(faq_id) {
     }
     faqAEditar = faqResp.faq;
 
+    // Block editing if the FAQ video is being generated
+    if (
+      faqAEditar.video_status === "queued" ||
+      faqAEditar.video_status === "processing"
+    ) {
+      alert(
+        "Não é possível editar esta FAQ enquanto o vídeo desta FAQ está a ser gerado."
+      );
+      return;
+    }
+
+    // Block editing FAQs that already have video when any other video job is running
+    try {
+      const vs = await fetch("/video/status").then((r) => r.json());
+      const job = (vs && vs.job) || {};
+      const isActive = job.status === "queued" || job.status === "processing";
+      if (isActive && faqAEditar.video_status === "ready") {
+        alert(
+          "Não é possível editar FAQs com vídeo já gerado enquanto existe outro vídeo a ser gerado."
+        );
+        return;
+      }
+    } catch (e) {}
+
     const categorias = await fetch(
       `/chatbots/${faqAEditar.chatbot_id}/categorias`
     ).then((r) => r.json());
@@ -739,23 +763,19 @@ async function editarFAQ(faq_id) {
       faqAEditar.faq_id
     );
 
-    const catContainer = document.getElementById("editarCategoriasContainer");
-    let categoriasMarcadas = [];
-    if (Array.isArray(faqAEditar.categorias)) {
-      categoriasMarcadas = faqAEditar.categorias.map(Number);
-    } else if (faqAEditar.categoria_id) {
-      categoriasMarcadas = [Number(faqAEditar.categoria_id)];
+    const catSelect = document.getElementById("editarCategoriaSelect");
+    if (catSelect) {
+      const selectedId = faqAEditar.categoria_id ? String(faqAEditar.categoria_id) : "";
+      catSelect.innerHTML =
+        '<option value="">Sem categoria</option>' +
+        categorias
+          .map(
+            (cat) =>
+              `<option value="${cat.categoria_id}">${cat.nome}</option>`
+          )
+          .join("");
+      catSelect.value = selectedId;
     }
-    catContainer.innerHTML = categorias
-      .map((cat) => {
-        const checked = categoriasMarcadas.includes(Number(cat.categoria_id));
-        return `<label style="display:inline-flex;align-items:center;gap:3px;">
-        <input type="checkbox" value="${cat.categoria_id}" ${
-          checked ? "checked" : ""
-        } />${cat.nome}
-      </label>`;
-      })
-      .join("");
 
     document.getElementById("modalEditarFAQ").style.display = "flex";
     const statusDiv = document.getElementById("editarStatusFAQ");
@@ -803,11 +823,9 @@ if (formEditarFAQ) {
       ? document.getElementById("editarRecomendado").checked
       : false;
 
-    const categoriasSel = Array.from(
-      document.querySelectorAll(
-        '#editarCategoriasContainer input[type="checkbox"]:checked'
-      )
-    ).map((cb) => parseInt(cb.value));
+    const categoriaSel = document.getElementById("editarCategoriaSelect")
+      ? parseInt(document.getElementById("editarCategoriaSelect").value || "")
+      : null;
     const relacionadasSel = Array.from(
       document.querySelectorAll(
         '#editarFaqRelacionadasSelect option:checked'
@@ -824,7 +842,7 @@ if (formEditarFAQ) {
           idioma,
           identificador,
           recomendado,
-          categorias: categoriasSel,
+          categoria_id: Number.isFinite(categoriaSel) ? categoriaSel : null,
           relacionadas: relacionadasSel,
         }),
       });
@@ -837,6 +855,11 @@ if (formEditarFAQ) {
           mostrarRespostas();
         }, 800);
       } else {
+        if (res.status === 409 && out && out.busy) {
+          status.textContent = out.error || "Não é possível editar agora.";
+          status.style.color = "#b91c1c";
+          return;
+        }
         status.textContent = out.error || "Erro ao atualizar.";
         status.style.color = "red";
       }

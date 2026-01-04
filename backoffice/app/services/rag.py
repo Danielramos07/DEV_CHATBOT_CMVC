@@ -14,6 +14,7 @@ def get_pdfs_from_db(chatbot_id=None):
         return cur.fetchall()
     finally:
         cur.close()
+        conn.close()
 
 def obter_mensagem_sem_resposta(chatbot_id):
     conn = get_conn()
@@ -26,6 +27,7 @@ def obter_mensagem_sem_resposta(chatbot_id):
         return "Desculpe, não encontrei uma resposta para a sua pergunta. Pode reformular a pergunta?"
     finally:
         cur.close()
+        conn.close()
 
 
 

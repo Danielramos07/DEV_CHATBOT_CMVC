@@ -1,8 +1,10 @@
 from flask import Blueprint, request, jsonify
+from flask import send_file
 from ..db import get_conn
 from ..services.retreival import build_faiss_index
 from ..services.text import normalizar_idioma
 from ..config import Config
+from ..services.video_service import can_start_new_video_job
 import os
 import traceback
 
@@ -38,12 +40,15 @@ def upload_pdf():
     uploaded_pdf_ids = []
     try:
         if not os.path.exists(Config.PDF_STORAGE_PATH):
-            os.makedirs(Config.PDF_STORAGE_PATH)
+            os.makedirs(Config.PDF_STORAGE_PATH, exist_ok=True)
         for file in files:
             filename = file.filename
             if not filename.lower().endswith('.pdf'):
                 return jsonify({"success": False, "error": "Apenas ficheiros PDF são permitidos."}), 400
-            file_path = os.path.join(Config.PDF_STORAGE_PATH, filename)
+            # Store per chatbot to avoid name collisions
+            chatbot_dir = os.path.join(Config.PDF_STORAGE_PATH, f"chatbot_{chatbot_id}")
+            os.makedirs(chatbot_dir, exist_ok=True)
+            file_path = os.path.join(chatbot_dir, filename)
             file.save(file_path)
             file.close()
             with open(file_path, 'rb') as f:
@@ -69,6 +74,25 @@ def upload_pdf():
         cur.close()
         conn.close()
 
+
+@app.route("/pdfs/<int:pdf_id>", methods=["GET"])
+def get_pdf(pdf_id: int):
+    """Serve an uploaded PDF from pdf_documents by id."""
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT file_path FROM pdf_documents WHERE pdf_id = %s", (pdf_id,))
+        row = cur.fetchone()
+        if not row or not row[0]:
+            return jsonify({"success": False, "error": "PDF não encontrado."}), 404
+        file_path = row[0]
+        if not os.path.isfile(file_path):
+            return jsonify({"success": False, "error": "Ficheiro PDF não existe no servidor."}), 404
+        return send_file(file_path, mimetype="application/pdf", as_attachment=False)
+    finally:
+        cur.close()
+        conn.close()
+
 @app.route("/upload-faq-docx", methods=["POST"])
 def upload_faq_docx():
     if not DOCX_AVAILABLE:
@@ -76,12 +100,33 @@ def upload_faq_docx():
     
     conn = get_conn()
     cur = conn.cursor()
-    if 'file' not in request.files:
+    # Accept both "file" and "files" (some forms send "files" even for a single docx)
+    if 'file' in request.files:
+        file = request.files['file']
+    elif 'files' in request.files:
+        files = request.files.getlist('files')
+        file = files[0] if files else None
+    else:
         return jsonify({"success": False, "error": "Ficheiro não enviado."}), 400
-    file = request.files['file']
+    if not file:
+        return jsonify({"success": False, "error": "Ficheiro não enviado."}), 400
     chatbot_id_raw = request.form.get("chatbot_id")
     if not chatbot_id_raw:
         return jsonify({"success": False, "error": "Chatbot ID não fornecido."}), 400
+    # If a video job is active, only block when at least one target chatbot has video enabled
+    if not can_start_new_video_job():
+        try:
+            if chatbot_id_raw == "todos":
+                cur.execute("SELECT 1 FROM chatbot WHERE video_enabled = TRUE LIMIT 1")
+                any_video = cur.fetchone() is not None
+            else:
+                cur.execute("SELECT video_enabled FROM chatbot WHERE chatbot_id = %s", (int(chatbot_id_raw),))
+                r = cur.fetchone()
+                any_video = bool(r[0]) if r else False
+            if any_video:
+                return jsonify({"success": False, "busy": True, "error": "Já existe um vídeo a ser gerado. Aguarde que termine."}), 409
+        except Exception:
+            return jsonify({"success": False, "busy": True, "error": "Já existe um vídeo a ser gerado. Aguarde que termine."}), 409
     try:
         doc = docx.Document(file)
         dados = {}
@@ -96,6 +141,7 @@ def upload_faq_docx():
         if not dados.get("designação da faq") or not dados.get("questão") or not dados.get("resposta"):
             raise Exception("Faltam campos obrigatórios: designação, questão ou resposta.")
         designacao = dados.get("designação da faq")
+        identificador = dados.get("identificador") or dados.get("id") or ""
         pergunta = dados.get("questão")
         resposta = dados.get("resposta")
         categoria = dados.get("categoria")
@@ -120,10 +166,10 @@ def upload_faq_docx():
             if cur.fetchone():
                 continue
             cur.execute("""
-                INSERT INTO faq (chatbot_id, designacao, pergunta, resposta, idioma, links_documentos)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO faq (chatbot_id, designacao, identificador, pergunta, resposta, idioma, links_documentos)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING faq_id
-            """, (chatbot_id, designacao, pergunta, resposta, idioma, links_documentos))
+            """, (chatbot_id, designacao, (identificador or "").strip() or None, pergunta, resposta, idioma, links_documentos))
             faq_id = cur.fetchone()[0]
             if categoria:
                 cur.execute("SELECT categoria_id FROM categoria WHERE nome ILIKE %s", (categoria,))
@@ -155,12 +201,28 @@ def upload_faq_docx_multiplos():
     
     conn = get_conn()
     cur = conn.cursor()
-    if 'files' not in request.files:
+    if 'files' not in request.files and 'file' not in request.files:
         return jsonify({"success": False, "error": "Ficheiros não enviados."}), 400
     chatbot_id_raw = request.form.get("chatbot_id")
     if not chatbot_id_raw:
         return jsonify({"success": False, "error": "Chatbot ID não fornecido."}), 400
-    files = request.files.getlist('files')
+    # If a video job is active, only block when at least one target chatbot has video enabled
+    if not can_start_new_video_job():
+        try:
+            cur2 = conn.cursor()
+            if chatbot_id_raw == "todos":
+                cur2.execute("SELECT 1 FROM chatbot WHERE video_enabled = TRUE LIMIT 1")
+                any_video = cur2.fetchone() is not None
+            else:
+                cur2.execute("SELECT video_enabled FROM chatbot WHERE chatbot_id = %s", (int(chatbot_id_raw),))
+                r = cur2.fetchone()
+                any_video = bool(r[0]) if r else False
+            cur2.close()
+            if any_video:
+                return jsonify({"success": False, "busy": True, "error": "Já existe um vídeo a ser gerado. Aguarde que termine."}), 409
+        except Exception:
+            return jsonify({"success": False, "busy": True, "error": "Já existe um vídeo a ser gerado. Aguarde que termine."}), 409
+    files = request.files.getlist('files') or request.files.getlist('file')
     total_inseridas = 0
     erros = []
     for file in files:
@@ -178,6 +240,7 @@ def upload_faq_docx_multiplos():
             if not dados.get("designação da faq") or not dados.get("questão") or not dados.get("resposta"):
                 raise Exception("Faltam campos obrigatórios: designação, questão ou resposta.")
             designacao = dados.get("designação da faq")
+            identificador = dados.get("identificador") or dados.get("id") or ""
             pergunta = dados.get("questão")
             resposta = dados.get("resposta")
             categoria = dados.get("categoria")
@@ -202,10 +265,10 @@ def upload_faq_docx_multiplos():
                 if cur.fetchone():
                     continue
                 cur.execute("""
-                    INSERT INTO faq (chatbot_id, designacao, pergunta, resposta, idioma, links_documentos)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO faq (chatbot_id, designacao, identificador, pergunta, resposta, idioma, links_documentos)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     RETURNING faq_id
-                """, (chatbot_id, designacao, pergunta, resposta, idioma, links_documentos))
+                """, (chatbot_id, designacao, (identificador or "").strip() or None, pergunta, resposta, idioma, links_documentos))
                 faq_id = cur.fetchone()[0]
                 if categoria:
                     cur.execute("SELECT categoria_id FROM categoria WHERE nome ILIKE %s", (categoria,))

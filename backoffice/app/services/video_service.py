@@ -11,7 +11,7 @@ import shutil
 
 from dotenv import load_dotenv
 
-from ..db import get_conn
+from ..db import get_pool_conn, put_pool_conn
 from ..video.src.piper_tts import speak as piper_speak
 from flask import current_app
 
@@ -64,39 +64,317 @@ _current_process: Optional[subprocess.Popen] = None
 _current_tmp_root: Optional[Path] = None
 _current_final_dir: Optional[Path] = None
 
+# Cross-worker/process global lock via Postgres advisory lock.
+# This makes "one global video job at a time" true even with multiple gunicorn workers/instances.
+_PG_VIDEO_LOCK_KEY = 912340981273  # bigint constant; must match across all app instances
+_lock_conn = None  # pooled connection kept open for the duration of the job while holding advisory lock
+
+
+def _db_update_video_job(**fields: Any) -> None:
+    """Best-effort update of the singleton row in video_job using the lock connection if available."""
+    global _lock_conn
+    conn = _lock_conn
+    if conn is None:
+        return
+    if not fields:
+        return
+    # always bump updated_at
+    cols = []
+    vals = []
+    for k, v in fields.items():
+        cols.append(f"{k}=%s")
+        vals.append(v)
+    cols.append("updated_at=NOW()")
+    sql = f"UPDATE video_job SET {', '.join(cols)} WHERE id=1"
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, tuple(vals))
+        conn.commit()
+        cur.close()
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+
+
+def _db_request_cancel() -> None:
+    """Request cancel globally (works even if the current HTTP request hits a different worker)."""
+    conn = None
+    cur = None
+    try:
+        conn = get_pool_conn()
+        cur = conn.cursor()
+        cur.execute("UPDATE video_job SET cancel_requested=TRUE, updated_at=NOW() WHERE id=1;")
+        conn.commit()
+    except Exception:
+        try:
+            if conn:
+                conn.rollback()
+        except Exception:
+            pass
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if conn:
+                put_pool_conn(conn)
+        except Exception:
+            pass
+
+
+def _db_is_cancel_requested() -> bool:
+    """Read cancel flag from DB using lock connection if available."""
+    global _lock_conn
+    conn = _lock_conn
+    if conn is None:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT cancel_requested FROM video_job WHERE id=1;")
+        row = cur.fetchone()
+        cur.close()
+        return bool(row[0]) if row else False
+    except Exception:
+        return False
+
+
+def _db_reset_video_job_row() -> None:
+    _db_update_video_job(
+        status="idle",
+        kind=None,
+        faq_id=None,
+        chatbot_id=None,
+        progress=0,
+        message="",
+        error=None,
+        cancel_requested=False,
+        started_at=None,
+    )
+
+
+def _try_acquire_global_video_lock(kind: str, *, faq_id: Optional[int], chatbot_id: Optional[int], message: str) -> bool:
+    """Attempt to acquire the global advisory lock and initialize video_job row.
+
+    IMPORTANT: advisory locks are held per-connection, so we keep this pooled connection open
+    for the duration of the job.
+    """
+    global _lock_conn
+    conn = None
+    cur = None
+    try:
+        conn = get_pool_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT pg_try_advisory_lock(%s);", (_PG_VIDEO_LOCK_KEY,))
+        ok = bool(cur.fetchone()[0])
+        if not ok:
+            return False
+        # Hold lock by keeping conn open in global
+        _lock_conn = conn
+        conn = None  # prevent returning it to pool
+        # Initialize DB job row
+        _db_update_video_job(
+            status="queued",
+            kind=kind,
+            faq_id=faq_id,
+            chatbot_id=chatbot_id,
+            progress=0,
+            message=message,
+            error=None,
+            cancel_requested=False,
+            started_at=None,
+        )
+        return True
+    except Exception:
+        return False
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if conn:
+                put_pool_conn(conn)
+        except Exception:
+            pass
+
+
+def _release_global_video_lock() -> None:
+    global _lock_conn, _cancel_requested
+    conn = _lock_conn
+    _lock_conn = None
+    _cancel_requested = False
+    if conn is None:
+        return
+    try:
+        # Clear DB job state first (best effort)
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                UPDATE video_job
+                SET status='idle',
+                    kind=NULL,
+                    faq_id=NULL,
+                    chatbot_id=NULL,
+                    progress=0,
+                    message='',
+                    error=NULL,
+                    cancel_requested=FALSE,
+                    started_at=NULL,
+                    updated_at=NOW()
+                WHERE id=1;
+                """
+            )
+            conn.commit()
+            cur.close()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+
+        # Release advisory lock
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT pg_advisory_unlock(%s);", (_PG_VIDEO_LOCK_KEY,))
+            conn.commit()
+            cur.close()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+    finally:
+        try:
+            put_pool_conn(conn)
+        except Exception:
+            pass
+
 
 def _set_job(**kwargs: Any) -> None:
     """Safely update the in-memory job state."""
 
     with _job_lock:
         _current_job.update(kwargs)
+    # Best-effort DB sync (for cross-worker status visibility)
+    if kwargs:
+        _db_update_video_job(**kwargs)
 
 
 def get_video_job_status() -> Dict[str, Any]:
-    """Return a snapshot of the current video job status."""
+    """Return a snapshot of the current video job status (DB-backed for multi-worker deployments)."""
+    conn = None
+    cur = None
+    try:
+        conn = get_pool_conn()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT status, kind, faq_id, chatbot_id, progress, message, error, cancel_requested, started_at, updated_at
+            FROM video_job
+            WHERE id=1;
+            """
+        )
+        row = cur.fetchone()
+        if not row:
+            # Fallback to in-memory if schema is not present for some reason
+            with _job_lock:
+                return dict(_current_job)
 
-    with _job_lock:
-        return dict(_current_job)
+        status, kind, faq_id, chatbot_id, progress, message, error, cancel_requested, started_at, updated_at = row
+
+        # If DB says we're busy but nobody holds the lock, treat as stale and reset.
+        if status in {"queued", "processing"}:
+            cur.execute("SELECT pg_try_advisory_lock(%s);", (_PG_VIDEO_LOCK_KEY,))
+            got = bool(cur.fetchone()[0])
+            if got:
+                # no one is holding it -> stale
+                cur.execute("UPDATE video_job SET status='idle', kind=NULL, faq_id=NULL, chatbot_id=NULL, progress=0, message='', error=NULL, cancel_requested=FALSE, started_at=NULL, updated_at=NOW() WHERE id=1;")
+                cur.execute("SELECT pg_advisory_unlock(%s);", (_PG_VIDEO_LOCK_KEY,))
+                conn.commit()
+                status, kind, faq_id, chatbot_id, progress, message, error, cancel_requested, started_at, updated_at = (
+                    "idle", None, None, None, 0, "", None, False, None, updated_at
+                )
+
+        return {
+            "status": status,
+            "kind": kind,
+            "faq_id": faq_id,
+            "chatbot_id": chatbot_id,
+            "progress": int(progress or 0),
+            "message": message or "",
+            "error": error,
+            "started_at": started_at.isoformat() if started_at else None,
+            "updated_at": updated_at.isoformat() if updated_at else None,
+            "cancel_requested": bool(cancel_requested),
+        }
+    except Exception:
+        with _job_lock:
+            return dict(_current_job)
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if conn:
+                put_pool_conn(conn)
+        except Exception:
+            pass
 
 
 def can_start_new_video_job() -> bool:
-    """Return True if there is no job currently queued/processing."""
-
-    with _job_lock:
-        return _current_job.get("status") not in {"queued", "processing"}
+    """Return True if there is no job currently queued/processing (cross-worker safe)."""
+    conn = None
+    cur = None
+    try:
+        conn = get_pool_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT pg_try_advisory_lock(%s);", (_PG_VIDEO_LOCK_KEY,))
+        got = bool(cur.fetchone()[0])
+        if got:
+            cur.execute("SELECT pg_advisory_unlock(%s);", (_PG_VIDEO_LOCK_KEY,))
+            conn.commit()
+            return True
+        return False
+    except Exception:
+        # best-effort fallback
+        with _job_lock:
+            return _current_job.get("status") not in {"queued", "processing"}
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if conn:
+                put_pool_conn(conn)
+        except Exception:
+            pass
 
 
 def _reset_job_state() -> None:
-    _set_job(
-        status="idle",
-        faq_id=None,
-        chatbot_id=None,
-        kind=None,
-        progress=0,
-        message="",
-        error=None,
-        started_at=None,
-    )
+    # In-memory reset only; DB reset + lock release happens in _release_global_video_lock().
+    with _job_lock:
+        _current_job.update(
+            {
+                "status": "idle",
+                "faq_id": None,
+                "chatbot_id": None,
+                "kind": None,
+                "progress": 0,
+                "message": "",
+                "error": None,
+                "started_at": None,
+            }
+        )
 
 
 def queue_videos_for_chatbot(chatbot_id: int) -> bool:
@@ -105,9 +383,15 @@ def queue_videos_for_chatbot(chatbot_id: int) -> bool:
     Returns False if another job is already running.
     """
 
+    if not _try_acquire_global_video_lock(
+        "chatbot",
+        faq_id=None,
+        chatbot_id=chatbot_id,
+        message="A preparar geração de vídeos do chatbot...",
+    ):
+        return False
+
     with _job_lock:
-        if _current_job.get("status") in {"queued", "processing"}:
-            return False
         _current_job.update(
             {
                 "status": "queued",
@@ -134,9 +418,15 @@ def queue_video_for_faq(faq_id: int) -> bool:
     Returns False if another job is already running.
     """
 
+    if not _try_acquire_global_video_lock(
+        "faq",
+        faq_id=faq_id,
+        chatbot_id=None,
+        message="A preparar geração de vídeo...",
+    ):
+        return False
+
     with _job_lock:
-        if _current_job.get("status") in {"queued", "processing"}:
-            return False
         _current_job.update(
             {
                 "status": "queued",
@@ -151,17 +441,29 @@ def queue_video_for_faq(faq_id: int) -> bool:
         )
 
     # Update DB status early so UI doesn't get stuck waiting with NULL
+    conn = None
+    cur = None
     try:
-        conn = get_conn()
+        conn = get_pool_conn()
         cur = conn.cursor()
         cur.execute("UPDATE faq SET video_status=%s WHERE faq_id=%s", ("queued", faq_id))
         conn.commit()
-        cur.close()
-        conn.close()
     except Exception:
         # Best-effort only; the worker will update status again.
         try:
-            conn.rollback()
+            if conn:
+                conn.rollback()
+        except Exception:
+            pass
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if conn:
+                put_pool_conn(conn)
         except Exception:
             pass
 
@@ -176,6 +478,7 @@ def request_cancel_current_job() -> Dict[str, Any]:
     """Request cancellation of the currently running job (best-effort)."""
     global _cancel_requested, _current_process
     _cancel_requested = True
+    _db_request_cancel()
     try:
         if _current_process and _current_process.poll() is None:
             _current_process.terminate()
@@ -299,7 +602,14 @@ def _generate_video(
 
         # Run SadTalker process (allow cancellation)
         _current_process = subprocess.Popen(cmd, cwd=str(VIDEO_ROOT))
+        last_db_cancel_check = 0.0
         while True:
+            # Check both local cancel (same worker) and DB cancel (any worker)
+            if _cancel_requested or (time.time() - last_db_cancel_check) > 0.8:
+                if (time.time() - last_db_cancel_check) > 0.8:
+                    last_db_cancel_check = time.time()
+                    if _db_is_cancel_requested():
+                        _cancel_requested = True
             if _cancel_requested:
                 try:
                     _current_process.terminate()
@@ -365,7 +675,7 @@ def _generate_video(
 
 def _run_video_job(faq_id: int, app) -> None:
     with app.app_context():
-        conn = get_conn()
+        conn = get_pool_conn()
         cur = conn.cursor()
         chatbot_id = None  # Initialize to ensure it's available in exception handlers
         try:
@@ -389,6 +699,8 @@ def _run_video_job(faq_id: int, app) -> None:
                 raise ValueError(f"FAQ com id {faq_id} não encontrada.")
 
             resposta, video_text, genero, icon_path, chatbot_id = row
+            # Expose chatbot_id in job status for UI label (best-effort)
+            _set_job(chatbot_id=chatbot_id)
             video_text = (video_text or resposta or "").strip()
             if not video_text:
                 raise ValueError("Texto para vídeo vazio.")
@@ -466,12 +778,14 @@ def _run_video_job(faq_id: int, app) -> None:
                 conn.rollback()
         finally:
             cur.close()
-            conn.close()
+            put_pool_conn(conn)
+            _release_global_video_lock()
+            _reset_job_state()
 
 
 def _run_idle_video_job(chatbot_id: int, app) -> None:
     with app.app_context():
-        conn = get_conn()
+        conn = get_pool_conn()
         cur = conn.cursor()
         try:
             _set_job(status="processing", progress=10, message="A preparar dados do chatbot...")
@@ -583,4 +897,6 @@ def _run_idle_video_job(chatbot_id: int, app) -> None:
                 conn.rollback()
         finally:
             cur.close()
-            conn.close()
+            put_pool_conn(conn)
+            _release_global_video_lock()
+            _reset_job_state()

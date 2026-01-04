@@ -16,7 +16,7 @@
     <h3>Introdução</h3>
     <p>Os assistentes virtuais com capacidade de resposta automatizada têm contribuído significativamente graças à integração de técnicas como o Processamento de Linguagem Natural, Sistemas Baseados em Regras e Modelos de IA Generativa. Este documento descreve a arquitetura geral de um sistema de chatbot inteligente que combina diferentes abordagens para garantir respostas rápidas, relevantes e contextuais, conforme a complexidade da questão colocada pelo utilizador.</p>
     <p>A solução baseia-se num fluxo que integra o carregamento de conteúdos, a indexação semântica e diferentes estratégias de formulação de resposta, incluindo mecanismos baseados em regras, pesquisa por similaridade semântica (FAISS) e geração aumentada por recuperação de dados (RAG) suportada por Modelos de Linguagem de Grande Escala (LLMs).</p>
-    <img src="{{ url_for('static', filename='images/Esquema.png') }}" alt="Esquema de estrutura do projeto." style="max-width: 100%; margin-bottom: 15px;">
+    <img src="{{ url_for('static', filename='images/backgrounds/Esquema.png') }}" alt="Esquema de estrutura do projeto." style="max-width: 100%; margin-bottom: 15px;">
     <h3>Arquitetura do Sistema</h3>
     <p>A arquitetura do sistema de resposta automatizada com chatbot assenta em dois pontos fundamentais:</p>
     <ol>
@@ -46,7 +46,7 @@
       <li>Respostas altamente contextualizadas e personalizadas (modo RAG + LLM)</li>
     </ul>
     <p>Por defeito, o chatbot privilegia o modo baseado em regras, oferecendo respostas rápidas e consistentes a questões frequentes. Sempre que o sistema deteta a necessidade de maior profundidade ou nuance — pelo tipo de pergunta ou comportamento da conversa — ativa automaticamente técnicas avançadas, incluindo IA Generativa suportada por LLMs, através da abordagem RAG.</p>
-    <img src="{{ url_for('static', filename='images/img.png') }}" alt="Fluxograma de Geração de Respostas" style="max-width: 100%; margin-bottom: 15px;">
+    <img src="{{ url_for('static', filename='images/backgrounds/img.png') }}" alt="Fluxograma de Geração de Respostas" style="max-width: 100%; margin-bottom: 15px;">
     <h3>Base de Dados</h3>
     <p>A componente de base de dados desempenha um papel central na arquitetura do Assistente Virtual, sendo responsável pela gestão e armazenamento da informação que suporta as respostas automáticas do sistema. A escolha e configuração das bases de dados variam conforme o modo de funcionamento do chatbot e o tipo de dados envolvidos.</p>
     <h4>Tipos de Bases de Dados Utilizadas</h4>
@@ -65,7 +65,7 @@
     </ul>
     <h3>3.3. Modelo de Base de Dados</h3>
     <p>De acordo com os requisitos funcionais e não funcionais, bem como com o objetivo do assistente virtual no contexto do comportamento baseado em regras, apresenta-se a estrutura da base de dados, ilustrada na Figura 3.</p>
-    <img src="{{ url_for('static', filename='images/bd.jpeg') }}" alt="Modelo de Base de Dados para Comportamento Baseado em Regras" style="max-width: 100%; margin-bottom: 15px;">
+    <img src="{{ url_for('static', filename='images/backgrounds/bd.jpeg') }}" alt="Modelo de Base de Dados para Comportamento Baseado em Regras" style="max-width: 100%; margin-bottom: 15px;">
     <p>As principais entidades do modelo incluem:</p>
     <ul>
       <li><strong>Utilizador (User):</strong> Armazena informações sobre os utilizadores do sistema, incluindo credenciais de acesso e permissões de administrador.</li>

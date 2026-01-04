@@ -7,6 +7,7 @@ import os
 import shutil
 from ..config import Config
 from ..auth import login_required
+from ..services.video_service import get_video_job_status
 
 app = Blueprint('chatbots', __name__)
 
@@ -99,7 +100,7 @@ def get_chatbots():
                 "descricao": row[2],
                 "data_criacao": row[3],
                 "cor": row[4] if row[4] else "#d4af37",
-                "icon_path": row[5] if row[5] else "/static/images/chatbot-icon.png",
+                "icon_path": row[5] if row[5] else "/static/images/chatbot/chatbot-icon.png",
                 "genero": row[6] if row[6] else None,
                 "video_enabled": bool(row[7]) if len(row) > 7 else False,
                 "ativo": bool(row[8]) if len(row) > 8 else False,
@@ -164,7 +165,7 @@ def criar_chatbot():
         video_enabled = bool(raw_video_enabled)
 
     # icon_path can be provided explicitly (json) or via file upload (form)
-    icon_path = _get_field("icon_path", "/static/images/chatbot-icon.png") or "/static/images/chatbot-icon.png"
+    icon_path = _get_field("icon_path", "/static/images/chatbot/chatbot-icon.png") or "/static/images/chatbot/chatbot-icon.png"
     uploaded_icon = request.files.get("icon")
 
     if not nome:
@@ -273,7 +274,7 @@ def obter_nome_chatbot(chatbot_id):
                 "success": True,
                 "nome": row[0],
                 "cor": row[1] or "#d4af37",
-                "icon": row[2] or "/static/images/chatbot-icon.png",
+                "icon": row[2] or "/static/images/chatbot/chatbot-icon.png",
                 "genero": row[3],
                 "video_greeting_path": video_greeting_url or None,
                 "video_idle_path": video_idle_url or None
@@ -290,11 +291,32 @@ def atualizar_chatbot(chatbot_id):
     conn = get_conn()
     cur = conn.cursor()
     try:
+        # Block editing this chatbot if a FAQ video job for this chatbot is running
+        job = get_video_job_status() or {}
+        if job.get("status") in {"queued", "processing"} and job.get("kind") == "faq":
+            try:
+                jid = job.get("chatbot_id")
+                if jid is not None and int(jid) == int(chatbot_id):
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "busy": True,
+                                "error": "Não é possível editar este chatbot enquanto está a ser gerado o vídeo de uma FAQ deste chatbot.",
+                            }
+                        ),
+                        409,
+                    )
+            except Exception:
+                pass
         print("Dados recebidos:", dict(request.form))
         nome = request.form.get("nome", "").strip()
         descricao = request.form.get("descricao", "").strip()
         fonte = request.form.get("fonte", "faq")
-        categorias = request.form.getlist("categorias[]") if request.form.getlist("categorias[]") else []
+        # Categories are managed via the dedicated endpoints (/chatbots/<id>/categorias)
+        # from the frontend. When the JS submits the form with a custom FormData, it
+        # may not include categorias[]. In that case we must NOT wipe existing links.
+        categorias = request.form.getlist("categorias[]") if "categorias[]" in request.form else None
         cor = request.form.get("cor", "").strip() or "#d4af37"
         mensagem_sem_resposta = request.form.get("mensagem_sem_resposta", "").strip()
         genero = request.form.get("genero") or None
@@ -313,13 +335,17 @@ def atualizar_chatbot(chatbot_id):
             return jsonify({"success": False, "error": "O nome do chatbot é obrigatório."}), 400
         
         # Get old values BEFORE updating (to compare if videos need regeneration)
-        cur.execute("SELECT nome, icon_path, genero, video_greeting_path, video_idle_path FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
+        cur.execute(
+            "SELECT nome, icon_path, genero, video_greeting_path, video_idle_path, video_enabled FROM chatbot WHERE chatbot_id = %s",
+            (chatbot_id,),
+        )
         old_row = cur.fetchone()
         old_nome = old_row[0] if old_row else None
         old_icon_path = old_row[1] if old_row else None
         old_genero = old_row[2] if old_row else None
         old_greeting_path = old_row[3] if old_row else None
         old_idle_path = old_row[4] if old_row else None
+        old_video_enabled = bool(old_row[5]) if old_row and len(old_row) > 5 else False
         
         # If icon_path is None (no new icon uploaded), keep the old one
         if not icon_path and old_icon_path:
@@ -335,12 +361,13 @@ def atualizar_chatbot(chatbot_id):
                 "UPDATE chatbot SET nome=%s, descricao=%s, cor=%s, mensagem_sem_resposta=%s, genero=%s, video_enabled=%s WHERE chatbot_id=%s",
                 (nome, descricao, cor, mensagem_sem_resposta, genero, video_enabled, chatbot_id)
             )
-        cur.execute("DELETE FROM chatbot_categoria WHERE chatbot_id=%s", (chatbot_id,))
-        for categoria_id in categorias:
-            cur.execute(
-                "INSERT INTO chatbot_categoria (chatbot_id, categoria_id) VALUES (%s, %s)",
-                (chatbot_id, int(categoria_id))
-            )
+        if categorias is not None:
+            cur.execute("DELETE FROM chatbot_categoria WHERE chatbot_id=%s", (chatbot_id,))
+            for categoria_id in categorias:
+                cur.execute(
+                    "INSERT INTO chatbot_categoria (chatbot_id, categoria_id) VALUES (%s, %s)",
+                    (chatbot_id, int(categoria_id))
+                )
         cur.execute("SELECT 1 FROM fonte_resposta WHERE chatbot_id=%s", (chatbot_id,))
         if cur.fetchone():
             cur.execute("UPDATE fonte_resposta SET fonte=%s WHERE chatbot_id=%s", (fonte, chatbot_id))
@@ -348,34 +375,17 @@ def atualizar_chatbot(chatbot_id):
             cur.execute("INSERT INTO fonte_resposta (chatbot_id, fonte) VALUES (%s, %s)", (chatbot_id, fonte))
         conn.commit()
 
-        # Only regenerate videos if video_enabled is True AND (videos don't exist OR nome/icon/genero changed)
-        # IMPORTANT: Do NOT regenerate if only descricao, cor, mensagem_sem_resposta, fonte, or categorias changed
+        # Only regenerate videos when explicitly needed.
+        # IMPORTANT: Do NOT regenerate if only descricao, cor, mensagem_sem_resposta, fonte, or categorias changed.
         if video_enabled:
-            # Check if videos need to be regenerated:
-            # 1. Videos don't exist (both must exist and be non-empty), OR
-            # 2. Nome, icon_path (new upload), or genero changed
-            # Treat None and empty strings as "missing"
-            old_greeting_exists = old_greeting_path and str(old_greeting_path).strip()
-            old_idle_exists = old_idle_path and str(old_idle_path).strip()
-            videos_missing = not old_greeting_exists or not old_idle_exists
-            
-            nome_changed = old_nome and nome and old_nome.strip() != nome.strip()
-            # icon_path comparison: only changed if a new icon was actually uploaded
-            icon_changed = new_icon_uploaded  # If a new icon was uploaded, it changed
-            # Handle genero comparison (both can be None)
+            was_video_enabled = bool(old_video_enabled)
+
+            nome_changed = (old_nome or "").strip() != (nome or "").strip()
+            icon_changed = bool(new_icon_uploaded)
             genero_changed = (old_genero or "").strip() != (genero or "").strip()
-            
-            # Debug logging
-            print(f"[atualizar_chatbot] video_enabled={video_enabled}")
-            print(f"[atualizar_chatbot] videos_missing={videos_missing} (greeting={old_greeting_path}, idle={old_idle_path})")
-            print(f"[atualizar_chatbot] nome_changed={nome_changed} (old='{old_nome}', new='{nome}')")
-            print(f"[atualizar_chatbot] icon_changed={icon_changed} (new_icon_uploaded={new_icon_uploaded})")
-            print(f"[atualizar_chatbot] genero_changed={genero_changed} (old='{old_genero}', new='{genero}')")
-            
-            # Only queue if videos are missing OR one of the video-relevant fields changed
-            should_queue = videos_missing or nome_changed or icon_changed or genero_changed
-            print(f"[atualizar_chatbot] should_queue={should_queue}")
-            
+
+            # Only queue if video was just enabled OR one of the video-relevant fields changed.
+            should_queue = (not was_video_enabled) or nome_changed or icon_changed or genero_changed
             if should_queue:
                 from ..services.video_service import queue_videos_for_chatbot
                 queue_videos_for_chatbot(chatbot_id)

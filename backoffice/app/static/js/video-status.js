@@ -25,10 +25,55 @@ async function atualizarIndicadorVideoJob() {
     const job = json.job || {};
     const status = job.status || "idle";
 
+    async function buildJobDetail(job) {
+      const kind = job.kind;
+      if (kind === "chatbot" && job.chatbot_id) {
+        try {
+          const r = await fetch(`/chatbots/${job.chatbot_id}`);
+          const d = await r.json().catch(() => ({}));
+          const nome = d && d.success && d.nome ? d.nome : `Chatbot ${job.chatbot_id}`;
+          return `${nome} — Greeting + Idle`;
+        } catch (e) {
+          return `Chatbot ${job.chatbot_id} — Greeting + Idle`;
+        }
+      }
+      if (kind === "faq" && job.faq_id) {
+        try {
+          const fr = await fetch(`/faqs/${job.faq_id}`);
+          const fj = await fr.json().catch(() => ({}));
+          const faq = fj && fj.success ? fj.faq : null;
+          const pergunta = faq && faq.pergunta ? String(faq.pergunta) : `FAQ ${job.faq_id}`;
+          const ident = faq && faq.identificador ? String(faq.identificador).trim() : "";
+          const botId = (faq && faq.chatbot_id) || job.chatbot_id;
+          let botNome = botId ? `Chatbot ${botId}` : "Chatbot";
+          if (botId) {
+            try {
+              const br = await fetch(`/chatbots/${botId}`);
+              const bj = await br.json().catch(() => ({}));
+              if (bj && bj.success && bj.nome) botNome = bj.nome;
+            } catch (e) {}
+          }
+          const label = ident ? `${ident}` : pergunta;
+          const short = label.length > 48 ? label.slice(0, 48) + "..." : label;
+          return `${botNome} — FAQ: ${short}`;
+        } catch (e) {
+          return `FAQ ${job.faq_id}`;
+        }
+      }
+      return "";
+    }
+
     if (status === "queued" || status === "processing") {
       indicador.style.display = "flex";
       const pct = typeof job.progress === "number" ? job.progress : 0;
-      texto.textContent = job.message || "A gerar vídeo...";
+      const baseMsg = job.message || "A gerar vídeo...";
+      let detail = "";
+      try {
+        detail = await buildJobDetail(job);
+      } catch (e) {
+        detail = "";
+      }
+      texto.textContent = detail ? `${baseMsg} (${detail})` : baseMsg;
       const barra = indicador.querySelector(".indicador-video-bar-inner");
       if (barra) barra.style.width = Math.max(5, Math.min(100, pct)) + "%";
       if (cancelBtn) cancelBtn.style.display = "inline-block";

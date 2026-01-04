@@ -204,9 +204,30 @@ def cancel_video_job():
         try:
             from ..services.video_service import ROOT, RESULTS_DIR
             result_root = RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)
-            faq_dir = result_root / f"faq_{faq_id}"
-            if faq_dir.exists() and faq_dir.is_dir():
-                shutil.rmtree(faq_dir, ignore_errors=True)
+            # New location: results/chatbot_<id>/faq_<faq_id>/
+            bot_id = chatbot_id
+            if not bot_id:
+                try:
+                    conn = get_conn()
+                    cur = conn.cursor()
+                    cur.execute("SELECT chatbot_id FROM faq WHERE faq_id = %s", (faq_id,))
+                    r = cur.fetchone()
+                    bot_id = r[0] if r else None
+                    cur.close()
+                    conn.close()
+                except Exception:
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
+            if bot_id:
+                faq_dir_new = result_root / f"chatbot_{bot_id}" / f"faq_{faq_id}"
+                if faq_dir_new.exists() and faq_dir_new.is_dir():
+                    shutil.rmtree(faq_dir_new, ignore_errors=True)
+            # Legacy location (backwards compatibility)
+            faq_dir_legacy = result_root / f"faq_{faq_id}"
+            if faq_dir_legacy.exists() and faq_dir_legacy.is_dir():
+                shutil.rmtree(faq_dir_legacy, ignore_errors=True)
         except Exception:
             pass
 
@@ -243,9 +264,14 @@ def cancel_video_job():
                 from ..services.video_service import ROOT, RESULTS_DIR
                 result_root = RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)
                 for faq_id in faq_ids:
-                    faq_dir = result_root / f"faq_{faq_id}"
-                    if faq_dir.exists() and faq_dir.is_dir():
-                        shutil.rmtree(faq_dir, ignore_errors=True)
+                    # New location: results/chatbot_<id>/faq_<faq_id>/
+                    faq_dir_new = result_root / f"chatbot_{chatbot_id}" / f"faq_{faq_id}"
+                    if faq_dir_new.exists() and faq_dir_new.is_dir():
+                        shutil.rmtree(faq_dir_new, ignore_errors=True)
+                    # Legacy location
+                    faq_dir_legacy = result_root / f"faq_{faq_id}"
+                    if faq_dir_legacy.exists() and faq_dir_legacy.is_dir():
+                        shutil.rmtree(faq_dir_legacy, ignore_errors=True)
             except Exception:
                 pass
 
