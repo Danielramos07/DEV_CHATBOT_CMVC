@@ -176,14 +176,27 @@
             </div>
           </div>
 
-          <button
-            id="chatResetBtn"
-            class="chat-reset-btn"
-            type="button"
-            onclick="reiniciarConversa()"
-          >
-            🔄 Reiniciar Conversa
-          </button>
+          <div style="display: flex; gap: 10px; align-items: center">
+            <button
+              id="chatResetBtn"
+              class="chat-reset-btn"
+              type="button"
+              onclick="reiniciarConversa()"
+              style="flex: 1"
+            >
+              🔄 Reiniciar
+            </button>
+            <button
+              id="chatMuteBtn"
+              class="chat-reset-btn"
+              type="button"
+              onclick="toggleAvatarSound()"
+              style="flex: 1"
+              title="Ligar/desligar som do avatar"
+            >
+              🔊 Som
+            </button>
+          </div>
 
           <div class="chat-suggestions" id="chatAvatarSuggestions"></div>
         </div>

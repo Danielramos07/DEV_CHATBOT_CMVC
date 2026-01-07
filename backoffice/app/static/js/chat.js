@@ -39,6 +39,9 @@ function atualizarCorChatbot() {
 
 document.addEventListener("DOMContentLoaded", function () {
   atualizarCorChatbot();
+  try {
+    updateAvatarSoundButton();
+  } catch (e) {}
 });
 
 function getIdiomaAtual() {
@@ -326,6 +329,44 @@ async function enviarWavParaTranscricao() {
 let avatarAtivo = true;
 let currentFaqVideoId = null;
 
+const AVATAR_SOUND_MUTED_KEY = "avatarSoundMuted";
+
+function isAvatarSoundMuted() {
+  try {
+    return localStorage.getItem(AVATAR_SOUND_MUTED_KEY) === "1";
+  } catch (e) {
+    return false;
+  }
+}
+
+function updateAvatarSoundButton() {
+  const btn = document.getElementById("chatMuteBtn");
+  if (!btn) return;
+  const muted = isAvatarSoundMuted();
+  btn.textContent = muted ? "🔇 Som" : "🔊 Som";
+}
+
+function setAvatarSoundMuted(muted) {
+  try {
+    localStorage.setItem(AVATAR_SOUND_MUTED_KEY, muted ? "1" : "0");
+  } catch (e) {}
+  updateAvatarSoundButton();
+
+  // Apply immediately to current video
+  try {
+    const videoEl = document.querySelector(".chat-avatar-video");
+    if (videoEl && muted) {
+      videoEl.muted = true;
+    }
+  } catch (e) {}
+}
+
+function toggleAvatarSound() {
+  setAvatarSoundMuted(!isAvatarSoundMuted());
+}
+
+window.toggleAvatarSound = toggleAvatarSound;
+
 function toggleAvatarAtivo() {
   avatarAtivo = !avatarAtivo;
   const avatarPanel = document.getElementById("chatAvatarPanel");
@@ -357,7 +398,7 @@ function toggleAvatarAtivo() {
         videoEl.muted = true;
       } else if (greetingPath && !hasPlayedGreeting) {
         // É greeting e ainda não foi reproduzido: tentar unmute
-        videoEl.muted = false;
+        videoEl.muted = isAvatarSoundMuted() ? true : false;
       }
 
       // Tentar reproduzir se o vídeo já estava carregado
@@ -510,7 +551,7 @@ async function mostrarVideoFaqNoAvatar(faqId) {
     videoEl.playbackRate = 1.0;
   } catch (e) {}
   // Try to play FAQ video with sound (unmuted)
-  videoEl.muted = false;
+  videoEl.muted = isAvatarSoundMuted() ? true : false;
 
   const onEnded = () => {
     // Ao terminar, voltar ao idle (se existir) ou manter imagem
@@ -1865,7 +1906,7 @@ function setupAvatarVideo() {
     // For greeting, try to play with sound (unmuted)
     currentVideoEl.src = greetingPath;
     currentVideoEl.loop = false;
-    currentVideoEl.muted = false; // Try to play with sound for greeting
+    currentVideoEl.muted = isAvatarSoundMuted() ? true : false; // Greeting respects mute toggle
     try {
       currentVideoEl.playbackRate = 1.0;
     } catch (e) {}
