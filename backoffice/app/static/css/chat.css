@@ -121,8 +121,8 @@
   height: 230px;
   max-height: 230px;
   border-radius: inherit;
-  /* Avoid extra crop/"zoom" vs the fallback image when aspect ratios differ */
-  object-fit: contain;
+  /* Fill the box without cropping/"zoom" (may slightly distort if ratios differ) */
+  object-fit: fill;
   object-position: center;
   display: block;
   background: transparent;
