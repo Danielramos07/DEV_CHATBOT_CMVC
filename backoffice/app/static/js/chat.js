@@ -37,6 +37,45 @@ function atualizarCorChatbot() {
   }
 }
 
+async function refreshChatbotVideoUrls(chatbotId) {
+  if (!chatbotId || isNaN(chatbotId)) return null;
+  try {
+    const res = await fetch(`/chatbots/${chatbotId}`);
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => null);
+    if (!data || !data.success) return null;
+
+    if (data.video_greeting_path) {
+      localStorage.setItem("videoGreetingPath", data.video_greeting_path);
+    } else {
+      localStorage.removeItem("videoGreetingPath");
+    }
+    if (data.video_idle_path) {
+      localStorage.setItem("videoIdlePath", data.video_idle_path);
+    } else {
+      localStorage.removeItem("videoIdlePath");
+    }
+    if (data.video_positive_path) {
+      localStorage.setItem("videoPositivePath", data.video_positive_path);
+    } else {
+      localStorage.removeItem("videoPositivePath");
+    }
+    if (data.video_negative_path) {
+      localStorage.setItem("videoNegativePath", data.video_negative_path);
+    } else {
+      localStorage.removeItem("videoNegativePath");
+    }
+    if (data.video_no_answer_path) {
+      localStorage.setItem("videoNoAnswerPath", data.video_no_answer_path);
+    } else {
+      localStorage.removeItem("videoNoAnswerPath");
+    }
+    return data;
+  } catch (e) {
+    return null;
+  }
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   atualizarCorChatbot();
   try {
@@ -565,14 +604,21 @@ async function mostrarVideoFaqNoAvatar(faqId) {
   // Try to play FAQ video with sound (unmuted)
   videoEl.muted = isAvatarSoundMuted() ? true : false;
 
-  const onEnded = () => {
+  const onEnded = async () => {
     // Ao terminar, voltar ao idle (se existir) ou manter imagem
     // Clear FAQ video ID since we're done with it
     currentFaqVideoId = null;
     try {
       videoEl.removeEventListener("ended", onEnded);
     } catch (e) {}
-    const idlePath = localStorage.getItem("videoIdlePath");
+    let idlePath = localStorage.getItem("videoIdlePath");
+    if (!idlePath) {
+      try {
+        const chatbotId = parseInt(localStorage.getItem("chatbotAtivo"));
+        await refreshChatbotVideoUrls(chatbotId);
+        idlePath = localStorage.getItem("videoIdlePath");
+      } catch (e) {}
+    }
     if (idlePath) {
       // Pause current video
       videoEl.pause();
@@ -585,7 +631,7 @@ async function mostrarVideoFaqNoAvatar(faqId) {
       if (imgEl) imgEl.style.display = "none";
 
       // Function to play idle video
-      const playIdle = () => {
+      const playIdle = async () => {
         // Ensure video is visible and image is hidden before playing
         videoEl.style.display = "block";
         if (imgEl) imgEl.style.display = "none";
@@ -593,18 +639,34 @@ async function mostrarVideoFaqNoAvatar(faqId) {
         try {
           videoEl.playbackRate = 0.3;
         } catch (e) {}
-        videoEl
-          .play()
-          .then(() => {
-            // Double-check that video is visible and image is hidden after successful play
-            videoEl.style.display = "block";
-            if (imgEl) imgEl.style.display = "none";
-          })
-          .catch(() => {
-            // If idle video fails to play, show static image
-            videoEl.style.display = "none";
-            if (imgEl) imgEl.style.display = "block";
-          });
+        try {
+          await videoEl.play();
+          // Double-check that video is visible and image is hidden after successful play
+          videoEl.style.display = "block";
+          if (imgEl) imgEl.style.display = "none";
+        } catch (e) {
+          // If idle video fails to play (often due to expired signed URL), refresh and retry once.
+          try {
+            const chatbotId = parseInt(localStorage.getItem("chatbotAtivo"));
+            await refreshChatbotVideoUrls(chatbotId);
+            const freshIdle = localStorage.getItem("videoIdlePath");
+            if (freshIdle) {
+              videoEl.src = freshIdle;
+              videoEl.loop = true;
+              videoEl.muted = true;
+              try {
+                videoEl.playbackRate = 0.3;
+              } catch (e) {}
+              await videoEl.play();
+              videoEl.style.display = "block";
+              if (imgEl) imgEl.style.display = "none";
+              return;
+            }
+          } catch (e2) {}
+          // If still failing, show static image
+          videoEl.style.display = "none";
+          if (imgEl) imgEl.style.display = "block";
+        }
       };
 
       // Check if video src already matches idle path (accounting for query params)
@@ -2129,20 +2191,44 @@ function setupAvatarVideo() {
         });
       });
     };
-    currentVideoEl.onended = () => {
+    currentVideoEl.onended = async () => {
       hasPlayedGreeting = true;
       // Switch to idle (muted, as it's just animation)
-      if (idlePath) {
-        currentVideoEl.src = idlePath;
+      let idle = idlePath;
+      if (!idle) {
+        try {
+          await refreshChatbotVideoUrls(chatbotId);
+          idle = localStorage.getItem("videoIdlePath");
+        } catch (e) {}
+      }
+      if (idle) {
+        currentVideoEl.src = idle;
         currentVideoEl.loop = true;
         currentVideoEl.muted = true; // Idle should be muted
         try {
           currentVideoEl.playbackRate = 0.3;
         } catch (e) {}
-        currentVideoEl.play().catch(() => {
+        try {
+          await currentVideoEl.play();
+        } catch (e) {
+          // Retry once with fresh signed URL
+          try {
+            await refreshChatbotVideoUrls(chatbotId);
+            const freshIdle = localStorage.getItem("videoIdlePath");
+            if (freshIdle) {
+              currentVideoEl.src = freshIdle;
+              currentVideoEl.loop = true;
+              currentVideoEl.muted = true;
+              try {
+                currentVideoEl.playbackRate = 0.3;
+              } catch (e) {}
+              await currentVideoEl.play();
+              return;
+            }
+          } catch (e2) {}
           currentVideoEl.style.display = "none";
           if (imgEl) imgEl.style.display = "block";
-        });
+        }
       } else {
         // No idle video, show image
         currentVideoEl.style.display = "none";
