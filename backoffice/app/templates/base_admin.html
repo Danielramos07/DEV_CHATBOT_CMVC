@@ -270,13 +270,20 @@
               </div>
             </div>
 
-            <div style="display: flex; gap: 10px; align-items: center">
+            <div
+              style="
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                flex-wrap: nowrap;
+              "
+            >
               <button
                 id="chatResetBtn"
                 class="chat-reset-btn"
                 type="button"
                 onclick="reiniciarConversa()"
-                style="flex: 1.35; white-space: nowrap"
+                style="flex: 1.35; white-space: nowrap; min-width: 140px"
               >
                 🔄 Reiniciar
               </button>
@@ -285,7 +292,7 @@
                 class="chat-reset-btn"
                 type="button"
                 onclick="toggleAvatarSound()"
-                style="flex: 1; white-space: nowrap"
+                style="flex: 1; white-space: nowrap; min-width: 110px"
                 title="Ligar/desligar som do avatar"
               >
                 🔊 Som

@@ -76,15 +76,16 @@ content %}
         <input type="file" name="icon" id="novoIconChatbot" accept="image/*" />
         <input type="hidden" name="icon_preset" id="novoIconPreset" value="" />
         <div style="margin-top: 10px">Avatares pré-definidos:</div>
-                width: 48px;
-                height: 48px;
+        <div
+          id="avatarPresets"
           style="
             display: flex;
             gap: 10px;
             flex-wrap: nowrap;
             overflow-x: auto;
+            overflow-y: hidden;
             margin-top: 8px;
-            padding: 8px 8px 10px 14px;
+            padding: 6px 8px 10px 12px;
             align-items: center;
           "
         >
@@ -192,10 +193,10 @@ content %}
               cursor: pointer;
               flex: 0 0 auto;
               display: inline-flex;
-              width: 52px;
-              height: 52px;
-              min-width: 52px;
-              max-width: 52px;
+              width: 48px;
+              height: 48px;
+              min-width: 48px;
+              max-width: 48px;
               align-items: center;
               justify-content: center;
               overflow: hidden;
@@ -205,8 +206,8 @@ content %}
               src="/static/images/avatars/face4.png"
               alt="Avatar 4"
               style="
-                width: 52px;
-                height: 52px;
+                width: 48px;
+                height: 48px;
                 border-radius: 10px;
                 object-fit: cover;
               "
@@ -223,10 +224,10 @@ content %}
               cursor: pointer;
               flex: 0 0 auto;
               display: inline-flex;
-              width: 52px;
-              height: 52px;
-              min-width: 52px;
-              max-width: 52px;
+              width: 48px;
+              height: 48px;
+              min-width: 48px;
+              max-width: 48px;
               align-items: center;
               justify-content: center;
               overflow: hidden;
@@ -236,8 +237,8 @@ content %}
               src="/static/images/avatars/face5.png"
               alt="Avatar 5"
               style="
-                width: 52px;
-                height: 52px;
+                width: 48px;
+                height: 48px;
                 border-radius: 10px;
                 object-fit: cover;
               "
