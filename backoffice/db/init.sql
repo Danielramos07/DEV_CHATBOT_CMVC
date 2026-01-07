@@ -13,10 +13,17 @@ CREATE TABLE IF NOT EXISTS chatbot (
     cor VARCHAR(16) NOT NULL DEFAULT '#d4af37',
     icon_path TEXT,
     mensagem_sem_resposta TEXT,
+    greeting_video_text TEXT,
+    mensagem_inicial TEXT,
+    mensagem_feedback_positiva TEXT,
+    mensagem_feedback_negativa TEXT,
     genero VARCHAR(20),
     video_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     video_idle_path TEXT,
     video_greeting_path TEXT,
+    video_positive_path TEXT,
+    video_negative_path TEXT,
+    video_no_answer_path TEXT,
     ativo BOOLEAN NOT NULL DEFAULT FALSE
 );
 

@@ -97,7 +97,8 @@ def obter_resposta():
                 registar_pergunta_nao_respondida(chatbot_id, pergunta, "faq")
                 return jsonify({
                     "success": False,
-                    "erro": obter_mensagem_sem_resposta(chatbot_id)
+                    "erro": obter_mensagem_sem_resposta(chatbot_id),
+                    "no_answer": True
                 })
             elif fonte == "faiss":
                 faiss_resultados = pesquisar_faiss(pergunta, chatbot_id=chatbot_id, k=1, min_sim=0.7)

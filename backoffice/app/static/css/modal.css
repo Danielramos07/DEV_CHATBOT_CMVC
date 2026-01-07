@@ -207,6 +207,35 @@
   box-shadow: 0 10px 60px rgba(31, 41, 55, 0.18);
   background: #fff;
   font-family: "Inter", sans-serif;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+
+/* Create-bot modal: section titles should be left-aligned */
+.modal-box-novo-bot-exclusivo .section-title {
+  text-align: left;
+}
+
+/* Create-bot modal: prettier video-enabled checkbox row */
+.modal-box-novo-bot-exclusivo .video-enabled-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid #dadada;
+  background: #fafafa;
+  margin: 10px 0 14px 0;
+}
+
+.modal-box-novo-bot-exclusivo .video-enabled-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.modal-box-novo-bot-exclusivo .video-enabled-row span {
+  line-height: 1.35;
 }
 .modal-box-novo-bot-exclusivo h2 {
   font-size: 28px;

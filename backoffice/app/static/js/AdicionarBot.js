@@ -66,6 +66,26 @@ document.addEventListener("DOMContentLoaded", () => {
       "mensagem_sem_resposta",
       this.mensagem_sem_resposta ? this.mensagem_sem_resposta.value.trim() : ""
     );
+    fd.append(
+      "greeting_video_text",
+      this.greeting_video_text ? this.greeting_video_text.value.trim() : ""
+    );
+    fd.append(
+      "mensagem_inicial",
+      this.mensagem_inicial ? this.mensagem_inicial.value.trim() : ""
+    );
+    fd.append(
+      "mensagem_feedback_positiva",
+      this.mensagem_feedback_positiva
+        ? this.mensagem_feedback_positiva.value.trim()
+        : ""
+    );
+    fd.append(
+      "mensagem_feedback_negativa",
+      this.mensagem_feedback_negativa
+        ? this.mensagem_feedback_negativa.value.trim()
+        : ""
+    );
     fd.append("cor", this.cor ? this.cor.value : "#d4af37");
     fd.append(
       "video_enabled",

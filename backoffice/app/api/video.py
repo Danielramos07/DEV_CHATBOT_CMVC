@@ -20,6 +20,11 @@ app = Blueprint("video", __name__)
 def queue_video():
     data = request.get_json() or {}
     faq_id = data.get("faq_id")
+    raw_force = data.get("force", False)
+    if isinstance(raw_force, str):
+        force = raw_force.strip().lower() in {"1", "true", "yes", "on"}
+    else:
+        force = bool(raw_force)
 
     if faq_id is None:
         return jsonify({"success": False, "error": "faq_id é obrigatório."}), 400
@@ -73,7 +78,7 @@ def queue_video():
                 409,
             )
 
-        if video_status == "ready" and video_path:
+        if video_status == "ready" and video_path and not force:
             return (
                 jsonify(
                     {
@@ -383,5 +388,113 @@ def video_greeting_for_chatbot(chatbot_id: int):
         nonce = request.args.get("nonce", "")
         sig = request.args.get("sig")
         if not (exp and sig and verify_media_sig("greeting", str(chatbot_id), int(exp), str(nonce), str(sig), secret_fallback=Config.SECRET_KEY)):
+            return jsonify({"success": False, "error": "Unauthorized"}), 403
+    return send_file(path, mimetype="video/mp4", as_attachment=False)
+
+
+@app.route("/video/chatbot/<int:chatbot_id>/positive", methods=["GET"])
+def video_positive_for_chatbot(chatbot_id: int):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT video_positive_path FROM chatbot WHERE chatbot_id = %s",
+            (chatbot_id,),
+        )
+        row = cur.fetchone()
+        if not row or not row[0]:
+            return jsonify({"success": False, "error": "Vídeo positivo não disponível."}), 404
+        path = row[0]
+    finally:
+        cur.close()
+        conn.close()
+    if Config.REQUIRE_SIGNED_MEDIA:
+        exp = request.args.get("exp")
+        nonce = request.args.get("nonce", "")
+        sig = request.args.get("sig")
+        if not (
+            exp
+            and sig
+            and verify_media_sig(
+                "positive",
+                str(chatbot_id),
+                int(exp),
+                str(nonce),
+                str(sig),
+                secret_fallback=Config.SECRET_KEY,
+            )
+        ):
+            return jsonify({"success": False, "error": "Unauthorized"}), 403
+    return send_file(path, mimetype="video/mp4", as_attachment=False)
+
+
+@app.route("/video/chatbot/<int:chatbot_id>/negative", methods=["GET"])
+def video_negative_for_chatbot(chatbot_id: int):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT video_negative_path FROM chatbot WHERE chatbot_id = %s",
+            (chatbot_id,),
+        )
+        row = cur.fetchone()
+        if not row or not row[0]:
+            return jsonify({"success": False, "error": "Vídeo negativo não disponível."}), 404
+        path = row[0]
+    finally:
+        cur.close()
+        conn.close()
+    if Config.REQUIRE_SIGNED_MEDIA:
+        exp = request.args.get("exp")
+        nonce = request.args.get("nonce", "")
+        sig = request.args.get("sig")
+        if not (
+            exp
+            and sig
+            and verify_media_sig(
+                "negative",
+                str(chatbot_id),
+                int(exp),
+                str(nonce),
+                str(sig),
+                secret_fallback=Config.SECRET_KEY,
+            )
+        ):
+            return jsonify({"success": False, "error": "Unauthorized"}), 403
+    return send_file(path, mimetype="video/mp4", as_attachment=False)
+
+
+@app.route("/video/chatbot/<int:chatbot_id>/no-answer", methods=["GET"])
+def video_no_answer_for_chatbot(chatbot_id: int):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT video_no_answer_path FROM chatbot WHERE chatbot_id = %s",
+            (chatbot_id,),
+        )
+        row = cur.fetchone()
+        if not row or not row[0]:
+            return jsonify({"success": False, "error": "Vídeo de sem resposta não disponível."}), 404
+        path = row[0]
+    finally:
+        cur.close()
+        conn.close()
+    if Config.REQUIRE_SIGNED_MEDIA:
+        exp = request.args.get("exp")
+        nonce = request.args.get("nonce", "")
+        sig = request.args.get("sig")
+        if not (
+            exp
+            and sig
+            and verify_media_sig(
+                "no_answer",
+                str(chatbot_id),
+                int(exp),
+                str(nonce),
+                str(sig),
+                secret_fallback=Config.SECRET_KEY,
+            )
+        ):
             return jsonify({"success": False, "error": "Unauthorized"}), 403
     return send_file(path, mimetype="video/mp4", as_attachment=False)

@@ -42,6 +42,12 @@ content %}
           <option value="f">Feminino</option>
         </select>
       </div>
+
+      <h3 class="section-title" style="margin: 6px 0 10px 0">Mensagens</h3>
+      <hr
+        style="border: none; border-top: 1px solid #dadada; margin: 0 0 14px 0"
+      />
+
       <div class="form-group">
         <label for="novaMensagemSemResposta"
           >Mensagem personalizada "Sem Resposta":</label
@@ -53,6 +59,54 @@ content %}
           rows="2"
         ></textarea>
       </div>
+      <div class="form-group">
+        <label for="novoGreetingVideoText"
+          >Texto do avatar (vídeo de saudação):</label
+        >
+        <textarea
+          name="greeting_video_text"
+          id="novoGreetingVideoText"
+          placeholder='Ex: "Olá, sou o Assistente. Como posso ajudar?"'
+          rows="2"
+        ></textarea>
+      </div>
+      <div class="form-group">
+        <label for="novaMensagemInicial">Mensagem inicial no chat:</label>
+        <textarea
+          name="mensagem_inicial"
+          id="novaMensagemInicial"
+          placeholder="Mensagem apresentada como primeira mensagem no chat..."
+          rows="3"
+        ></textarea>
+      </div>
+      <div class="form-group">
+        <label for="novaMensagemFeedbackPositiva"
+          >Mensagem após feedback positivo:</label
+        >
+        <textarea
+          name="mensagem_feedback_positiva"
+          id="novaMensagemFeedbackPositiva"
+          placeholder='Ex: "Fico contente por ter ajudado."'
+          rows="2"
+        ></textarea>
+      </div>
+      <div class="form-group">
+        <label for="novaMensagemFeedbackNegativa"
+          >Mensagem após feedback negativo:</label
+        >
+        <textarea
+          name="mensagem_feedback_negativa"
+          id="novaMensagemFeedbackNegativa"
+          placeholder='Ex: "Lamento não ter conseguido responder. Tente reformular a pergunta."'
+          rows="2"
+        ></textarea>
+      </div>
+
+      <h3 class="section-title" style="margin: 6px 0 10px 0">Personalização</h3>
+      <hr
+        style="border: none; border-top: 1px solid #dadada; margin: 0 0 14px 0"
+      />
+
       <div class="form-group">
         <label class="cor-bot-label" for="novaCorChatbot">
           <span>Cor do Bot:</span>
@@ -326,6 +380,48 @@ content %}
           name="mensagem_sem_resposta"
           id="editarMensagemSemResposta"
           placeholder="Mensagem apresentada quando não há resposta..."
+          rows="2"
+        ></textarea>
+      </div>
+      <div class="form-group">
+        <label for="editarGreetingVideoText"
+          >Texto do avatar (vídeo de saudação):</label
+        >
+        <textarea
+          name="greeting_video_text"
+          id="editarGreetingVideoText"
+          placeholder='Ex: "Olá, sou o Assistente. Como posso ajudar?"'
+          rows="2"
+        ></textarea>
+      </div>
+      <div class="form-group">
+        <label for="editarMensagemInicial">Mensagem inicial no chat:</label>
+        <textarea
+          name="mensagem_inicial"
+          id="editarMensagemInicial"
+          placeholder="Mensagem apresentada como primeira mensagem no chat..."
+          rows="3"
+        ></textarea>
+      </div>
+      <div class="form-group">
+        <label for="editarMensagemFeedbackPositiva"
+          >Mensagem após feedback positivo:</label
+        >
+        <textarea
+          name="mensagem_feedback_positiva"
+          id="editarMensagemFeedbackPositiva"
+          placeholder='Ex: "Fico contente por ter ajudado."'
+          rows="2"
+        ></textarea>
+      </div>
+      <div class="form-group">
+        <label for="editarMensagemFeedbackNegativa"
+          >Mensagem após feedback negativo:</label
+        >
+        <textarea
+          name="mensagem_feedback_negativa"
+          id="editarMensagemFeedbackNegativa"
+          placeholder='Ex: "Lamento não ter conseguido responder. Tente reformular a pergunta."'
           rows="2"
         ></textarea>
       </div>

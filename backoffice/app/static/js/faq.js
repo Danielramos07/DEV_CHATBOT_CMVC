@@ -873,6 +873,15 @@ if (formEditarFAQ) {
 
     if (!faqAEditar) return;
 
+    const hadReadyVideo =
+      faqAEditar.video_status === "ready" && !!faqAEditar.video_path;
+    let shouldRegenerateVideo = false;
+    if (hadReadyVideo) {
+      shouldRegenerateVideo = window.confirm(
+        "Esta FAQ já tem vídeo gerado. Deseja regenerar o vídeo após atualizar?"
+      );
+    }
+
     const pergunta = document.getElementById("editarPergunta").value.trim();
     const serve_text = document.getElementById("editarServeText")?.value.trim();
     const resposta = document.getElementById("editarResposta").value.trim();
@@ -908,8 +917,33 @@ if (formEditarFAQ) {
       });
       const out = await res.json();
       if (out.success) {
-        status.textContent = "✅ FAQ atualizada com sucesso!";
-        status.style.color = "green";
+        if (shouldRegenerateVideo) {
+          try {
+            const q = await fetch("/video/queue", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ faq_id: faqAEditar.faq_id, force: true }),
+            });
+            const qout = await q.json();
+            if (qout && qout.success) {
+              status.textContent =
+                "✅ FAQ atualizada. Vídeo colocado na fila para regeneração.";
+              status.style.color = "green";
+            } else {
+              status.textContent =
+                (qout && qout.error) ||
+                "FAQ atualizada, mas não foi possível regenerar o vídeo.";
+              status.style.color = "#b91c1c";
+            }
+          } catch (e) {
+            status.textContent =
+              "FAQ atualizada, mas houve erro ao pedir regeneração do vídeo.";
+            status.style.color = "#b91c1c";
+          }
+        } else {
+          status.textContent = "✅ FAQ atualizada com sucesso!";
+          status.style.color = "green";
+        }
         setTimeout(() => {
           document.getElementById("modalEditarFAQ").style.display = "none";
           mostrarRespostas();

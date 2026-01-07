@@ -812,13 +812,41 @@ def _run_idle_video_job(chatbot_id: int, app) -> None:
             _set_job(status="processing", progress=10, message="A preparar dados do chatbot...")
 
             cur.execute(
-                "SELECT nome, genero, icon_path FROM chatbot WHERE chatbot_id = %s",
+                """
+                SELECT nome,
+                       genero,
+                       icon_path,
+                       greeting_video_text,
+                       mensagem_sem_resposta,
+                       mensagem_feedback_positiva,
+                       mensagem_feedback_negativa,
+                       video_greeting_path,
+                       video_idle_path,
+                       video_positive_path,
+                       video_negative_path,
+                       video_no_answer_path
+                FROM chatbot
+                WHERE chatbot_id = %s
+                """,
                 (chatbot_id,),
             )
             row = cur.fetchone()
             if not row:
                 raise ValueError(f"Chatbot {chatbot_id} não encontrado.")
-            nome, genero, icon_path = row
+            (
+                nome,
+                genero,
+                icon_path,
+                greeting_video_text,
+                msg_no_answer,
+                msg_pos,
+                msg_neg,
+                old_greeting_path,
+                old_idle_path,
+                old_positive_path,
+                old_negative_path,
+                old_no_answer_path,
+            ) = row
 
             # Resolver avatar
             avatar_file: Optional[Path] = None
@@ -834,7 +862,7 @@ def _run_idle_video_job(chatbot_id: int, app) -> None:
 
             # Generate greeting video
             _set_job(progress=25, message="A gerar vídeo de saudação...")
-            video_text = f"Olá, sou o {nome}. Como posso ajudar?"
+            video_text = (greeting_video_text or "").strip() or f"Olá, sou o {nome}. Como posso ajudar?"
             base_dir = (RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)) / f"chatbot_{chatbot_id}"
             greeting_path = _generate_video(
                 video_text,
@@ -869,18 +897,79 @@ def _run_idle_video_job(chatbot_id: int, app) -> None:
                 print(f"Erro ao gerar vídeo idle: {idle_error}")
                 _set_job(progress=90, message=f"Vídeo idle falhou, mas greeting foi gerado. Erro: {str(idle_error)}")
 
+            # Generate feedback/no-answer videos (best-effort)
+            _set_job(progress=75, message="A gerar vídeos adicionais (feedback/sem resposta)...")
+            default_pos = "Fico contente por ter ajudado."
+            default_neg = "Lamento não ter conseguido responder. Tente reformular a pergunta."
+            default_no_answer = "Desculpe, não encontrei uma resposta para a sua pergunta. Pode reformular a pergunta?"
+
+            pos_text = (msg_pos or "").strip() or default_pos
+            neg_text = (msg_neg or "").strip() or default_neg
+            no_answer_text = (msg_no_answer or "").strip() or default_no_answer
+
+            positive_path = None
+            negative_path = None
+            no_answer_path = None
+            try:
+                positive_path = _generate_video(
+                    pos_text,
+                    genero,
+                    avatar_file,
+                    final_dir=base_dir,
+                    final_filename="positive.mp4",
+                    is_idle=False,
+                )
+            except Exception as e:
+                print(f"Erro ao gerar vídeo positivo: {e}")
+
+            try:
+                negative_path = _generate_video(
+                    neg_text,
+                    genero,
+                    avatar_file,
+                    final_dir=base_dir,
+                    final_filename="negative.mp4",
+                    is_idle=False,
+                )
+            except Exception as e:
+                print(f"Erro ao gerar vídeo negativo: {e}")
+
+            try:
+                no_answer_path = _generate_video(
+                    no_answer_text,
+                    genero,
+                    avatar_file,
+                    final_dir=base_dir,
+                    final_filename="no_answer.mp4",
+                    is_idle=False,
+                )
+            except Exception as e:
+                print(f"Erro ao gerar vídeo sem resposta: {e}")
+
             _set_job(progress=90, message="A finalizar vídeos...")
-            if idle_path:
-                cur.execute(
-                    "UPDATE chatbot SET video_greeting_path=%s, video_idle_path=%s WHERE chatbot_id=%s",
-                    (greeting_path, idle_path, chatbot_id),
-                )
-            else:
-                # Only update greeting if idle failed
-                cur.execute(
-                    "UPDATE chatbot SET video_greeting_path=%s WHERE chatbot_id=%s",
-                    (greeting_path, chatbot_id),
-                )
+            final_idle = idle_path or old_idle_path
+            final_positive = positive_path or old_positive_path
+            final_negative = negative_path or old_negative_path
+            final_no_answer = no_answer_path or old_no_answer_path
+            cur.execute(
+                """
+                UPDATE chatbot
+                SET video_greeting_path=%s,
+                    video_idle_path=%s,
+                    video_positive_path=%s,
+                    video_negative_path=%s,
+                    video_no_answer_path=%s
+                WHERE chatbot_id=%s
+                """,
+                (
+                    greeting_path,
+                    final_idle,
+                    final_positive,
+                    final_negative,
+                    final_no_answer,
+                    chatbot_id,
+                ),
+            )
             conn.commit()
 
             _set_job(status="done", progress=100, message="Vídeos gerados com sucesso.", error=None)

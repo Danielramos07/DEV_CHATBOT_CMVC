@@ -99,7 +99,11 @@ def get_chatbots():
                    c.ativo,
                    fr.fonte,
                    array_remove(array_agg(cc.categoria_id), NULL) as categorias,
-                   c.mensagem_sem_resposta
+                   c.mensagem_sem_resposta,
+                   c.greeting_video_text,
+                   c.mensagem_inicial,
+                   c.mensagem_feedback_positiva,
+                   c.mensagem_feedback_negativa
             FROM chatbot c
             LEFT JOIN fonte_resposta fr ON fr.chatbot_id = c.chatbot_id
             LEFT JOIN chatbot_categoria cc ON cc.chatbot_id = c.chatbot_id
@@ -113,7 +117,11 @@ def get_chatbots():
                      c.video_enabled,
                      c.ativo,
                      fr.fonte,
-                     c.mensagem_sem_resposta
+                     c.mensagem_sem_resposta,
+                     c.greeting_video_text,
+                     c.mensagem_inicial,
+                     c.mensagem_feedback_positiva,
+                     c.mensagem_feedback_negativa
             ORDER BY c.chatbot_id ASC
         """)
         data = cur.fetchall()
@@ -130,7 +138,11 @@ def get_chatbots():
                 "ativo": bool(row[8]) if len(row) > 8 else False,
                 "fonte": row[9] if row[9] else "faq",
                 "categorias": row[10] if row[10] is not None else [],
-                "mensagem_sem_resposta": row[11] if len(row) > 11 else ""
+                "mensagem_sem_resposta": row[11] if len(row) > 11 else "",
+                "greeting_video_text": row[12] if len(row) > 12 else "",
+                "mensagem_inicial": row[13] if len(row) > 13 else "",
+                "mensagem_feedback_positiva": row[14] if len(row) > 14 else "",
+                "mensagem_feedback_negativa": row[15] if len(row) > 15 else "",
             }
             for row in data
         ])
@@ -179,6 +191,10 @@ def criar_chatbot():
     categorias = _get_field("categorias", []) or []
     cor = (_get_field("cor", "") or "").strip() or "#d4af37"
     mensagem_sem_resposta = (_get_field("mensagem_sem_resposta", "") or "").strip()
+    greeting_video_text = (_get_field("greeting_video_text", "") or "").strip()
+    mensagem_inicial = (_get_field("mensagem_inicial", "") or "").strip()
+    mensagem_feedback_positiva = (_get_field("mensagem_feedback_positiva", "") or "").strip()
+    mensagem_feedback_negativa = (_get_field("mensagem_feedback_negativa", "") or "").strip()
     genero = _get_field("genero") or None
 
     # video_enabled can come as bool (json) or string (form)
@@ -198,12 +214,36 @@ def criar_chatbot():
     try:
         cur.execute(
             """
-            INSERT INTO chatbot (nome, descricao, cor, icon_path, mensagem_sem_resposta, genero, video_enabled)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO chatbot (
+                nome,
+                descricao,
+                cor,
+                icon_path,
+                mensagem_sem_resposta,
+                greeting_video_text,
+                mensagem_inicial,
+                mensagem_feedback_positiva,
+                mensagem_feedback_negativa,
+                genero,
+                video_enabled
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (nome) DO NOTHING
             RETURNING chatbot_id
             """,
-            (nome, descricao, cor, icon_path, mensagem_sem_resposta, genero, video_enabled)
+            (
+                nome,
+                descricao,
+                cor,
+                icon_path,
+                mensagem_sem_resposta,
+                greeting_video_text,
+                mensagem_inicial,
+                mensagem_feedback_positiva,
+                mensagem_feedback_negativa,
+                genero,
+                video_enabled,
+            )
         )
         row = cur.fetchone()
         if not row:
@@ -274,11 +314,34 @@ def obter_nome_chatbot(chatbot_id):
     conn = get_conn()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT nome, cor, icon_path, genero, video_greeting_path, video_idle_path FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
+        cur.execute(
+            """
+            SELECT nome,
+                   cor,
+                   icon_path,
+                   genero,
+                   video_greeting_path,
+                   video_idle_path,
+                   video_positive_path,
+                   video_negative_path,
+                   video_no_answer_path,
+                   mensagem_sem_resposta,
+                   greeting_video_text,
+                   mensagem_inicial,
+                   mensagem_feedback_positiva,
+                   mensagem_feedback_negativa
+            FROM chatbot
+            WHERE chatbot_id = %s
+            """,
+            (chatbot_id,),
+        )
         row = cur.fetchone()
         if row:
             video_greeting_url = None
             video_idle_url = None
+            video_positive_url = None
+            video_negative_url = None
+            video_no_answer_url = None
             if row[4]:
                 import time
                 from ..services.signed_media import sign_media
@@ -305,6 +368,45 @@ def obter_nome_chatbot(chatbot_id):
                     nonce=nonce,
                     sig=sig,
                 )
+            if row[6]:
+                import time
+                from ..services.signed_media import sign_media
+                exp = int(time.time()) + 3600
+                nonce = str(int(time.time() * 1000))
+                sig = sign_media("positive", str(chatbot_id), exp, nonce, secret_fallback=Config.SECRET_KEY)
+                video_positive_url = url_for(
+                    "api.video.video_positive_for_chatbot",
+                    chatbot_id=chatbot_id,
+                    exp=exp,
+                    nonce=nonce,
+                    sig=sig,
+                )
+            if row[7]:
+                import time
+                from ..services.signed_media import sign_media
+                exp = int(time.time()) + 3600
+                nonce = str(int(time.time() * 1000))
+                sig = sign_media("negative", str(chatbot_id), exp, nonce, secret_fallback=Config.SECRET_KEY)
+                video_negative_url = url_for(
+                    "api.video.video_negative_for_chatbot",
+                    chatbot_id=chatbot_id,
+                    exp=exp,
+                    nonce=nonce,
+                    sig=sig,
+                )
+            if row[8]:
+                import time
+                from ..services.signed_media import sign_media
+                exp = int(time.time()) + 3600
+                nonce = str(int(time.time() * 1000))
+                sig = sign_media("no_answer", str(chatbot_id), exp, nonce, secret_fallback=Config.SECRET_KEY)
+                video_no_answer_url = url_for(
+                    "api.video.video_no_answer_for_chatbot",
+                    chatbot_id=chatbot_id,
+                    exp=exp,
+                    nonce=nonce,
+                    sig=sig,
+                )
             return jsonify({
                 "success": True,
                 "nome": row[0],
@@ -312,7 +414,15 @@ def obter_nome_chatbot(chatbot_id):
                 "icon": row[2] or "/static/images/chatbot/chatbot-icon.png",
                 "genero": row[3],
                 "video_greeting_path": video_greeting_url or None,
-                "video_idle_path": video_idle_url or None
+                "video_idle_path": video_idle_url or None,
+                "video_positive_path": video_positive_url or None,
+                "video_negative_path": video_negative_url or None,
+                "video_no_answer_path": video_no_answer_url or None,
+                "mensagem_sem_resposta": row[9] or "",
+                "greeting_video_text": row[10] or "",
+                "mensagem_inicial": row[11] or "",
+                "mensagem_feedback_positiva": row[12] or "",
+                "mensagem_feedback_negativa": row[13] or "",
             })
         return jsonify({"success": False, "erro": "Chatbot não encontrado."}), 404
     except Exception as e:
@@ -354,6 +464,10 @@ def atualizar_chatbot(chatbot_id):
         categorias = request.form.getlist("categorias[]") if "categorias[]" in request.form else None
         cor = request.form.get("cor", "").strip() or "#d4af37"
         mensagem_sem_resposta = request.form.get("mensagem_sem_resposta", "").strip()
+        greeting_video_text = request.form.get("greeting_video_text", "").strip()
+        mensagem_inicial = request.form.get("mensagem_inicial", "").strip()
+        mensagem_feedback_positiva = request.form.get("mensagem_feedback_positiva", "").strip()
+        mensagem_feedback_negativa = request.form.get("mensagem_feedback_negativa", "").strip()
         genero = request.form.get("genero") or None
         video_enabled = request.form.get("video_enabled") in ["true", "1", "on", "yes"]
         icon_path = None
@@ -371,7 +485,21 @@ def atualizar_chatbot(chatbot_id):
         
         # Get old values BEFORE updating (to compare if videos need regeneration)
         cur.execute(
-            "SELECT nome, icon_path, genero, video_greeting_path, video_idle_path, video_enabled FROM chatbot WHERE chatbot_id = %s",
+            """
+            SELECT nome,
+                   icon_path,
+                   genero,
+                   video_greeting_path,
+                   video_idle_path,
+                   video_enabled,
+                   greeting_video_text,
+                   mensagem_inicial,
+                   mensagem_feedback_positiva,
+                   mensagem_feedback_negativa,
+                   mensagem_sem_resposta
+            FROM chatbot
+            WHERE chatbot_id = %s
+            """,
             (chatbot_id,),
         )
         old_row = cur.fetchone()
@@ -381,6 +509,11 @@ def atualizar_chatbot(chatbot_id):
         old_greeting_path = old_row[3] if old_row else None
         old_idle_path = old_row[4] if old_row else None
         old_video_enabled = bool(old_row[5]) if old_row and len(old_row) > 5 else False
+        old_greeting_text = old_row[6] if old_row and len(old_row) > 6 else None
+        old_mensagem_inicial = old_row[7] if old_row and len(old_row) > 7 else None
+        old_msg_pos = old_row[8] if old_row and len(old_row) > 8 else None
+        old_msg_neg = old_row[9] if old_row and len(old_row) > 9 else None
+        old_msg_no_answer = old_row[10] if old_row and len(old_row) > 10 else None
         
         # If icon_path is None (no new icon uploaded), keep the old one
         if not icon_path and old_icon_path:
@@ -388,13 +521,65 @@ def atualizar_chatbot(chatbot_id):
         
         if icon_path:
             cur.execute(
-                "UPDATE chatbot SET nome=%s, descricao=%s, cor=%s, mensagem_sem_resposta=%s, icon_path=%s, genero=%s, video_enabled=%s WHERE chatbot_id=%s",
-                (nome, descricao, cor, mensagem_sem_resposta, icon_path, genero, video_enabled, chatbot_id)
+                """
+                UPDATE chatbot
+                SET nome=%s,
+                    descricao=%s,
+                    cor=%s,
+                    mensagem_sem_resposta=%s,
+                    greeting_video_text=%s,
+                    mensagem_inicial=%s,
+                    mensagem_feedback_positiva=%s,
+                    mensagem_feedback_negativa=%s,
+                    icon_path=%s,
+                    genero=%s,
+                    video_enabled=%s
+                WHERE chatbot_id=%s
+                """,
+                (
+                    nome,
+                    descricao,
+                    cor,
+                    mensagem_sem_resposta,
+                    greeting_video_text,
+                    mensagem_inicial,
+                    mensagem_feedback_positiva,
+                    mensagem_feedback_negativa,
+                    icon_path,
+                    genero,
+                    video_enabled,
+                    chatbot_id,
+                ),
             )
         else:
             cur.execute(
-                "UPDATE chatbot SET nome=%s, descricao=%s, cor=%s, mensagem_sem_resposta=%s, genero=%s, video_enabled=%s WHERE chatbot_id=%s",
-                (nome, descricao, cor, mensagem_sem_resposta, genero, video_enabled, chatbot_id)
+                """
+                UPDATE chatbot
+                SET nome=%s,
+                    descricao=%s,
+                    cor=%s,
+                    mensagem_sem_resposta=%s,
+                    greeting_video_text=%s,
+                    mensagem_inicial=%s,
+                    mensagem_feedback_positiva=%s,
+                    mensagem_feedback_negativa=%s,
+                    genero=%s,
+                    video_enabled=%s
+                WHERE chatbot_id=%s
+                """,
+                (
+                    nome,
+                    descricao,
+                    cor,
+                    mensagem_sem_resposta,
+                    greeting_video_text,
+                    mensagem_inicial,
+                    mensagem_feedback_positiva,
+                    mensagem_feedback_negativa,
+                    genero,
+                    video_enabled,
+                    chatbot_id,
+                ),
             )
         if categorias is not None:
             cur.execute("DELETE FROM chatbot_categoria WHERE chatbot_id=%s", (chatbot_id,))
@@ -420,9 +605,22 @@ def atualizar_chatbot(chatbot_id):
             nome_changed = (old_nome or "").strip() != (nome or "").strip()
             icon_changed = bool(new_icon_uploaded)
             genero_changed = (old_genero or "").strip() != (genero or "").strip()
+            greeting_text_changed = (old_greeting_text or "").strip() != (greeting_video_text or "").strip()
+            msg_no_answer_changed = (old_msg_no_answer or "").strip() != (mensagem_sem_resposta or "").strip()
+            msg_pos_changed = (old_msg_pos or "").strip() != (mensagem_feedback_positiva or "").strip()
+            msg_neg_changed = (old_msg_neg or "").strip() != (mensagem_feedback_negativa or "").strip()
 
             # Only queue if video was just enabled OR one of the video-relevant fields changed.
-            should_queue = (not was_video_enabled) or nome_changed or icon_changed or genero_changed
+            should_queue = (
+                (not was_video_enabled)
+                or nome_changed
+                or icon_changed
+                or genero_changed
+                or greeting_text_changed
+                or msg_no_answer_changed
+                or msg_pos_changed
+                or msg_neg_changed
+            )
             if should_queue:
                 from ..services.video_service import queue_videos_for_chatbot
                 video_queued = bool(queue_videos_for_chatbot(chatbot_id))

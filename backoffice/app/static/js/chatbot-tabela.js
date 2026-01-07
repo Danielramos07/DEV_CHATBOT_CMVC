@@ -426,6 +426,24 @@ document.addEventListener("DOMContentLoaded", function () {
       const mensagem_sem_resposta = document
         .getElementById("editarMensagemSemResposta")
         .value.trim();
+      const greeting_video_text = document.getElementById(
+        "editarGreetingVideoText"
+      )
+        ? document.getElementById("editarGreetingVideoText").value.trim()
+        : "";
+      const mensagem_inicial = document.getElementById("editarMensagemInicial")
+        ? document.getElementById("editarMensagemInicial").value.trim()
+        : "";
+      const mensagem_feedback_positiva = document.getElementById(
+        "editarMensagemFeedbackPositiva"
+      )
+        ? document.getElementById("editarMensagemFeedbackPositiva").value.trim()
+        : "";
+      const mensagem_feedback_negativa = document.getElementById(
+        "editarMensagemFeedbackNegativa"
+      )
+        ? document.getElementById("editarMensagemFeedbackNegativa").value.trim()
+        : "";
       const genero = document.getElementById("editarGeneroChatbot").value;
       const video_enabled = document.getElementById("editarVideoEnabledChatbot")
         ? document.getElementById("editarVideoEnabledChatbot").checked
@@ -444,6 +462,10 @@ document.addEventListener("DOMContentLoaded", function () {
       formData.append("fonte", fonte);
       formData.append("cor", cor);
       formData.append("mensagem_sem_resposta", mensagem_sem_resposta);
+      formData.append("greeting_video_text", greeting_video_text);
+      formData.append("mensagem_inicial", mensagem_inicial);
+      formData.append("mensagem_feedback_positiva", mensagem_feedback_positiva);
+      formData.append("mensagem_feedback_negativa", mensagem_feedback_negativa);
       formData.append("genero", genero);
       formData.append("video_enabled", video_enabled ? "true" : "false");
       if (iconFile) formData.append("icon", iconFile);
@@ -633,6 +655,16 @@ window.abrirModalAtualizar = async function (chatbot_id) {
     setValueById("editarFonteResposta", bot.fonte || "faq");
     setValueById("editarCorChatbot", bot.cor || "#d4af37");
     setValueById("editarMensagemSemResposta", bot.mensagem_sem_resposta || "");
+    setValueById("editarGreetingVideoText", bot.greeting_video_text || "");
+    setValueById("editarMensagemInicial", bot.mensagem_inicial || "");
+    setValueById(
+      "editarMensagemFeedbackPositiva",
+      bot.mensagem_feedback_positiva || ""
+    );
+    setValueById(
+      "editarMensagemFeedbackNegativa",
+      bot.mensagem_feedback_negativa || ""
+    );
     setValueById("editarGeneroChatbot", bot.genero || "");
     const cbVideo = document.getElementById("editarVideoEnabledChatbot");
     if (cbVideo) cbVideo.checked = !!bot.video_enabled;

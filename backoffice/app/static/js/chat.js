@@ -953,17 +953,35 @@ function adicionarMensagem(
 
   bubbleCol.appendChild(msgDiv);
 
-  if (
+  const customPos =
     !isRgpd &&
     tipo === "bot" &&
-    texto !== "Fico contente por ter ajudado." &&
-    texto !==
-      "Lamento não ter conseguido responder. Tente reformular a pergunta." &&
-    texto !== "I'm glad I could help." &&
-    texto !==
-      "I'm sorry I couldn't answer. Please try rephrasing the question." &&
-    !isSaudacao(texto)
-  ) {
+    localStorage.getItem("mensagemFeedbackPositiva")
+      ? (localStorage.getItem("mensagemFeedbackPositiva") || "").trim()
+      : "";
+  const customNeg =
+    !isRgpd &&
+    tipo === "bot" &&
+    localStorage.getItem("mensagemFeedbackNegativa")
+      ? (localStorage.getItem("mensagemFeedbackNegativa") || "").trim()
+      : "";
+  const customNoAnswer =
+    !isRgpd && tipo === "bot" && localStorage.getItem("mensagemSemResposta")
+      ? (localStorage.getItem("mensagemSemResposta") || "").trim()
+      : "";
+
+  const isCannedFeedback =
+    texto === "Fico contente por ter ajudado." ||
+    texto ===
+      "Lamento não ter conseguido responder. Tente reformular a pergunta." ||
+    texto === "I'm glad I could help." ||
+    texto ===
+      "I'm sorry I couldn't answer. Please try rephrasing the question." ||
+    (customPos && texto === customPos) ||
+    (customNeg && texto === customNeg) ||
+    (customNoAnswer && texto === customNoAnswer);
+
+  if (!isRgpd && tipo === "bot" && !isCannedFeedback && !isSaudacao(texto)) {
     const feedbackId = "feedback-" + Math.random().toString(36).substr(2, 9);
     const feedbackDiv = document.createElement("div");
     feedbackDiv.innerHTML = criarBlocoFeedback(feedbackId);
@@ -1205,6 +1223,41 @@ async function apresentarMensagemInicial(forceUpdate = false) {
         } else {
           localStorage.removeItem("videoIdlePath");
         }
+        if (data.video_positive_path) {
+          localStorage.setItem("videoPositivePath", data.video_positive_path);
+        } else {
+          localStorage.removeItem("videoPositivePath");
+        }
+        if (data.video_negative_path) {
+          localStorage.setItem("videoNegativePath", data.video_negative_path);
+        } else {
+          localStorage.removeItem("videoNegativePath");
+        }
+        if (data.video_no_answer_path) {
+          localStorage.setItem("videoNoAnswerPath", data.video_no_answer_path);
+        } else {
+          localStorage.removeItem("videoNoAnswerPath");
+        }
+
+        // Store customizable texts (used by chat UI). Keep empty string when missing.
+        try {
+          localStorage.setItem(
+            "mensagemSemResposta",
+            (data.mensagem_sem_resposta || "").trim()
+          );
+          localStorage.setItem(
+            "mensagemInicial",
+            (data.mensagem_inicial || "").trim()
+          );
+          localStorage.setItem(
+            "mensagemFeedbackPositiva",
+            (data.mensagem_feedback_positiva || "").trim()
+          );
+          localStorage.setItem(
+            "mensagemFeedbackNegativa",
+            (data.mensagem_feedback_negativa || "").trim()
+          );
+        } catch (e) {}
       }
       localStorage.setItem("nomeBot", nomeBot);
       localStorage.setItem("corChatbot", corBot);
@@ -1271,27 +1324,38 @@ async function apresentarMensagemInicial(forceUpdate = false) {
 
   const idioma = getIdiomaAtual();
   let msg;
-  if (idioma === "en") {
-    msg = `Hello!
+
+  // If admin configured a custom initial message for this bot, use it.
+  try {
+    const customInit = (localStorage.getItem("mensagemInicial") || "").trim();
+    if (customInit) {
+      msg = customInit;
+    }
+  } catch (e) {}
+
+  if (!msg) {
+    if (idioma === "en") {
+      msg = `Hello!
 I'm ${nomeBot}, your virtual assistant.
 Ask one question at a time and I will do my best to clarify your doubts.`;
-  } else {
-    const generoLocal = localStorage.getItem("generoBot") || generoBot || "";
-    let artigoSou = "o";
-    let artigoPossessivo = "o seu";
-    if (generoLocal === "f") {
-      artigoSou = "a";
-      artigoPossessivo = "a sua";
-    } else if (generoLocal === "") {
-      artigoSou = "";
-      artigoPossessivo = "o seu";
-    }
-    const prefixoSou = artigoSou
-      ? `Eu sou ${artigoSou} ${nomeBot},`
-      : `Eu sou ${nomeBot},`;
-    msg = `Olá!
+    } else {
+      const generoLocal = localStorage.getItem("generoBot") || generoBot || "";
+      let artigoSou = "o";
+      let artigoPossessivo = "o seu";
+      if (generoLocal === "f") {
+        artigoSou = "a";
+        artigoPossessivo = "a sua";
+      } else if (generoLocal === "") {
+        artigoSou = "";
+        artigoPossessivo = "o seu";
+      }
+      const prefixoSou = artigoSou
+        ? `Eu sou ${artigoSou} ${nomeBot},`
+        : `Eu sou ${nomeBot},`;
+      msg = `Olá!
 ${prefixoSou} ${artigoPossessivo} assistente virtual.
 Faça uma pergunta de cada vez, que eu procurarei esclarecer todas as suas dúvidas.`;
+    }
   }
   adicionarMensagem("bot", msg, iconBot, nomeBot);
   initialMessageShown = true;
@@ -1404,39 +1468,46 @@ function responderPergunta(pergunta) {
           const saudacao = isSaudacao(faqPergunta) || isSaudacao(resposta);
           adicionarFeedbackResolvido(
             (respostaFeedback, bloco) => {
+              const customPos = (
+                localStorage.getItem("mensagemFeedbackPositiva") || ""
+              ).trim();
+              const customNeg = (
+                localStorage.getItem("mensagemFeedbackNegativa") || ""
+              ).trim();
+
+              const defaultPos =
+                faqIdioma === "en"
+                  ? "I'm glad I could help."
+                  : "Fico contente por ter ajudado.";
+              const defaultNeg =
+                faqIdioma === "en"
+                  ? "I'm sorry I couldn't answer. Please try rephrasing the question."
+                  : "Lamento não ter conseguido responder. Tente reformular a pergunta.";
+
+              const posMsg = customPos || defaultPos;
+              const negMsg = customNeg || defaultNeg;
+
               if (respostaFeedback === "sim") {
-                if (faqIdioma === "en") {
-                  adicionarMensagem(
-                    "bot",
-                    "I'm glad I could help.",
-                    iconBot,
-                    localStorage.getItem("nomeBot")
-                  );
-                } else {
-                  adicionarMensagem(
-                    "bot",
-                    "Fico contente por ter ajudado.",
-                    iconBot,
-                    localStorage.getItem("nomeBot")
-                  );
-                }
+                adicionarMensagem(
+                  "bot",
+                  posMsg,
+                  iconBot,
+                  localStorage.getItem("nomeBot")
+                );
+                try {
+                  if (data.video_enabled) playChatbotAuxVideo("positive");
+                } catch (e) {}
                 obterPerguntasSemelhantes(faqPergunta, chatbotId, faqIdioma);
               } else if (respostaFeedback === "nao") {
-                if (faqIdioma === "en") {
-                  adicionarMensagem(
-                    "bot",
-                    "I'm sorry I couldn't answer. Please try rephrasing the question.",
-                    iconBot,
-                    localStorage.getItem("nomeBot")
-                  );
-                } else {
-                  adicionarMensagem(
-                    "bot",
-                    "Lamento não ter conseguido responder. Tente reformular a pergunta.",
-                    iconBot,
-                    localStorage.getItem("nomeBot")
-                  );
-                }
+                adicionarMensagem(
+                  "bot",
+                  negMsg,
+                  iconBot,
+                  localStorage.getItem("nomeBot")
+                );
+                try {
+                  if (data.video_enabled) playChatbotAuxVideo("negative");
+                } catch (e) {}
                 obterPerguntasSemelhantes(faqPergunta, chatbotId, faqIdioma);
               }
             },
@@ -1548,6 +1619,11 @@ function responderPergunta(pergunta) {
           iconBot,
           localStorage.getItem("nomeBot")
         );
+
+        // Play no-answer video when backend marks it as such (if available)
+        try {
+          if (data.no_answer) playChatbotAuxVideo("no_answer");
+        } catch (e) {}
         window.awaitingRagConfirmation = false;
       }
     })
@@ -1560,6 +1636,75 @@ function responderPergunta(pergunta) {
       );
       window.awaitingRagConfirmation = false;
     });
+}
+
+async function playChatbotAuxVideo(kind) {
+  if (!avatarAtivo) return;
+  const avatarPanel = document.getElementById("chatAvatarPanel");
+  if (!avatarPanel) return;
+  const avatarInner = avatarPanel.querySelector(".chat-avatar-inner");
+  if (!avatarInner) return;
+  const videoEl = avatarInner.querySelector("video.chat-avatar-video");
+  const imgEl = avatarInner.querySelector("img.chat-avatar-image");
+  if (!videoEl) return;
+
+  let pathKey = null;
+  if (kind === "positive") pathKey = "videoPositivePath";
+  if (kind === "negative") pathKey = "videoNegativePath";
+  if (kind === "no_answer") pathKey = "videoNoAnswerPath";
+  if (!pathKey) return;
+
+  const src = localStorage.getItem(pathKey);
+  if (!src) return;
+
+  try {
+    videoEl.pause();
+  } catch (e) {}
+
+  videoEl.src = src;
+  videoEl.style.display = "block";
+  videoEl.loop = false;
+  videoEl.muted = isAvatarSoundMuted() ? true : false;
+  if (imgEl) imgEl.style.display = "none";
+
+  const onEnded = () => {
+    try {
+      videoEl.removeEventListener("ended", onEnded);
+    } catch (e) {}
+    const idlePath = localStorage.getItem("videoIdlePath");
+    if (idlePath) {
+      try {
+        videoEl.pause();
+      } catch (e) {}
+      videoEl.src = idlePath;
+      videoEl.loop = true;
+      videoEl.muted = true;
+      try {
+        videoEl.playbackRate = 0.3;
+      } catch (e) {}
+      videoEl.play().catch(() => {
+        videoEl.style.display = "none";
+        if (imgEl) imgEl.style.display = "block";
+      });
+    } else {
+      videoEl.style.display = "none";
+      if (imgEl) imgEl.style.display = "block";
+    }
+  };
+  videoEl.addEventListener("ended", onEnded);
+
+  try {
+    videoEl.load();
+  } catch (e) {}
+
+  videoEl.play().catch(() => {
+    // Autoplay fallback
+    videoEl.muted = true;
+    videoEl.play().catch(() => {
+      videoEl.style.display = "none";
+      if (imgEl) imgEl.style.display = "block";
+    });
+  });
 }
 
 function adicionarMensagemComHTML(
@@ -1609,13 +1754,28 @@ function adicionarMensagemComHTML(
   bubbleCol.appendChild(msgDiv);
   if (
     tipo === "bot" &&
-    html !== "Fico contente por ter ajudado." &&
-    html !==
-      "Lamento não ter conseguido responder. Tente reformular a pergunta." &&
-    html !== "I'm glad I could help." &&
-    html !==
-      "I'm sorry I couldn't answer. Please try rephrasing the question." &&
-    !isSaudacao(html)
+    (() => {
+      const customPos = (
+        localStorage.getItem("mensagemFeedbackPositiva") || ""
+      ).trim();
+      const customNeg = (
+        localStorage.getItem("mensagemFeedbackNegativa") || ""
+      ).trim();
+      const customNoAnswer = (
+        localStorage.getItem("mensagemSemResposta") || ""
+      ).trim();
+      const isCanned =
+        html === "Fico contente por ter ajudado." ||
+        html ===
+          "Lamento não ter conseguido responder. Tente reformular a pergunta." ||
+        html === "I'm glad I could help." ||
+        html ===
+          "I'm sorry I couldn't answer. Please try rephrasing the question." ||
+        (customPos && html === customPos) ||
+        (customNeg && html === customNeg) ||
+        (customNoAnswer && html === customNoAnswer);
+      return !isCanned && !isSaudacao(html);
+    })()
   ) {
     const feedbackId = "feedback-" + Math.random().toString(36).substr(2, 9);
     const feedbackDiv = document.createElement("div");
