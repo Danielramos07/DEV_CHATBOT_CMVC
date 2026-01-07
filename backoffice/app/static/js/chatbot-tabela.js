@@ -612,17 +612,31 @@ window.abrirModalAtualizar = async function (chatbot_id) {
       alert("Chatbot não encontrado!");
       return;
     }
-    document.getElementById("editarNomeChatbot").value = bot.nome || "";
-    document.getElementById("editarDescricaoChatbot").value =
-      bot.descricao || "";
-    document.getElementById("editarDataCriacao").value = bot.data_criacao
-      ? new Date(bot.data_criacao).toLocaleDateString("pt-PT")
-      : "";
-    document.getElementById("editarFonteResposta").value = bot.fonte || "faq";
-    document.getElementById("editarCorChatbot").value = bot.cor || "#d4af37";
-    document.getElementById("editarMensagemSemResposta").value =
-      bot.mensagem_sem_resposta || "";
-    document.getElementById("editarGeneroChatbot").value = bot.genero || "";
+
+    const setValueById = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) {
+        console.warn(`[abrirModalAtualizar] Elemento não encontrado: #${id}`);
+        return;
+      }
+      el.value = value;
+    };
+
+    setValueById("editarNomeChatbot", bot.nome || "");
+    setValueById("editarDescricaoChatbot", bot.descricao || "");
+    setValueById(
+      "editarDataCriacao",
+      bot.data_criacao
+        ? new Date(bot.data_criacao).toLocaleDateString("pt-PT")
+        : ""
+    );
+    setValueById("editarFonteResposta", bot.fonte || "faq");
+    setValueById("editarCorChatbot", bot.cor || "#d4af37");
+    setValueById(
+      "editarMensagemSemResposta",
+      bot.mensagem_sem_resposta || ""
+    );
+    setValueById("editarGeneroChatbot", bot.genero || "");
     const cbVideo = document.getElementById("editarVideoEnabledChatbot");
     if (cbVideo) cbVideo.checked = !!bot.video_enabled;
 
@@ -648,14 +662,16 @@ window.abrirModalAtualizar = async function (chatbot_id) {
       generoSelect.style.cursor = isVideoEnabled ? "not-allowed" : "pointer";
     }
 
-    document.getElementById("previewIcon").src =
-      bot.icon_path || "/static/images/chatbot/chatbot-icon.png";
-    document.getElementById("previewIcon").style.display = bot.icon_path
-      ? "block"
-      : "none";
-    document
-      .getElementById("editarChatbotForm")
-      .setAttribute("data-edit-id", chatbot_id);
+    const previewIcon = document.getElementById("previewIcon");
+    if (previewIcon) {
+      previewIcon.src = bot.icon_path || "/static/images/chatbot/chatbot-icon.png";
+      previewIcon.style.display = bot.icon_path ? "block" : "none";
+    }
+
+    const editarForm = document.getElementById("editarChatbotForm");
+    if (editarForm) {
+      editarForm.setAttribute("data-edit-id", chatbot_id);
+    }
 
     await mostrarModalEditarChatbot(chatbot_id);
     document.getElementById("modalEditarChatbot").style.display = "flex";
