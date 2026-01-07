@@ -887,7 +887,12 @@ if (formAdicionarFAQ) {
     const resposta = this.elements["resposta"].value.trim();
     const categoria_id = this.elements["categoria_id"].value;
     const idioma = this.elements["idioma"].value;
-    const links_documentos = this.elements["links_documentos"].value.trim();
+    const links_documentos = Array.from(
+      this.querySelectorAll('input[name="links_documentos[]"]')
+    )
+      .map((input) => input.value.trim())
+      .filter(Boolean)
+      .join(",");
 
     // Obter valores selecionados do select múltiplo
     const relacionadasSelect = this.elements["relacionadas[]"];
