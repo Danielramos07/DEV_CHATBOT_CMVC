@@ -381,13 +381,13 @@ def _reset_job_state() -> None:
 
 
 def queue_videos_for_chatbot(chatbot_id: int, kinds: Optional[list[str]] = None) -> bool:
-        """Queue generation of chatbot videos.
+    """Queue generation of chatbot videos.
 
-        kinds: optional list of video kinds to generate.
-            Supported: greeting, idle, positive, negative, no_answer.
+    kinds: optional list of video kinds to generate.
+      Supported: greeting, idle, positive, negative, no_answer.
 
-        Returns False if another job is already running.
-        """
+    Returns False if another job is already running.
+    """
 
     if not _try_acquire_global_video_lock(
         "chatbot",
@@ -413,7 +413,9 @@ def queue_videos_for_chatbot(chatbot_id: int, kinds: Optional[list[str]] = None)
 
     from flask import current_app
     app = current_app._get_current_object()
-    worker = Thread(target=_run_idle_video_job, args=(chatbot_id, app, kinds), daemon=True)
+    worker = Thread(
+        target=_run_idle_video_job, args=(chatbot_id, app, kinds), daemon=True
+    )
     worker.start()
     return True
 
