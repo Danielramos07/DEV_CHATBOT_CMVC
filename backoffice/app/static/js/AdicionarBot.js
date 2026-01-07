@@ -24,6 +24,14 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.style.borderRadius = "10px";
       const v = btn.getAttribute("data-avatar") || "";
       if (presetHidden) presetHidden.value = v;
+
+      // If user picked a preset, clear any uploaded file
+      try {
+        const fileInput = document.getElementById("novoIconChatbot");
+        if (fileInput) fileInput.value = "";
+      } catch (e) {}
+    } else {
+      if (presetHidden) presetHidden.value = "";
     }
   }
 
@@ -31,8 +39,6 @@ document.addEventListener("DOMContentLoaded", () => {
     presetButtons.forEach((btn) => {
       btn.addEventListener("click", () => selecionarPreset(btn));
     });
-    // default: first preset (tem pescoço)
-    selecionarPreset(presetButtons[0]);
   }
 
   if (!novoBotBtn || !modalNovoBot || !novoBotForm || !mensagemNovoBot) {
@@ -70,6 +76,13 @@ document.addEventListener("DOMContentLoaded", () => {
       fd.append("icon", iconInput.files[0]);
       // If user uploaded a file, ignore preset
       if (presetHidden) presetHidden.value = "";
+      // Remove highlight from presets
+      try {
+        presetButtons.forEach((b) => {
+          b.style.outline = "none";
+          b.style.borderRadius = "10px";
+        });
+      } catch (e) {}
     } else {
       const preset = presetHidden ? (presetHidden.value || "").trim() : "";
       if (preset) {

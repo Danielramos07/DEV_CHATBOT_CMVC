@@ -331,14 +331,14 @@ function toggleAvatarAtivo() {
   const avatarPanel = document.getElementById("chatAvatarPanel");
   const btn = document.getElementById("avatarToggleBtn");
   const videoEl = document.querySelector(".chat-avatar-video");
-  
+
   if (avatarPanel) {
     avatarPanel.style.display = avatarAtivo ? "flex" : "none";
   }
   if (btn) {
     btn.textContent = avatarAtivo ? "⏻ Desligar avatar" : "⏻ Ligar avatar";
   }
-  
+
   // Mute/unmute video based on avatar state
   if (videoEl) {
     if (!avatarAtivo) {
@@ -351,7 +351,7 @@ function toggleAvatarAtivo() {
       const idlePath = localStorage.getItem("videoIdlePath");
       const greetingPath = localStorage.getItem("videoGreetingPath");
       const isIdle = videoEl.src && videoEl.src.includes("idle");
-      
+
       if (isIdle || (!greetingPath && idlePath)) {
         // É idle ou só temos idle: manter muted
         videoEl.muted = true;
@@ -359,7 +359,7 @@ function toggleAvatarAtivo() {
         // É greeting e ainda não foi reproduzido: tentar unmute
         videoEl.muted = false;
       }
-      
+
       // Tentar reproduzir se o vídeo já estava carregado
       if (videoEl.src) {
         videoEl.play().catch(() => {
@@ -396,23 +396,45 @@ function mostrarSpinnerVideoFaq(faqId) {
   if (videoEl) videoEl.style.display = "none";
   spinnerEl.style.display = "flex";
 
+  const restoreIdleOrImage = () => {
+    const idlePath = localStorage.getItem("videoIdlePath");
+    if (idlePath && videoEl) {
+      try {
+        videoEl.pause();
+      } catch (e) {}
+      videoEl.src = idlePath;
+      videoEl.loop = true;
+      videoEl.muted = true;
+      videoEl.style.display = "block";
+      if (imgEl) imgEl.style.display = "none";
+      try {
+        videoEl.playbackRate = 0.3;
+      } catch (e) {}
+      videoEl.play().catch(() => {
+        videoEl.style.display = "none";
+        if (imgEl) imgEl.style.display = "block";
+      });
+      return;
+    }
+    if (videoEl) videoEl.style.display = "none";
+    if (imgEl) imgEl.style.display = "block";
+  };
+
   // Polling para verificar se o vídeo está pronto
   const checkVideoReady = async () => {
     // Stop polling if avatar is disabled
     if (!avatarAtivo) {
       spinnerEl.style.display = "none";
-      if (imgEl) imgEl.style.display = "block";
-      if (videoEl) videoEl.style.display = "none";
+      restoreIdleOrImage();
       return;
     }
-    
+
     try {
       const res = await fetch(`/video/faq/status/${faqId}`);
       if (res.status === 404) {
         // FAQ apagada/cancelada: parar polling e voltar ao fallback
         spinnerEl.style.display = "none";
-        if (imgEl) imgEl.style.display = "block";
-        if (videoEl) videoEl.style.display = "none";
+        restoreIdleOrImage();
         return;
       }
       if (res.ok) {
@@ -422,10 +444,17 @@ function mostrarSpinnerVideoFaq(faqId) {
           mostrarVideoFaqNoAvatar(faqId);
           return;
         }
-        if (data && data.success && data.video_status === "failed") {
+        if (data && data.success) {
+          // Only keep spinner while queued/processing. Any other state means: stop spinner.
+          if (
+            data.video_status === "queued" ||
+            data.video_status === "processing"
+          ) {
+            setTimeout(checkVideoReady, 2000);
+            return;
+          }
           spinnerEl.style.display = "none";
-          if (imgEl) imgEl.style.display = "block";
-          if (videoEl) videoEl.style.display = "none";
+          restoreIdleOrImage();
           return;
         }
       }
@@ -462,7 +491,7 @@ async function mostrarVideoFaqNoAvatar(faqId) {
   // Prefer signed/controlled stream url (from status endpoint), fallback to direct route
   // Only make API calls if avatar is active
   if (!avatarAtivo) return;
-  
+
   let streamUrl = null;
   try {
     const sres = await fetch(`/video/faq/status/${faqId}`);
@@ -494,14 +523,14 @@ async function mostrarVideoFaqNoAvatar(faqId) {
     if (idlePath) {
       // Pause current video
       videoEl.pause();
-      
+
       // Set up idle video
       videoEl.src = idlePath;
       videoEl.loop = true;
       videoEl.muted = true; // Idle should be muted
       videoEl.style.display = "block";
       if (imgEl) imgEl.style.display = "none";
-      
+
       // Function to play idle video
       const playIdle = () => {
         // Ensure video is visible and image is hidden before playing
@@ -511,7 +540,8 @@ async function mostrarVideoFaqNoAvatar(faqId) {
         try {
           videoEl.playbackRate = 0.3;
         } catch (e) {}
-        videoEl.play()
+        videoEl
+          .play()
           .then(() => {
             // Double-check that video is visible and image is hidden after successful play
             videoEl.style.display = "block";
@@ -523,12 +553,13 @@ async function mostrarVideoFaqNoAvatar(faqId) {
             if (imgEl) imgEl.style.display = "block";
           });
       };
-      
+
       // Check if video src already matches idle path (accounting for query params)
-      const currentSrcBase = videoEl.src.split('?')[0];
-      const idlePathBase = idlePath.split('?')[0];
-      const isSameVideo = currentSrcBase === idlePathBase || videoEl.src.includes(idlePathBase);
-      
+      const currentSrcBase = videoEl.src.split("?")[0];
+      const idlePathBase = idlePath.split("?")[0];
+      const isSameVideo =
+        currentSrcBase === idlePathBase || videoEl.src.includes(idlePathBase);
+
       // If video is already loaded and it's the same video, play immediately
       if (videoEl.readyState >= 2 && isSameVideo) {
         playIdle();
@@ -549,17 +580,15 @@ async function mostrarVideoFaqNoAvatar(faqId) {
   videoEl.addEventListener("ended", onEnded);
 
   // Try to play with sound first, fallback to muted if autoplay policy blocks it
-  videoEl
-    .play()
-    .catch(() => {
-      // Browser blocked autoplay with sound, try muted
-      videoEl.muted = true;
-      videoEl.play().catch(() => {
-        // If even muted fails, show static image
-        videoEl.style.display = "none";
-        if (imgEl) imgEl.style.display = "block";
-      });
+  videoEl.play().catch(() => {
+    // Browser blocked autoplay with sound, try muted
+    videoEl.muted = true;
+    videoEl.play().catch(() => {
+      // If even muted fails, show static image
+      videoEl.style.display = "none";
+      if (imgEl) imgEl.style.display = "block";
     });
+  });
 
   currentFaqVideoId = faqId;
 }
@@ -613,7 +642,8 @@ async function atualizarNomeChatHeader() {
   let nomeBot = localStorage.getItem("nomeBot") || "Assistente Municipal";
   let corBot = localStorage.getItem("corChatbot") || "#d4af37";
   let iconBot =
-    localStorage.getItem("iconBot") || "/static/images/chatbot/chatbot-icon.png";
+    localStorage.getItem("iconBot") ||
+    "/static/images/chatbot/chatbot-icon.png";
   const chatbotId = parseInt(localStorage.getItem("chatbotAtivo"));
   if (chatbotId && !isNaN(chatbotId)) {
     try {
@@ -989,7 +1019,8 @@ function enviarMensagemAutomatica() {
   adicionarMensagem(
     "bot",
     "Se precisar de ajuda, basta escrever a sua pergunta!",
-    localStorage.getItem("iconBot") || "/static/images/chatbot/chatbot-icon.png",
+    localStorage.getItem("iconBot") ||
+      "/static/images/chatbot/chatbot-icon.png",
     localStorage.getItem("nomeBot") || "Assistente Municipal"
   );
   autoFecharTimeout = setTimeout(() => {
@@ -1105,7 +1136,7 @@ async function apresentarMensagemInicial(forceUpdate = false) {
       localStorage.setItem("corChatbot", corBot);
       localStorage.setItem("iconBot", iconBot);
       localStorage.setItem("generoBot", generoBot || "");
-      
+
       // Setup avatar video after videos are loaded (only if chat is open)
       const chatSidebar = document.getElementById("chatSidebar");
       if (chatSidebar && chatSidebar.style.display !== "none") {
@@ -1127,7 +1158,7 @@ async function apresentarMensagemInicial(forceUpdate = false) {
       localStorage.setItem("corChatbot", corBot);
       localStorage.setItem("iconBot", iconBot);
       localStorage.setItem("generoBot", generoBot || "");
-      
+
       // Setup avatar video even if fetch failed (only if chat is open)
       const chatSidebar = document.getElementById("chatSidebar");
       if (chatSidebar && chatSidebar.style.display !== "none") {
@@ -1143,7 +1174,7 @@ async function apresentarMensagemInicial(forceUpdate = false) {
     localStorage.setItem("corChatbot", corBot);
     localStorage.setItem("iconBot", iconBot);
     localStorage.setItem("generoBot", generoBot || "");
-    
+
     // Setup avatar video for default bot (only if chat is open)
     const chatSidebar = document.getElementById("chatSidebar");
     if (chatSidebar && chatSidebar.style.display !== "none") {
@@ -1157,7 +1188,10 @@ async function apresentarMensagemInicial(forceUpdate = false) {
   } catch (e) {}
 
   // Store the chatbot ID that was used for this initial message
-  localStorage.setItem("lastPresentedChatbotId", chatbotId ? String(chatbotId) : "");
+  localStorage.setItem(
+    "lastPresentedChatbotId",
+    chatbotId ? String(chatbotId) : ""
+  );
 
   adicionarMensagem("bot", TEXTO_RGPD, null, null, null, true);
 
@@ -1208,7 +1242,8 @@ function responderPergunta(pergunta) {
     return adicionarMensagem(
       "bot",
       "⚠️ Nenhum chatbot está ativo neste momento. Tente novamente dentro de instantes.",
-      localStorage.getItem("iconBot") || "/static/images/chatbot/chatbot-icon.png",
+      localStorage.getItem("iconBot") ||
+        "/static/images/chatbot/chatbot-icon.png",
       localStorage.getItem("nomeBot") || "Assistente Municipal"
     );
   }
@@ -1224,7 +1259,8 @@ function responderPergunta(pergunta) {
   const idioma = getIdiomaAtual();
   let corBot = localStorage.getItem("corChatbot") || "#d4af37";
   let iconBot =
-    localStorage.getItem("iconBot") || "/static/images/chatbot/chatbot-icon.png";
+    localStorage.getItem("iconBot") ||
+    "/static/images/chatbot/chatbot-icon.png";
   fetch("/obter-resposta", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1278,9 +1314,11 @@ function responderPergunta(pergunta) {
               if (data.video_enabled) {
                 if (data.video_status === "ready") {
                   mostrarVideoFaqNoAvatar(data.faq_id);
-                } else if (data.video_status || data.video_queued || data.video_busy) {
-                  // Video is queued, processing, or busy
-                  // No modal in public chat: spinner is enough UX.
+                } else if (
+                  data.video_status === "queued" ||
+                  data.video_status === "processing"
+                ) {
+                  // Only show spinner while the FAQ video is actually being generated.
                   mostrarSpinnerVideoFaq(data.faq_id);
                 }
                 // If video_status is null/undefined and not queued, don't show anything
@@ -1736,7 +1774,10 @@ async function ensureActiveChatbot() {
     );
     localStorage.setItem("generoBot", chosen.genero || "");
     if (chosen.fonte) {
-      localStorage.setItem(`fonteSelecionada_bot${chosen.chatbot_id}`, chosen.fonte);
+      localStorage.setItem(
+        `fonteSelecionada_bot${chosen.chatbot_id}`,
+        chosen.fonte
+      );
     }
     return true;
   } catch (e) {
@@ -1758,7 +1799,7 @@ function setupAvatarVideo() {
     }
     return;
   }
-  
+
   // Check if there's an active chatbot - if not, show static image
   const chatbotId = parseInt(localStorage.getItem("chatbotAtivo"));
   if (!chatbotId || isNaN(chatbotId)) {
@@ -1777,17 +1818,26 @@ function setupAvatarVideo() {
     localStorage.removeItem("videoIdlePath");
     return;
   }
-  
+
   const videoEl = document.querySelector(".chat-avatar-video");
   const imgEl = document.querySelector(".chat-avatar-image");
   if (!videoEl || !imgEl) return;
-  
+
   // Don't interfere if a FAQ video is currently playing or if idle video is already playing
-  if (currentFaqVideoId !== null && videoEl.src && videoEl.src.includes('/video/faq/')) {
+  if (
+    currentFaqVideoId !== null &&
+    videoEl.src &&
+    videoEl.src.includes("/video/faq/")
+  ) {
     return;
   }
   // If idle video is already playing, don't interfere
-  if (videoEl.src && videoEl.src.includes('/idle') && videoEl.loop && !videoEl.paused) {
+  if (
+    videoEl.src &&
+    videoEl.src.includes("/idle") &&
+    videoEl.loop &&
+    !videoEl.paused
+  ) {
     return;
   }
 
@@ -1819,7 +1869,7 @@ function setupAvatarVideo() {
     try {
       currentVideoEl.playbackRate = 1.0;
     } catch (e) {}
-    
+
     currentVideoEl.onloadeddata = () => {
       // Try to play with sound first
       currentVideoEl.play().catch(() => {

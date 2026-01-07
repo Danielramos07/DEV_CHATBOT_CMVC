@@ -4,7 +4,6 @@ from ..db import get_conn
 from ..services.text import detectar_saudacao, registar_pergunta_nao_respondida
 from ..services.retreival import obter_faq_mais_semelhante, pesquisar_faiss, build_faiss_index
 from ..services.rag import pesquisar_pdf_ollama, get_pdfs_from_db, obter_mensagem_sem_resposta
-from ..services.video_service import can_start_new_video_job, queue_video_for_faq
 import traceback
 
 app = Blueprint('respostas', __name__)
@@ -74,25 +73,10 @@ def obter_resposta():
                     except Exception:
                         video_enabled = False
 
+                    # IMPORTANT: não gerar vídeo automaticamente ao usar a FAQ no chat.
+                    # A geração deve ser manual (backoffice) e o chat apenas reflete estados.
                     video_queued = False
                     video_busy = False
-                    # If video_enabled and FAQ exists, try to queue video if not ready
-                    # video_status can be None, "queued", "processing", "ready", "failed", "cancelled"
-                    if video_enabled and faq_id:
-                        if video_status == "ready":
-                            # Video is ready, nothing to do
-                            pass
-                        elif video_status in ("queued", "processing"):
-                            # Video is already queued/processing
-                            video_busy = True
-                        else:
-                            # video_status is None, "failed", "cancelled", or any other status
-                            # Try to queue a new video
-                            if can_start_new_video_job():
-                                video_queued = queue_video_for_faq(int(faq_id))
-                                video_busy = not video_queued
-                            else:
-                                video_busy = True
 
                     cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
                     docs = [r[0] for r in cur.fetchall()]

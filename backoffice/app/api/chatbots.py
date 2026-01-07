@@ -412,6 +412,8 @@ def atualizar_chatbot(chatbot_id):
 
         # Only regenerate videos when explicitly needed.
         # IMPORTANT: Do NOT regenerate if only descricao, cor, mensagem_sem_resposta, fonte, or categorias changed.
+        video_queued = False
+        video_busy = False
         if video_enabled:
             was_video_enabled = bool(old_video_enabled)
 
@@ -423,9 +425,21 @@ def atualizar_chatbot(chatbot_id):
             should_queue = (not was_video_enabled) or nome_changed or icon_changed or genero_changed
             if should_queue:
                 from ..services.video_service import queue_videos_for_chatbot
-                queue_videos_for_chatbot(chatbot_id)
+                video_queued = bool(queue_videos_for_chatbot(chatbot_id))
+                video_busy = not video_queued
 
-        return jsonify({"success": True})
+        payload = {
+            "success": True,
+            "video_enabled": bool(video_enabled),
+            "video_queued": bool(video_queued),
+            "video_busy": bool(video_busy),
+        }
+        if video_busy:
+            payload["error"] = (
+                "Já existe um vídeo a ser gerado neste momento. "
+                "A geração (greeting + idle) deste chatbot terá de ser iniciada mais tarde."
+            )
+        return jsonify(payload)
     except Exception as e:
         conn.rollback()
         print(traceback.format_exc())

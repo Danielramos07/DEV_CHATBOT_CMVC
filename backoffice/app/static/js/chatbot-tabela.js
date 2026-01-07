@@ -468,14 +468,28 @@ document.addEventListener("DOMContentLoaded", function () {
           }
         }
         if (res.ok) {
+          const result = await res.json().catch(() => ({}));
+
           // Refresh categories view-only list (it may have changed in the categories modal)
           try {
             await mostrarModalEditarChatbot(chatbot_id);
           } catch (e) {}
 
-          // Se ao atualizar ativaste vídeo, ligar polling global do indicador.
-          // (O backend pode enfileirar geração de greeting+idle dependendo do estado atual.)
-          if (video_enabled) {
+          // Mostrar modal se o backend não conseguiu enfileirar por já existir um job.
+          if (result && result.video_busy) {
+            if (typeof mostrarModalVideoBusy === "function") {
+              mostrarModalVideoBusy(
+                result.error ||
+                  "Já existe um vídeo a ser gerado neste momento. Aguarde que termine."
+              );
+            } else {
+              const m = document.getElementById("modalVideoBusy");
+              if (m) m.style.display = "flex";
+            }
+          }
+
+          // Só ligar polling se o backend realmente enfileirou a geração.
+          if (result && result.video_queued) {
             try {
               localStorage.setItem("videoJobPolling", "1");
             } catch (e) {}
