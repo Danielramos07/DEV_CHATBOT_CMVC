@@ -632,10 +632,7 @@ window.abrirModalAtualizar = async function (chatbot_id) {
     );
     setValueById("editarFonteResposta", bot.fonte || "faq");
     setValueById("editarCorChatbot", bot.cor || "#d4af37");
-    setValueById(
-      "editarMensagemSemResposta",
-      bot.mensagem_sem_resposta || ""
-    );
+    setValueById("editarMensagemSemResposta", bot.mensagem_sem_resposta || "");
     setValueById("editarGeneroChatbot", bot.genero || "");
     const cbVideo = document.getElementById("editarVideoEnabledChatbot");
     if (cbVideo) cbVideo.checked = !!bot.video_enabled;
@@ -664,7 +661,8 @@ window.abrirModalAtualizar = async function (chatbot_id) {
 
     const previewIcon = document.getElementById("previewIcon");
     if (previewIcon) {
-      previewIcon.src = bot.icon_path || "/static/images/chatbot/chatbot-icon.png";
+      previewIcon.src =
+        bot.icon_path || "/static/images/chatbot/chatbot-icon.png";
       previewIcon.style.display = bot.icon_path ? "block" : "none";
     }
 
