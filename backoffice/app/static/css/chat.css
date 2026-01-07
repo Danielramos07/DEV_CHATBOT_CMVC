@@ -121,12 +121,10 @@
   height: 230px;
   max-height: 230px;
   border-radius: inherit;
-  object-fit: cover;
+  /* Avoid extra crop/"zoom" vs the fallback image when aspect ratios differ */
+  object-fit: contain;
+  object-position: center;
   display: block;
-  /* Videos often arrive more tightly cropped than the fallback image;
-     scaling down slightly makes the framing closer to the fallback avatar. */
-  transform: scale(0.90);
-  transform-origin: center;
   background: transparent;
 }
 
