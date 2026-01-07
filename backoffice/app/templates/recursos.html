@@ -73,16 +73,129 @@ content %}
       </div>
       <div class="form-group">
         <label for="novoIconChatbot">Ícone (avatar):</label>
-        <input
-          type="file"
-          name="icon"
-          id="novoIconChatbot"
-          accept="image/*"
-        />
+        <input type="file" name="icon" id="novoIconChatbot" accept="image/*" />
+        <input type="hidden" name="icon_preset" id="novoIconPreset" value="" />
+        <div
+          id="avatarPresets"
+          style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px"
+        >
+          <button
+            type="button"
+            class="avatar-preset"
+            data-avatar="face.jpg"
+            style="
+              border: none;
+              background: transparent;
+              padding: 0;
+              cursor: pointer;
+            "
+          >
+            <img
+              src="/static/images/avatars/face.jpg"
+              alt="Avatar 1"
+              style="
+                width: 52px;
+                height: 52px;
+                border-radius: 10px;
+                object-fit: cover;
+              "
+            />
+          </button>
+          <button
+            type="button"
+            class="avatar-preset"
+            data-avatar="face2.png"
+            style="
+              border: none;
+              background: transparent;
+              padding: 0;
+              cursor: pointer;
+            "
+          >
+            <img
+              src="/static/images/avatars/face2.png"
+              alt="Avatar 2"
+              style="
+                width: 52px;
+                height: 52px;
+                border-radius: 10px;
+                object-fit: cover;
+              "
+            />
+          </button>
+          <button
+            type="button"
+            class="avatar-preset"
+            data-avatar="face3.png"
+            style="
+              border: none;
+              background: transparent;
+              padding: 0;
+              cursor: pointer;
+            "
+          >
+            <img
+              src="/static/images/avatars/face3.png"
+              alt="Avatar 3"
+              style="
+                width: 52px;
+                height: 52px;
+                border-radius: 10px;
+                object-fit: cover;
+              "
+            />
+          </button>
+          <button
+            type="button"
+            class="avatar-preset"
+            data-avatar="face4.png"
+            style="
+              border: none;
+              background: transparent;
+              padding: 0;
+              cursor: pointer;
+            "
+          >
+            <img
+              src="/static/images/avatars/face4.png"
+              alt="Avatar 4"
+              style="
+                width: 52px;
+                height: 52px;
+                border-radius: 10px;
+                object-fit: cover;
+              "
+            />
+          </button>
+          <button
+            type="button"
+            class="avatar-preset"
+            data-avatar="face5.png"
+            style="
+              border: none;
+              background: transparent;
+              padding: 0;
+              cursor: pointer;
+            "
+          >
+            <img
+              src="/static/images/avatars/face5.png"
+              alt="Avatar 5"
+              style="
+                width: 52px;
+                height: 52px;
+                border-radius: 10px;
+                object-fit: cover;
+              "
+            />
+          </button>
+        </div>
       </div>
       <label class="video-enabled-row">
         <input type="checkbox" name="video_enabled" />
-        <span>Ativar vídeos do avatar (gerar greeting + idle automaticamente)</span>
+        <span
+          >Ativar vídeos do avatar (gerar greeting + idle automaticamente)</span
+        >
       </label>
       <div class="btn-bar-novo-bot">
         <button type="submit" class="btn-novo-bot-modal">Criar Chatbot</button>
@@ -248,17 +361,23 @@ content %}
           <input type="hidden" name="chatbot_id" id="faqChatbotId" />
           <input
             type="text"
-            name="designacao"
-            placeholder="Designação"
-            required
-          />
-          <input
-            type="text"
             name="identificador"
             placeholder="Identificador "
             maxlength="120"
           />
+          <input
+            type="text"
+            name="designacao"
+            placeholder="Designação"
+            required
+          />
           <input type="text" name="pergunta" placeholder="Pergunta" required />
+          <textarea
+            name="serve_text"
+            placeholder="Serve / A quem se destina..."
+            rows="5"
+            style="min-height: 120px"
+          ></textarea>
           <textarea
             name="resposta"
             placeholder="Resposta"
@@ -274,29 +393,6 @@ content %}
             <option value="pt">Português</option>
             <option value="en">Inglês</option>
           </select>
-          <div
-            id="faqVideoInfo"
-            style="font-size: 13px; margin: 6px 0 2px; color: #555"
-          ></div>
-          <label
-            for="faqGerarVideoCheckbox"
-            id="faqGerarVideoWrapper"
-            style="
-              display: none;
-              margin-bottom: 8px;
-              font-size: 14px;
-              cursor: pointer;
-            "
-          >
-            <input
-              type="checkbox"
-              name="gerar_video"
-              id="faqGerarVideoCheckbox"
-              style="width: 16px; height: 16px; margin-right: 6px"
-              checked
-            />
-            Gerar vídeo para esta FAQ (um vídeo de cada vez em todo o sistema)
-          </label>
           <div class="links-docs-group">
             <label class="links-docs-label">Links de documentos</label>
             <div id="faqLinksContainer" class="links-docs-container">
@@ -307,7 +403,12 @@ content %}
                   class="link-doc-input"
                   placeholder="https://exemplo.com/documento.pdf"
                 />
-                <button type="button" class="btn-remover-link" title="Remover" disabled>
+                <button
+                  type="button"
+                  class="btn-remover-link"
+                  title="Remover"
+                  disabled
+                >
                   ×
                 </button>
               </div>
@@ -315,7 +416,9 @@ content %}
             <button type="button" id="faqAddLinkBtn" class="btn-adicionar-link">
               + Adicionar link
             </button>
-            <small class="form-text">Um link por campo. Não é preciso usar vírgulas.</small>
+            <small class="form-text"
+              >Um link por campo. Não é preciso usar vírgulas.</small
+            >
           </div>
           <div class="form-group">
             <label for="faqRelacionadasSelect">FAQs relacionadas</label>

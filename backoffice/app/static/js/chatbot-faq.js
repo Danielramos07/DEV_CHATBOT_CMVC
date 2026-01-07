@@ -43,8 +43,6 @@ function adicionarListenersFormulariosFAQ(allBots = []) {
       }
 
       data.idioma = data.idioma?.trim() || "pt";
-      // Normalizar flag para geração de vídeo (checkbox)
-      data.gerar_video = data.gerar_video === "on" || data.gerar_video === true;
 
       const msgDiv =
         form.querySelector("#mensagemFAQ") ||
@@ -60,42 +58,6 @@ function adicionarListenersFormulariosFAQ(allBots = []) {
         if (msgDiv)
           msgDiv.innerHTML = `<span style="color:#dc2626;">Tem de escolher um chatbot.</span>`;
         return;
-      }
-
-      // Atualizar mensagem sobre vídeo em função do chatbot selecionado
-      const infoDiv = document.getElementById("faqVideoInfo");
-      const gerarWrapper = document.getElementById("faqGerarVideoWrapper");
-      const gerarCheckbox = document.getElementById("faqGerarVideoCheckbox");
-
-      try {
-        const bots = await (await fetch("/chatbots")).json();
-        const botAtual = bots.find(
-          (b) => String(b.chatbot_id) === String(data.chatbot_id)
-        );
-        if (botAtual && botAtual.video_enabled) {
-          if (infoDiv)
-            infoDiv.textContent =
-              "Este chatbot está configurado para gerar vídeos para novas FAQs. Apenas um vídeo pode estar a ser processado de cada vez.";
-          if (gerarWrapper) gerarWrapper.style.display = "block";
-          if (gerarCheckbox && data.gerar_video) gerarCheckbox.checked = true;
-        } else {
-          if (infoDiv)
-            infoDiv.textContent =
-              "Vídeo está desativado para este chatbot. A criação de FAQs não irá gerar vídeos.";
-          if (gerarWrapper) gerarWrapper.style.display = "none";
-          if (gerarCheckbox) gerarCheckbox.checked = false;
-          data.gerar_video = false;
-        }
-      } catch (e) {
-        // Fail-safe: se não conseguimos verificar, assumimos vídeo OFF para evitar jobs indevidos.
-        try {
-          if (infoDiv)
-            infoDiv.textContent =
-              "Não foi possível verificar a configuração de vídeo deste chatbot. Por segurança, a criação de FAQs não irá gerar vídeos.";
-          if (gerarWrapper) gerarWrapper.style.display = "none";
-          if (gerarCheckbox) gerarCheckbox.checked = false;
-          data.gerar_video = false;
-        } catch (e2) {}
       }
 
       if (data.chatbot_id === "todos") {
@@ -143,11 +105,8 @@ function adicionarListenersFormulariosFAQ(allBots = []) {
           if (res.ok) {
             form.reset();
             const resultado = await res.json().catch(() => ({}));
-            const videoInfo = resultado.video_queued
-              ? " Vídeo para esta FAQ foi colocado em fila e será gerado em breve."
-              : "";
             if (msgDiv)
-              msgDiv.innerHTML = `<span style="color:#2ecc40;">FAQ adicionada com sucesso!${videoInfo}</span>`;
+              msgDiv.innerHTML = `<span style="color:#2ecc40;">FAQ adicionada com sucesso!</span>`;
           } else if (res.status === 409) {
             const resultado = await res.json().catch(() => ({}));
             if (resultado.busy) {

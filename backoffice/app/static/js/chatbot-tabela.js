@@ -95,7 +95,9 @@ window.toggleAssociacaoCategoria = async function (
     // Keep edit modal categories view in sync
     try {
       const editarForm = document.getElementById("editarChatbotForm");
-      const editId = editarForm ? editarForm.getAttribute("data-edit-id") : null;
+      const editId = editarForm
+        ? editarForm.getAttribute("data-edit-id")
+        : null;
       if (editId && String(editId) === String(chatbot_id)) {
         await mostrarModalEditarChatbot(chatbot_id);
       }
@@ -114,7 +116,9 @@ window.removerAssociacaoCategoria = async function (chatbot_id, categoria_id) {
     // Keep edit modal categories view in sync
     try {
       const editarForm = document.getElementById("editarChatbotForm");
-      const editId = editarForm ? editarForm.getAttribute("data-edit-id") : null;
+      const editId = editarForm
+        ? editarForm.getAttribute("data-edit-id")
+        : null;
       if (editId && String(editId) === String(chatbot_id)) {
         await mostrarModalEditarChatbot(chatbot_id);
       }
@@ -372,16 +376,19 @@ window.tornarBotAtivo = async function (chatbot_id, btn) {
       if (data.nome) localStorage.setItem("nomeBot", data.nome);
       if (data.cor) localStorage.setItem("corChatbot", data.cor);
       if (data.icon) localStorage.setItem("iconBot", data.icon);
-      if (data.genero !== undefined) localStorage.setItem("generoBot", data.genero || "");
-      if (data.video_greeting_path) localStorage.setItem("videoGreetingPath", data.video_greeting_path);
-      if (data.video_idle_path) localStorage.setItem("videoIdlePath", data.video_idle_path);
+      if (data.genero !== undefined)
+        localStorage.setItem("generoBot", data.genero || "");
+      if (data.video_greeting_path)
+        localStorage.setItem("videoGreetingPath", data.video_greeting_path);
+      if (data.video_idle_path)
+        localStorage.setItem("videoIdlePath", data.video_idle_path);
     }
   } catch (e) {}
 
   // Only update chat UI if chat sidebar is actually open/visible
   const chatSidebar = document.getElementById("chatSidebar");
   const isChatOpen = chatSidebar && chatSidebar.style.display !== "none";
-  
+
   if (isChatOpen) {
     try {
       if (typeof window.atualizarNomeChatHeader === "function") {
@@ -547,14 +554,16 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Handle video_enabled checkbox to block/unblock nome, icon, genero fields
-  const videoEnabledCheckbox = document.getElementById("editarVideoEnabledChatbot");
+  const videoEnabledCheckbox = document.getElementById(
+    "editarVideoEnabledChatbot"
+  );
   if (videoEnabledCheckbox) {
     const toggleFieldsBasedOnVideoEnabled = () => {
       const isVideoEnabled = videoEnabledCheckbox.checked;
       const nomeInput = document.getElementById("editarNomeChatbot");
       const iconInput = document.getElementById("editarIconChatbot");
       const generoSelect = document.getElementById("editarGeneroChatbot");
-      
+
       if (nomeInput) {
         nomeInput.disabled = isVideoEnabled;
         nomeInput.style.opacity = isVideoEnabled ? "0.6" : "1";
@@ -571,8 +580,11 @@ document.addEventListener("DOMContentLoaded", function () {
         generoSelect.style.cursor = isVideoEnabled ? "not-allowed" : "pointer";
       }
     };
-    
-    videoEnabledCheckbox.addEventListener("change", toggleFieldsBasedOnVideoEnabled);
+
+    videoEnabledCheckbox.addEventListener(
+      "change",
+      toggleFieldsBasedOnVideoEnabled
+    );
     // Also call on modal open (handled in abrirModalAtualizar)
   }
 });
@@ -599,13 +611,13 @@ window.abrirModalAtualizar = async function (chatbot_id) {
     document.getElementById("editarGeneroChatbot").value = bot.genero || "";
     const cbVideo = document.getElementById("editarVideoEnabledChatbot");
     if (cbVideo) cbVideo.checked = !!bot.video_enabled;
-    
+
     // Block/unblock fields based on video_enabled state
     const isVideoEnabled = !!bot.video_enabled;
     const nomeInput = document.getElementById("editarNomeChatbot");
     const iconInput = document.getElementById("editarIconChatbot");
     const generoSelect = document.getElementById("editarGeneroChatbot");
-    
+
     if (nomeInput) {
       nomeInput.disabled = isVideoEnabled;
       nomeInput.style.opacity = isVideoEnabled ? "0.6" : "1";
@@ -621,7 +633,7 @@ window.abrirModalAtualizar = async function (chatbot_id) {
       generoSelect.style.opacity = isVideoEnabled ? "0.6" : "1";
       generoSelect.style.cursor = isVideoEnabled ? "not-allowed" : "pointer";
     }
-    
+
     document.getElementById("previewIcon").src =
       bot.icon_path || "/static/images/chatbot/chatbot-icon.png";
     document.getElementById("previewIcon").style.display = bot.icon_path
@@ -689,46 +701,8 @@ window.abrirModalAdicionarFAQ = async function (chatbot_id) {
 
   await atualizarCategoriasFAQForm(chatbot_id);
   await carregarFAQsRelacionadasModal(chatbot_id);
-  await atualizarAvisoVideoFAQ(chatbot_id);
   document.getElementById("mensagemFAQ").textContent = "";
 };
-
-async function atualizarAvisoVideoFAQ(chatbot_id) {
-  const infoDiv = document.getElementById("faqVideoInfo");
-  const gerarWrapper = document.getElementById("faqGerarVideoWrapper");
-  const gerarCheckbox = document.getElementById("faqGerarVideoCheckbox");
-  if (!infoDiv && !gerarWrapper && !gerarCheckbox) return;
-  try {
-    const bots = await fetch("/chatbots").then((r) => r.json());
-    const botAtual = (bots || []).find(
-      (b) => String(b.chatbot_id) === String(chatbot_id)
-    );
-    const enabled = !!(botAtual && botAtual.video_enabled);
-    if (enabled) {
-      if (infoDiv)
-        infoDiv.textContent =
-          "Vídeo está ATIVO para este chatbot. A FAQ pode gerar vídeo (apenas 1 de cada vez em todo o sistema).";
-      if (gerarWrapper) gerarWrapper.style.display = "block";
-      if (gerarCheckbox && typeof gerarCheckbox.checked === "boolean") {
-        // default ON
-        gerarCheckbox.checked = true;
-      }
-    } else {
-      if (infoDiv)
-        infoDiv.textContent =
-          "Vídeo está DESATIVADO para este chatbot. A criação de FAQs não irá gerar vídeos.";
-      if (gerarWrapper) gerarWrapper.style.display = "none";
-      if (gerarCheckbox) gerarCheckbox.checked = false;
-    }
-  } catch (e) {
-    // fail-safe
-    if (infoDiv)
-      infoDiv.textContent =
-        "Não foi possível verificar o estado do vídeo. Por segurança, a criação de FAQs não irá gerar vídeos.";
-    if (gerarWrapper) gerarWrapper.style.display = "none";
-    if (gerarCheckbox) gerarCheckbox.checked = false;
-  }
-}
 
 async function atualizarCategoriasFAQForm(chatbot_id) {
   const select = document.getElementById("faqCategoriaSelect");
@@ -905,16 +879,15 @@ if (formAdicionarFAQ) {
     e.preventDefault();
     const chatbot_id = document.getElementById("faqChatbotId").value;
     const designacao = this.elements["designacao"].value.trim();
-    const identificador =
-      this.elements["identificador"]?.value?.trim() || "";
+    const identificador = this.elements["identificador"]?.value?.trim() || "";
     const pergunta = this.elements["pergunta"].value.trim();
+    const serve_text = this.elements["serve_text"]
+      ? this.elements["serve_text"].value.trim()
+      : "";
     const resposta = this.elements["resposta"].value.trim();
     const categoria_id = this.elements["categoria_id"].value;
     const idioma = this.elements["idioma"].value;
     const links_documentos = this.elements["links_documentos"].value.trim();
-    const gerar_video = this.elements["gerar_video"]
-      ? !!this.elements["gerar_video"].checked
-      : false;
 
     // Obter valores selecionados do select múltiplo
     const relacionadasSelect = this.elements["relacionadas[]"];
@@ -938,12 +911,12 @@ if (formAdicionarFAQ) {
       designacao,
       identificador,
       pergunta,
+      serve_text,
       resposta,
       categoria_id,
       idioma,
       links_documentos,
       relacionadas,
-      gerar_video,
     };
     try {
       const res = await fetch("/faqs", {
@@ -962,19 +935,6 @@ if (formAdicionarFAQ) {
           carregarTabelaBots();
         }, 1000);
       } else {
-        if (res.status === 409 && result && result.busy) {
-          // Block publish while a video job is active (only relevant when video is enabled)
-          if (typeof mostrarModalVideoBusy === "function") {
-            mostrarModalVideoBusy(
-              result.error ||
-                "Já existe um vídeo a ser gerado neste momento. Aguarde que termine."
-            );
-          } else {
-            const m = document.getElementById("modalVideoBusy");
-            if (m) m.style.display = "flex";
-          }
-          return;
-        }
         document.getElementById("mensagemFAQ").textContent =
           "Erro: " + (result.error || result.erro);
         document.getElementById("mensagemFAQ").style.color = "red";

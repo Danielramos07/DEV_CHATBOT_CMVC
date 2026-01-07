@@ -184,7 +184,11 @@ async function carregarTabelaFAQsBackoffice() {
     ]);
 
     const chatbotsMap = {};
-    chatbots.forEach((bot) => (chatbotsMap[bot.chatbot_id] = bot.nome));
+    const chatbotsVideoEnabled = {};
+    chatbots.forEach((bot) => {
+      chatbotsMap[bot.chatbot_id] = bot.nome;
+      chatbotsVideoEnabled[bot.chatbot_id] = !!bot.video_enabled;
+    });
     const categoriasMap = {};
     categorias.forEach((cat) => (categoriasMap[cat.categoria_id] = cat.nome));
 
@@ -196,6 +200,8 @@ async function carregarTabelaFAQsBackoffice() {
           (faq.designacao || "") +
           " " +
           (faq.pergunta || "") +
+          " " +
+          (faq.serve_text || "") +
           " " +
           (faq.resposta || "");
         matchPesquisa = target.toLowerCase().includes(textoPesquisa);
@@ -273,7 +279,8 @@ async function carregarTabelaFAQsBackoffice() {
                   faq.video_status === "processing" ||
                   faq.video_status === "queued"
                 ) {
-                  videoCol = '<span style="color:#d97706;">⏳ a processar</span>';
+                  videoCol =
+                    '<span style="color:#d97706;">⏳ a processar</span>';
                 } else if (faq.video_status === "ready" && faq.video_path) {
                   videoCol = `<a href="/video/faq/${faq.faq_id}" target="_blank" style="color:#2563eb;">▶ Ver vídeo</a>`;
                 } else if (faq.video_status === "failed") {
@@ -294,12 +301,31 @@ async function carregarTabelaFAQsBackoffice() {
                 <td style="text-align:center;">${recomendacao}</td>
                 <td style="text-align:center;">${videoCol}</td>
                 <td>
-                  <button class="btn-remover" onclick="pedirConfirmacao(${
-                    faq.faq_id
-                  })">Remover</button>
-                  <button class="btn-editar" onclick="editarFAQ(${
-                    faq.faq_id
-                  })">Editar</button>
+                  ${(() => {
+                    const botVideo = !!chatbotsVideoEnabled[faq.chatbot_id];
+                    const hasReadyVideo =
+                      faq.video_status === "ready" && !!faq.video_path;
+                    const isGenerating =
+                      faq.video_status === "processing" ||
+                      faq.video_status === "queued";
+                    const canGenerate =
+                      botVideo && !hasReadyVideo && !isGenerating;
+                    return `
+                      <div style="display:flex; flex-direction:column; gap:6px;">
+                        <button class="btn-remover" onclick="pedirConfirmacao(${
+                          faq.faq_id
+                        })">Remover</button>
+                        ${
+                          canGenerate
+                            ? `<button class="btn-editar" onclick="pedirConfirmacaoGerarVideo(${faq.faq_id})">Gerar Vídeo</button>`
+                            : ""
+                        }
+                        <button class="btn-editar" onclick="editarFAQ(${
+                          faq.faq_id
+                        })">Editar</button>
+                      </div>
+                    `;
+                  })()}
                 </td>
               </tr>
             `;
@@ -328,6 +354,72 @@ async function carregarTabelaFAQsBackoffice() {
     lista.innerHTML = "<p style='color:red;'>Erro ao carregar FAQs.</p>";
   }
 }
+
+function pedirConfirmacaoGerarVideo(faq_id) {
+  window.faqIdAGerarVideo = faq_id;
+  const m = document.getElementById("modalConfirmGerarVideo");
+  if (m) m.style.display = "flex";
+}
+
+function showVideoBusyModal(message) {
+  const modal = document.getElementById("modalVideoBusy");
+  const msg = document.getElementById("modalVideoBusyMsg");
+  if (msg)
+    msg.textContent = message || "Não foi possível iniciar a geração do vídeo.";
+  if (modal) modal.style.display = "flex";
+}
+
+function hideVideoBusyModal() {
+  const modal = document.getElementById("modalVideoBusy");
+  if (modal) modal.style.display = "none";
+}
+
+async function confirmarGerarVideo() {
+  const faqId = window.faqIdAGerarVideo;
+  if (!faqId) return;
+  const confirmBtn = document.getElementById("confirmarGerarVideo");
+  if (confirmBtn) confirmBtn.disabled = true;
+  try {
+    const res = await fetch("/video/queue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ faq_id: faqId }),
+    });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = out.error || "Não foi possível gerar o vídeo.";
+      // Show a modal (instead of alert) for busy/duplicate cases.
+      showVideoBusyModal(msg);
+      return;
+    }
+    try {
+      localStorage.setItem("videoJobPolling", "1");
+    } catch (e) {}
+    if (typeof window.startVideoStatusPolling === "function") {
+      window.startVideoStatusPolling();
+    }
+    mostrarRespostas();
+  } catch (e) {
+    showVideoBusyModal("Erro ao comunicar com o servidor.");
+  } finally {
+    const m = document.getElementById("modalConfirmGerarVideo");
+    if (m) m.style.display = "none";
+    window.faqIdAGerarVideo = null;
+    if (confirmBtn) confirmBtn.disabled = false;
+  }
+}
+
+function cancelarGerarVideo() {
+  const m = document.getElementById("modalConfirmGerarVideo");
+  if (m) m.style.display = "none";
+  window.faqIdAGerarVideo = null;
+}
+
+// Wire busy modal close button (if present on this page)
+try {
+  const closeBusyBtn = document.getElementById("fecharModalVideoBusy");
+  if (closeBusyBtn) closeBusyBtn.addEventListener("click", hideVideoBusyModal);
+} catch (e) {}
 
 async function carregarTabelaFAQs(chatbotId, paraDropdown = false) {
   if (paraDropdown) {
@@ -460,7 +552,7 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
   ) {
     return;
   }
-  
+
   const statusDiv = document.createElement("div");
   statusDiv.className = "faqStatus";
   statusDiv.style.marginTop = "10px";
@@ -468,11 +560,11 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
 
   // Prevent duplicate submissions
   let isSubmitting = false;
-  
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     e.stopPropagation(); // Prevent other handlers from firing
-    
+
     if (isSubmitting) {
       return; // Already submitting, ignore
     }
@@ -488,6 +580,10 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
       categoria_id: (() => {
         const el = form.querySelector('[name="categoria_id"]');
         return el ? parseInt(el.value) || null : null;
+      })(),
+      serve_text: (() => {
+        const el = form.querySelector('[name="serve_text"]');
+        return el ? el.value.trim() : "";
       })(),
       designacao: (() => {
         const el = form.querySelector('[name="designacao"]');
@@ -521,10 +617,6 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
         const el = form.querySelector('[name="idioma"]');
         return el ? el.value.trim() || "pt" : "pt";
       })(),
-      gerar_video: (() => {
-        const el = form.querySelector('[name="gerar_video"]');
-        return el ? el.checked : false;
-      })(),
     };
 
     if (!chatbotIdRaw) {
@@ -554,21 +646,6 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
       } else {
         const data = { chatbot_id: parseInt(chatbotIdRaw), ...dadosBase };
 
-        // Fail-safe: mesmo que o checkbox venha marcado, não pedir vídeo se o chatbot não tiver vídeo ativo.
-        try {
-          const resBots = await fetch("/chatbots");
-          const bots = await resBots.json();
-          const botAtual = bots.find(
-            (b) => String(b.chatbot_id) === String(data.chatbot_id)
-          );
-          if (!botAtual || !botAtual.video_enabled) {
-            data.gerar_video = false;
-          }
-        } catch (e) {
-          // Se falhar, por segurança não pedir vídeo.
-          data.gerar_video = false;
-        }
-
         const res = await fetch("/faqs", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -583,31 +660,7 @@ document.querySelectorAll(".faqForm").forEach((faqForm) => {
           form.reset();
           carregarTabelaFAQs(parseInt(chatbotIdRaw), true);
           mostrarRespostas();
-
-          // Se foi pedido vídeo E o resultado indica que foi colocado em fila, ligar o polling global do indicador.
-          // Só iniciar polling se realmente houver um vídeo a ser gerado (video_queued === true)
-          if (dadosBase.gerar_video && resultado.video_queued === true) {
-            try {
-              localStorage.setItem("videoJobPolling", "1");
-            } catch (e) {}
-            if (typeof window.startVideoStatusPolling === "function") {
-              window.startVideoStatusPolling();
-            }
-          }
         } else {
-          if (res.status === 409 && resultado && resultado.busy) {
-            if (typeof mostrarModalVideoBusy === "function") {
-              mostrarModalVideoBusy(
-                resultado.error ||
-                  "Já existe um vídeo a ser gerado neste momento. Aguarde que termine."
-              );
-            }
-            // Não duplicar a mensagem em texto abaixo do botão quando o modal abre
-            statusDiv.innerHTML = "";
-            statusDiv.style.color = "";
-            isSubmitting = false;
-            return;
-          }
           statusDiv.innerHTML = `❌ Erro: ${
             resultado.error || resultado.erro || "Erro desconhecido."
           }`;
@@ -663,7 +716,9 @@ document.querySelectorAll(".uploadForm").forEach((uploadForm) => {
       rota = "upload-faq-docx-multiplos";
       formData.delete("files");
       formData.delete("file");
-      Array.from(docxInput.files).forEach((file) => formData.append("files", file));
+      Array.from(docxInput.files).forEach((file) =>
+        formData.append("files", file)
+      );
     }
 
     const chatbotId = uploadForm.querySelector(
@@ -747,6 +802,10 @@ async function editarFAQ(faq_id) {
     categoriasDisponiveis = categorias;
 
     document.getElementById("editarPergunta").value = faqAEditar.pergunta || "";
+    const editarServe = document.getElementById("editarServeText");
+    if (editarServe) {
+      editarServe.value = faqAEditar.serve_text || "";
+    }
     document.getElementById("editarResposta").value = faqAEditar.resposta || "";
     const editarIdentificador = document.getElementById("editarIdentificador");
     if (editarIdentificador) {
@@ -765,13 +824,14 @@ async function editarFAQ(faq_id) {
 
     const catSelect = document.getElementById("editarCategoriaSelect");
     if (catSelect) {
-      const selectedId = faqAEditar.categoria_id ? String(faqAEditar.categoria_id) : "";
+      const selectedId = faqAEditar.categoria_id
+        ? String(faqAEditar.categoria_id)
+        : "";
       catSelect.innerHTML =
         '<option value="">Sem categoria</option>' +
         categorias
           .map(
-            (cat) =>
-              `<option value="${cat.categoria_id}">${cat.nome}</option>`
+            (cat) => `<option value="${cat.categoria_id}">${cat.nome}</option>`
           )
           .join("");
       catSelect.value = selectedId;
@@ -814,6 +874,7 @@ if (formEditarFAQ) {
     if (!faqAEditar) return;
 
     const pergunta = document.getElementById("editarPergunta").value.trim();
+    const serve_text = document.getElementById("editarServeText")?.value.trim();
     const resposta = document.getElementById("editarResposta").value.trim();
     const idioma = document.getElementById("editarIdioma").value;
     const identificador = document
@@ -827,9 +888,7 @@ if (formEditarFAQ) {
       ? parseInt(document.getElementById("editarCategoriaSelect").value || "")
       : null;
     const relacionadasSel = Array.from(
-      document.querySelectorAll(
-        '#editarFaqRelacionadasSelect option:checked'
-      )
+      document.querySelectorAll("#editarFaqRelacionadasSelect option:checked")
     ).map((opt) => parseInt(opt.value));
 
     try {
@@ -838,6 +897,7 @@ if (formEditarFAQ) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pergunta,
+          serve_text,
           resposta,
           idioma,
           identificador,
@@ -869,6 +929,14 @@ if (formEditarFAQ) {
     }
   };
 }
+
+// Ligar handlers do modal de gerar vídeo (se existir nesta página)
+try {
+  const btnOk = document.getElementById("confirmarGerarVideo");
+  const btnCancel = document.getElementById("cancelarGerarVideo");
+  if (btnOk) btnOk.onclick = confirmarGerarVideo;
+  if (btnCancel) btnCancel.onclick = cancelarGerarVideo;
+} catch (e) {}
 
 function ligarBotaoCancelarEditarFAQ() {
   const btnCancelar = document.getElementById("btnCancelarFAQ");

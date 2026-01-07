@@ -29,6 +29,66 @@ def queue_video():
     except Exception:
         return jsonify({"success": False, "error": "faq_id inválido."}), 400
 
+    # Confirm that the FAQ exists, that its chatbot has video enabled, and that the FAQ isn't
+    # already generating/ready. This avoids double-clicks and cross-tab races.
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT c.video_enabled, f.video_status, f.video_path
+            FROM faq f
+            JOIN chatbot c ON f.chatbot_id = c.chatbot_id
+            WHERE f.faq_id = %s
+            """,
+            (faq_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"success": False, "error": "FAQ não encontrada."}), 404
+        video_enabled = bool(row[0])
+        video_status = row[1]
+        video_path = row[2]
+        if not video_enabled:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "video_disabled": True,
+                        "error": "Vídeo está desativado para o chatbot desta FAQ.",
+                    }
+                ),
+                409,
+            )
+
+        if video_status in ("queued", "processing"):
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "faq_busy": True,
+                        "error": "O vídeo desta FAQ já está a ser criado. Aguarde.",
+                    }
+                ),
+                409,
+            )
+
+        if video_status == "ready" and video_path:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "faq_ready": True,
+                        "error": "Esta FAQ já tem vídeo.",
+                    }
+                ),
+                409,
+            )
+    finally:
+        cur.close()
+        conn.close()
+
+    # Global single-job lock: only one video generation at a time.
     if not can_start_new_video_job():
         return (
             jsonify(
@@ -40,37 +100,6 @@ def queue_video():
             ),
             409,
         )
-
-    # Confirm that the FAQ exists before queueing and that its chatbot has video enabled
-    conn = get_conn()
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            """
-            SELECT c.video_enabled
-            FROM faq f
-            JOIN chatbot c ON f.chatbot_id = c.chatbot_id
-            WHERE f.faq_id = %s
-            """,
-            (faq_id,),
-        )
-        row = cur.fetchone()
-        if not row:
-            return jsonify({"success": False, "error": "FAQ não encontrada."}), 404
-        video_enabled = bool(row[0]) if row else False
-        if not video_enabled:
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "error": "Vídeo está desativado para o chatbot desta FAQ.",
-                    }
-                ),
-                409,
-            )
-    finally:
-        cur.close()
-        conn.close()
 
     ok = queue_video_for_faq(faq_id)
     if not ok:

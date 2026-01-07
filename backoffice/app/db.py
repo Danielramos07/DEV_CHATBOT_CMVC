@@ -60,6 +60,8 @@ def ensure_schema() -> None:
         cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS ativo BOOLEAN NOT NULL DEFAULT FALSE;")
         # Add FAQ identifier (safe to run repeatedly)
         cur.execute("ALTER TABLE faq ADD COLUMN IF NOT EXISTS identificador VARCHAR(120);")
+        # Add FAQ 'serve' field (A quem se destina / para que serve)
+        cur.execute("ALTER TABLE faq ADD COLUMN IF NOT EXISTS serve_text TEXT;")
         # Global video job status (singleton row)
         cur.execute(
             """

@@ -1,4 +1,4 @@
-async function carregarBots() { 
+async function carregarBots() {
   const container = document.getElementById("botsTabelaContainer");
   if (!container) return;
   container.innerHTML = "<p>A carregar bots...</p>";
@@ -9,7 +9,7 @@ async function carregarBots() {
       container.innerHTML = "<p>Nenhum bot encontrado.</p>";
       return;
     }
-    container.innerHTML = bots.map(bot => criarBotHTML(bot, bots)).join('');
+    container.innerHTML = bots.map((bot) => criarBotHTML(bot, bots)).join("");
     if (typeof adicionarListenersFormulariosFAQ === "function")
       adicionarListenersFormulariosFAQ(bots);
     if (typeof adicionarListenersUploadDocx === "function")
@@ -21,7 +21,9 @@ async function carregarBots() {
 
 function adicionarCampoLink(btnOrContainer) {
   const container =
-    btnOrContainer.closest?.(".links-docs-group")?.querySelector(".links-docs-container") ||
+    btnOrContainer
+      .closest?.(".links-docs-group")
+      ?.querySelector(".links-docs-container") ||
     btnOrContainer.querySelector?.(".links-docs-container") ||
     null;
   if (!container) return;
@@ -66,40 +68,47 @@ function carregarFAQsRelacionadas(chatbotId) {
   if (!$select.length) return;
 
   fetch(`/faqs/chatbot/${chatbotId}`)
-    .then(resp => resp.json())
-    .then(data => {
-      if ($select.hasClass('select2-hidden-accessible')) {
-        $select.select2('destroy');
+    .then((resp) => resp.json())
+    .then((data) => {
+      if ($select.hasClass("select2-hidden-accessible")) {
+        $select.select2("destroy");
       }
-      
+
       $select.empty();
 
-      data.forEach(faq => {
+      data.forEach((faq) => {
         // Mostrar identificador prioritário; se não existir, usar pergunta truncada
         const pergunta = faq.pergunta || `FAQ ${faq.faq_id}`;
         const label = (faq.identificador || "").trim();
-        const truncatedPergunta = pergunta.length > 60 ? pergunta.substring(0, 60) + "..." : pergunta;
-        const option = new Option(label || truncatedPergunta, faq.faq_id, false, false);
+        const truncatedPergunta =
+          pergunta.length > 60 ? pergunta.substring(0, 60) + "..." : pergunta;
+        const option = new Option(
+          label || truncatedPergunta,
+          faq.faq_id,
+          false,
+          false
+        );
         option.title = label ? `${label} — ${pergunta}` : pergunta; // Mostrar info completa no hover
         $select.append(option);
       });
 
-      const $modal = $select.closest('.bot-dropdown').closest('.bot-wrapper').find('.bot-dropdown');
-      const dropdownParent = $modal.length ? $modal : $('body');
-      
+      const $modal = $select
+        .closest(".bot-dropdown")
+        .closest(".bot-wrapper")
+        .find(".bot-dropdown");
+      const dropdownParent = $modal.length ? $modal : $("body");
+
       $select.select2({
-        placeholder: 'Escolha uma ou mais FAQs relacionadas',
-        width: '100%',
+        placeholder: "Escolha uma ou mais FAQs relacionadas",
+        width: "100%",
         allowClear: true,
-        dropdownParent: dropdownParent
+        dropdownParent: dropdownParent,
       });
     })
-    .catch(err => {
-      console.error('Erro ao carregar FAQs relacionadas:', err);
+    .catch((err) => {
+      console.error("Erro ao carregar FAQs relacionadas:", err);
     });
 }
-
-
 
 function gerarOptionsChatbotSelect(allBots) {
   let options = `<option value="" disabled selected hidden>Escolha o chatbot</option>`;
@@ -121,7 +130,11 @@ function gerarOptionsIdiomaSelect() {
 
 function criarBotHTML(bot, allBots) {
   const dataCriacao = bot.data_criacao
-    ? new Date(bot.data_criacao).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' })
+    ? new Date(bot.data_criacao).toLocaleDateString("pt-PT", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
     : "-";
   const optionsHtml = gerarOptionsChatbotSelect(allBots);
   const idiomaSelectHtml = gerarOptionsIdiomaSelect();
@@ -167,9 +180,10 @@ function criarBotHTML(bot, allBots) {
               ${optionsHtml}
             </select>
             ${idiomaSelectHtml}
-            <input type="text" name="designacao" placeholder="Designação" required>
             <input type="text" name="identificador" placeholder="Identificador (ex: APO-AIC-AM)" maxlength="120">
+            <input type="text" name="designacao" placeholder="Designação" required>
             <input type="text" name="pergunta" placeholder="Pergunta" required>
+            <textarea name="serve_text" placeholder="Serve / A quem se destina..."></textarea>
             <textarea name="resposta" placeholder="Resposta" required></textarea>
             <select name="categoria_id" required>
               <option value="">Escolha a categoria</option>
@@ -229,8 +243,12 @@ function toggleBotDropdown(botItem) {
   const dropdown = botItem.parentElement.querySelector(".bot-dropdown");
   const isCurrentlyOpen = botItem.classList.contains("expanded");
 
-  document.querySelectorAll(".bot-dropdown").forEach(el => el.style.display = "none");
-  document.querySelectorAll(".bot-item").forEach(el => el.classList.remove("expanded"));
+  document
+    .querySelectorAll(".bot-dropdown")
+    .forEach((el) => (el.style.display = "none"));
+  document
+    .querySelectorAll(".bot-item")
+    .forEach((el) => el.classList.remove("expanded"));
 
   if (isCurrentlyOpen) {
     window.chatbotSelecionado = null;
@@ -250,7 +268,8 @@ function toggleBotDropdown(botItem) {
 
     window.chatbotSelecionado = chatbotId;
     localStorage.setItem("chatbotSelecionado", chatbotId);
-    const fonteSalva = localStorage.getItem(`fonteSelecionada_bot${chatbotId}`) || "faq";
+    const fonteSalva =
+      localStorage.getItem(`fonteSelecionada_bot${chatbotId}`) || "faq";
     selecionarFonte(fonteSalva, dropdown);
     if (typeof carregarTabelaFAQs === "function") {
       carregarTabelaFAQs(chatbotId, true);
@@ -261,30 +280,38 @@ function toggleBotDropdown(botItem) {
   }
 }
 
-
-function selecionarFonte(fonte, dropdown = null) { 
+function selecionarFonte(fonte, dropdown = null) {
   window.fonteSelecionada = fonte;
   if (window.chatbotSelecionado) {
-    localStorage.setItem(`fonteSelecionada_bot${window.chatbotSelecionado}`, fonte);
+    localStorage.setItem(
+      `fonteSelecionada_bot${window.chatbotSelecionado}`,
+      fonte
+    );
   }
   if (!dropdown) {
-    dropdown = document.querySelector(`.bot-item[data-chatbot-id="${window.chatbotSelecionado}"]`)
+    dropdown = document
+      .querySelector(
+        `.bot-item[data-chatbot-id="${window.chatbotSelecionado}"]`
+      )
       ?.parentElement?.querySelector(".bot-dropdown");
   }
   if (!dropdown) {
     return;
   }
-  dropdown.querySelectorAll(".card").forEach(card => {
+  dropdown.querySelectorAll(".card").forEach((card) => {
     card.classList.toggle("active", card.dataset.fonte === fonte);
   });
 }
 
 function mostrarFormulario() {
-  const dropdownVisivel = document.querySelector(".bot-dropdown[style*='block']");
+  const dropdownVisivel = document.querySelector(
+    ".bot-dropdown[style*='block']"
+  );
   if (!dropdownVisivel) return;
   const container = dropdownVisivel.querySelector("#faqContainer");
   if (container) {
-    container.style.display = container.style.display === "none" ? "block" : "none";
+    container.style.display =
+      container.style.display === "none" ? "block" : "none";
   }
 }
 
@@ -296,26 +323,34 @@ async function definirAtivo(event, chatbotId) {
   try {
     await fetch(`/chatbots/${chatbotId}/active`, { method: "PUT" });
   } catch (e) {}
-  document.querySelectorAll(".bot-ativo-btn").forEach(btn => {
+  document.querySelectorAll(".bot-ativo-btn").forEach((btn) => {
     btn.classList.remove("ativo");
-    btn.textContent = "Ficar Ativo"; 
+    btn.textContent = "Ficar Ativo";
   });
-  const botAtivoBtn = event.target.closest(".bot-dropdown").querySelector(".bot-ativo-btn");
+  const botAtivoBtn = event.target
+    .closest(".bot-dropdown")
+    .querySelector(".bot-ativo-btn");
   if (botAtivoBtn) {
     botAtivoBtn.classList.add("ativo");
-    botAtivoBtn.textContent = "Ativo"; 
+    botAtivoBtn.textContent = "Ativo";
   }
   const indicador = document.getElementById("indicadorAtivo");
   if (indicador) {
     indicador.style.display = "block";
     indicador.textContent = "";
   }
-  document.querySelectorAll(".ativo-label").forEach(el => el.style.display = "none");
-  const label = document.querySelector(`.bot-item[data-chatbot-id="${chatbotId}"] .ativo-label`);
+  document
+    .querySelectorAll(".ativo-label")
+    .forEach((el) => (el.style.display = "none"));
+  const label = document.querySelector(
+    `.bot-item[data-chatbot-id="${chatbotId}"] .ativo-label`
+  );
   if (label) label.style.display = "inline";
-  const fonte = localStorage.getItem(`fonteSelecionada_bot${chatbotId}`) || "faq";
+  const fonte =
+    localStorage.getItem(`fonteSelecionada_bot${chatbotId}`) || "faq";
   window.fonteSelecionada = fonte;
-  const dropdown = document.querySelector(`.bot-item[data-chatbot-id="${chatbotId}"]`)
+  const dropdown = document
+    .querySelector(`.bot-item[data-chatbot-id="${chatbotId}"]`)
     ?.parentElement?.querySelector(".bot-dropdown");
   if (dropdown) {
     selecionarFonte(fonte, dropdown);

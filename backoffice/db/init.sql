@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS faq (
     identificador VARCHAR(120),
     designacao VARCHAR(255),
     pergunta TEXT NOT NULL,
+    serve_text TEXT,
     resposta TEXT NOT NULL,
     idioma VARCHAR(20) NOT NULL,
     links_documentos TEXT,

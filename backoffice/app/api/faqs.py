@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from ..db import get_conn
 from ..services.retreival import build_faiss_index
-from ..services.video_service import can_start_new_video_job, queue_video_for_faq, get_video_job_status
+from ..services.video_service import get_video_job_status
 import os
 from pathlib import Path
 from ..services.video_service import ROOT, RESULTS_DIR
@@ -14,7 +14,7 @@ def get_faqs():
     conn = get_conn()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT faq_id, chatbot_id, identificador, designacao, pergunta, resposta, video_status, video_path FROM faq")
+        cur.execute("SELECT faq_id, chatbot_id, identificador, designacao, pergunta, serve_text, resposta, video_status, video_path FROM faq")
         data = cur.fetchall()
         return jsonify([
             {
@@ -23,9 +23,10 @@ def get_faqs():
                 "identificador": f[2],
                 "designacao": f[3],
                 "pergunta": f[4],
-                "resposta": f[5],
-                "video_status": f[6],
-                "video_path": f[7],
+                "serve_text": f[5],
+                "resposta": f[6],
+                "video_status": f[7],
+                "video_path": f[8],
             }
             for f in data
         ])
@@ -47,6 +48,7 @@ def get_faq_by_id(faq_id):
                    f.categoria_id,
                    f.designacao,
                    f.pergunta,
+                     f.serve_text,
                    f.resposta,
                    f.idioma,
                    f.links_documentos,
@@ -77,16 +79,17 @@ def get_faq_by_id(faq_id):
                 "categoria_id": faq[2],
                 "designacao": faq[3],
                 "pergunta": faq[4],
-                "resposta": faq[5],
-                "idioma": faq[6],
-                "links_documentos": faq[7],
-                "categoria_nome": faq[8],
-                "recomendado": faq[9],
-                "video_status": faq[10],
-                "video_path": faq[11],
-                "video_text": faq[12],
-                "identificador": faq[13],
-                "relacionadas": faq[14] or [],
+                "serve_text": faq[5],
+                "resposta": faq[6],
+                "idioma": faq[7],
+                "links_documentos": faq[8],
+                "categoria_nome": faq[9],
+                "recomendado": faq[10],
+                "video_status": faq[11],
+                "video_path": faq[12],
+                "video_text": faq[13],
+                "identificador": faq[14],
+                "relacionadas": faq[15] or [],
             }
         })
     except Exception as e:
@@ -132,6 +135,7 @@ def update_faq(faq_id):
     data = request.get_json()
     try:
         pergunta = data.get("pergunta", "").strip()
+        serve_text = (data.get("serve_text") or "").strip() or None
         resposta = data.get("resposta", "").strip()
         idioma = data.get("idioma", "pt").strip()
         categorias = data.get("categorias", [])
@@ -242,6 +246,7 @@ def update_faq(faq_id):
                     """
                     UPDATE faq
                     SET pergunta=%s,
+                        serve_text=%s,
                         resposta=%s,
                         idioma=%s,
                         categoria_id=%s,
@@ -251,13 +256,14 @@ def update_faq(faq_id):
                         identificador=%s
                     WHERE faq_id=%s
                     """,
-                    (pergunta, resposta, idioma, categoria_id, recomendado, designacao, video_text_value, identificador or None, faq_id),
+                    (pergunta, serve_text, resposta, idioma, categoria_id, recomendado, designacao, video_text_value, identificador or None, faq_id),
                 )
             else:
                 cur.execute(
                     """
                     UPDATE faq
                     SET pergunta=%s,
+                        serve_text=%s,
                         resposta=%s,
                         idioma=%s,
                         categoria_id=%s,
@@ -266,7 +272,7 @@ def update_faq(faq_id):
                         identificador=%s
                     WHERE faq_id=%s
                     """,
-                    (pergunta, resposta, idioma, categoria_id, recomendado, designacao, identificador or None, faq_id),
+                    (pergunta, serve_text, resposta, idioma, categoria_id, recomendado, designacao, identificador or None, faq_id),
                 )
             # Atualizar FAQs relacionadas (se fornecidas)
             if relacionadas_raw is not None:
@@ -284,26 +290,6 @@ def update_faq(faq_id):
             if "duplicate key value violates unique constraint" in error_msg.lower() or "faq_chatbot_id_designacao_pergunta_resposta_idioma_key" in error_msg:
                 return jsonify({"success": False, "error": "Esta combinação (chatbot, designação, pergunta, resposta e idioma) já existe noutra FAQ."}), 409
             raise  # Re-raise if it's a different error
-
-        # Check if chatbot has video_enabled
-        video_enabled = False
-        if chatbot_id:
-            cur.execute("SELECT video_enabled FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
-            row = cur.fetchone()
-            video_enabled = bool(row[0]) if row else False
-
-        # Only queue video if resposta or video_text changed (not for recomendado/categorias changes)
-        # Check if resposta or video_text actually changed
-        resposta_changed = resposta and resposta != old_resposta
-        video_text_changed = video_text_in_payload and (video_text_value or "") != (old_video_text or "")
-        
-        # If resposta or video_text changed, and video_enabled, queue video
-        if video_enabled and (resposta_changed or video_text_changed):
-            if can_start_new_video_job():
-                queue_video_for_faq(faq_id)
-                return jsonify({"success": True, "video_queued": True})
-            else:
-                return jsonify({"success": True, "video_queued": False, "busy": True})
 
         return jsonify({"success": True})
     except Exception as e:
@@ -325,16 +311,8 @@ def add_faq():
         links_documentos = data.get("links_documentos", "").strip()
         recomendado = data.get("recomendado", False)
         identificador = (data.get("identificador") or "").strip()
+        serve_text = (data.get("serve_text") or "").strip() or None
         video_text = data.get("video_text", "").strip() or None
-        # gerar_video pode chegar como bool (JSON) ou string (ex: "on")
-        # Se não vier no payload e o chatbot tem vídeo ativo, assumimos True (comportamento esperado: gerar vídeo por defeito).
-        raw_gerar_video = data.get("gerar_video", None)
-        if raw_gerar_video is None:
-            gerar_video = True
-        elif isinstance(raw_gerar_video, str):
-            gerar_video = raw_gerar_video.strip().lower() in {"1", "true", "yes", "on"}
-        else:
-            gerar_video = bool(raw_gerar_video)
         cur.execute("""
             SELECT faq_id FROM faq
             WHERE chatbot_id = %s AND designacao = %s AND pergunta = %s AND resposta = %s AND idioma = %s
@@ -342,31 +320,10 @@ def add_faq():
         if cur.fetchone():
             return jsonify({"success": False, "error": "Esta FAQ já está inserida."}), 409
 
-        # Always check if chatbot has video_enabled
-        cur.execute("SELECT video_enabled FROM chatbot WHERE chatbot_id = %s", (data["chatbot_id"],))
-        row = cur.fetchone()
-        video_enabled = bool(row[0]) if row else False
-
-        # If video is disabled for this chatbot, force-disable gerar_video
-        if not video_enabled:
-            gerar_video = False
-
-        # Só enfileirar vídeo se o chatbot permitir E se o utilizador pediu para gerar vídeo.
-        # (evita gerar vídeo quando o chatbot está com vídeo desativado, mesmo que o checkbox venha marcado por engano)
-        should_queue_video = bool(video_enabled and gerar_video)
-
-        # Se for para gerar vídeo, garantir que não há outro job em curso.
-        if should_queue_video and not can_start_new_video_job():
-            return jsonify({
-                "success": False,
-                "busy": True,
-                "error": "Já existe um vídeo a ser gerado. Aguarde que termine ou desative a opção de gerar vídeo."
-            }), 409
-
         try:
             cur.execute("""
-                INSERT INTO faq (chatbot_id, categoria_id, designacao, identificador, pergunta, resposta, idioma, links_documentos, recomendado, video_text)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO faq (chatbot_id, categoria_id, designacao, identificador, pergunta, serve_text, resposta, idioma, links_documentos, recomendado, video_text)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING faq_id
             """, (
                 data["chatbot_id"],
@@ -374,6 +331,7 @@ def add_faq():
                 data["designacao"],
                 identificador or None,
                 data["pergunta"],
+                serve_text,
                 data["resposta"],
                 idioma,
                 links_documentos,
@@ -412,10 +370,7 @@ def add_faq():
         conn.commit()
         build_faiss_index()
 
-        if should_queue_video:
-            queue_video_for_faq(faq_id)
-            return jsonify({"success": True, "faq_id": faq_id, "video_queued": True})
-
+        # Vídeo para FAQ deixa de ser gerado automaticamente: passa a ser pedido explicitamente na página de FAQs.
         return jsonify({"success": True, "faq_id": faq_id, "video_queued": False})
     except Exception as e:
         conn.rollback()
@@ -484,7 +439,7 @@ def get_faqs_detalhes():
     cur = conn.cursor()
     try:
         cur.execute("""
-            SELECT f.faq_id, f.chatbot_id, f.designacao, f.pergunta, f.resposta, f.idioma, f.links_documentos,
+            SELECT f.faq_id, f.chatbot_id, f.designacao, f.pergunta, f.serve_text, f.resposta, f.idioma, f.links_documentos,
                    f.categoria_id, c.nome AS categoria_nome, ch.nome AS chatbot_nome, f.recomendado,
                    f.video_status, f.video_path, f.video_text, f.identificador
             FROM faq f
@@ -499,17 +454,18 @@ def get_faqs_detalhes():
                 "chatbot_id": r[1],
                 "designacao": r[2],
                 "pergunta": r[3],
-                "resposta": r[4],
-                "idioma": r[5],
-                "links_documentos": r[6],
-                "categoria_id": r[7],
-                "categoria_nome": r[8],
-                "chatbot_nome": r[9],
-                "recomendado": r[10],
-                "video_status": r[11],
-                "video_path": r[12],
-                "video_text": r[13],
-                "identificador": r[14],
+                "serve_text": r[4],
+                "resposta": r[5],
+                "idioma": r[6],
+                "links_documentos": r[7],
+                "categoria_id": r[8],
+                "categoria_nome": r[9],
+                "chatbot_nome": r[10],
+                "recomendado": r[11],
+                "video_status": r[12],
+                "video_path": r[13],
+                "video_text": r[14],
+                "identificador": r[15],
             }
             for r in data
         ])

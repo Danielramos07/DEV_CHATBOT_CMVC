@@ -58,6 +58,30 @@ def _save_chatbot_icon(file, chatbot_id: int, nome: str) -> str:
     return url_for("static", filename=f"icons/{filename}")
 
 
+def _save_chatbot_icon_preset(preset_filename: str, chatbot_id: int, nome: str) -> str:
+    """Copy a preset avatar from static/images/avatars into static/icons and return its URL.
+
+    Presets are allow-listed by filename to avoid path traversal.
+    """
+    preset_filename = secure_filename((preset_filename or "").strip())
+    if not preset_filename:
+        raise ValueError("Preset inválido")
+    avatars_dir = os.path.join(current_app.static_folder, "images", "avatars")
+    src_path = os.path.join(avatars_dir, preset_filename)
+    if not os.path.isfile(src_path):
+        raise FileNotFoundError("Preset não encontrado")
+
+    _, ext = os.path.splitext(preset_filename)
+    ext = (ext or ".png").lower()
+    safe_nome = secure_filename((nome or "").strip()) or "chatbot"
+    filename = f"{safe_nome}_{chatbot_id}{ext}"
+    icons_dir = os.path.join(current_app.static_folder, "icons")
+    os.makedirs(icons_dir, exist_ok=True)
+    dest_path = os.path.join(icons_dir, filename)
+    shutil.copyfile(src_path, dest_path)
+    return url_for("static", filename=f"icons/{filename}")
+
+
 @app.route("/chatbots", methods=["GET"])
 def get_chatbots():
     conn = get_conn()
@@ -167,6 +191,7 @@ def criar_chatbot():
     # icon_path can be provided explicitly (json) or via file upload (form)
     icon_path = _get_field("icon_path", "/static/images/chatbot/chatbot-icon.png") or "/static/images/chatbot/chatbot-icon.png"
     uploaded_icon = request.files.get("icon")
+    icon_preset = (_get_field("icon_preset", "") or "").strip()
 
     if not nome:
         return jsonify({"success": False, "error": "Nome obrigatório."}), 400
@@ -196,6 +221,16 @@ def criar_chatbot():
                 )
             except Exception:
                 # Best-effort: keep default icon_path
+                pass
+        elif icon_preset:
+            # Preset avatar selected in UI
+            try:
+                icon_path = _save_chatbot_icon_preset(icon_preset, chatbot_id, nome)
+                cur.execute(
+                    "UPDATE chatbot SET icon_path=%s WHERE chatbot_id=%s",
+                    (icon_path, chatbot_id),
+                )
+            except Exception:
                 pass
 
         for categoria_id in categorias:

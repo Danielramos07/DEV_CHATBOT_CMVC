@@ -8,6 +8,33 @@ document.addEventListener("DOMContentLoaded", () => {
   const novoBotForm = document.getElementById("novoBotForm");
   const mensagemNovoBot = document.getElementById("mensagemNovoBot");
 
+  // Avatar presets (static/images/avatars)
+  const presetHidden = document.getElementById("novoIconPreset");
+  const presetButtons = Array.from(
+    document.querySelectorAll("#avatarPresets .avatar-preset")
+  );
+
+  function selecionarPreset(btn) {
+    presetButtons.forEach((b) => {
+      b.style.outline = "none";
+      b.style.borderRadius = "10px";
+    });
+    if (btn) {
+      btn.style.outline = "2px solid #d4af37";
+      btn.style.borderRadius = "10px";
+      const v = btn.getAttribute("data-avatar") || "";
+      if (presetHidden) presetHidden.value = v;
+    }
+  }
+
+  if (presetButtons.length) {
+    presetButtons.forEach((btn) => {
+      btn.addEventListener("click", () => selecionarPreset(btn));
+    });
+    // default: first preset (tem pescoço)
+    selecionarPreset(presetButtons[0]);
+  }
+
   if (!novoBotBtn || !modalNovoBot || !novoBotForm || !mensagemNovoBot) {
     return;
   }
@@ -41,6 +68,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const iconInput = this.querySelector('input[type="file"][name="icon"]');
     if (iconInput && iconInput.files && iconInput.files.length > 0) {
       fd.append("icon", iconInput.files[0]);
+      // If user uploaded a file, ignore preset
+      if (presetHidden) presetHidden.value = "";
+    } else {
+      const preset = presetHidden ? (presetHidden.value || "").trim() : "";
+      if (preset) {
+        fd.append("icon_preset", preset);
+      }
     }
 
     fetch("/chatbots", {
@@ -58,7 +92,11 @@ document.addEventListener("DOMContentLoaded", () => {
             );
           }
           // Se o backend começou (ou vai começar) a geração dos vídeos do chatbot, ligar o polling do indicador.
-          if (resp.video_queued || resp.video_processing || resp.video_started) {
+          if (
+            resp.video_queued ||
+            resp.video_processing ||
+            resp.video_started
+          ) {
             try {
               localStorage.setItem("videoJobPolling", "1");
             } catch (e) {}

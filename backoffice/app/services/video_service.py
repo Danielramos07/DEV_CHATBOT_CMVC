@@ -47,6 +47,9 @@ SADTALKER_ENHANCER_DEFAULT = os.getenv("SADTALKER_ENHANCER_DEFAULT", "")
 SADTALKER_IDLE_SECONDS = float(os.getenv("SADTALKER_IDLE_SECONDS", "2"))
 RESULTS_DIR = Path(os.getenv("RESULTS_DIR", "backoffice/app/video/results"))
 
+# Piper speech speed (1.0 = normal; higher = slower)
+PIPER_LENGTH_SCALE = float(os.getenv("PIPER_LENGTH_SCALE", "1.05"))
+
 _job_lock = Lock()
 _current_job: Dict[str, Any] = {
     "status": "idle",  # idle | queued | processing | done | error
@@ -566,7 +569,18 @@ def _generate_video(
                 )
 
             wav_path = save_dir / "piper.wav"
-            piper_speak(text, str(wav_path), str(voice_model_path))
+            extra_args = []
+            try:
+                ls = float(PIPER_LENGTH_SCALE)
+                if ls > 0:
+                    extra_args.extend(["--length_scale", str(ls)])
+            except Exception:
+                pass
+            try:
+                piper_speak(text, str(wav_path), str(voice_model_path), extra_args=extra_args or None)
+            except Exception:
+                # Compatibility fallback for Piper builds that don't support extra args
+                piper_speak(text, str(wav_path), str(voice_model_path))
             _set_job(progress=50, message="A processar vídeo...")
 
         still = preprocess.startswith("full")
@@ -684,7 +698,7 @@ def _run_video_job(faq_id: int, app) -> None:
             cur.execute(
                 """
                 SELECT f.resposta,
-                       COALESCE(f.video_text, f.resposta) AS video_text,
+                       f.serve_text,
                        c.genero,
                        c.icon_path,
                        c.chatbot_id
@@ -698,12 +712,19 @@ def _run_video_job(faq_id: int, app) -> None:
             if not row:
                 raise ValueError(f"FAQ com id {faq_id} não encontrada.")
 
-            resposta, video_text, genero, icon_path, chatbot_id = row
+            resposta, serve_text, genero, icon_path, chatbot_id = row
             # Expose chatbot_id in job status for UI label (best-effort)
             _set_job(chatbot_id=chatbot_id)
-            video_text = (video_text or resposta or "").strip()
-            if not video_text:
+            base_text = (serve_text or "").strip() or (resposta or "").strip()
+            if not base_text:
                 raise ValueError("Texto para vídeo vazio.")
+
+            suffix = "Tem abaixo o resto da informação relevante."
+            video_text = base_text
+            if suffix.lower() not in video_text.lower():
+                if video_text and not video_text.endswith((".", "!", "?")):
+                    video_text = video_text + "."
+                video_text = f"{video_text} {suffix}".strip()
 
             cur.execute(
                 "UPDATE faq SET video_status=%s, video_text=%s WHERE faq_id=%s",
