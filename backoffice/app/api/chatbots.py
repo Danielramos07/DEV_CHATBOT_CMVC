@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify, current_app, url_for
+import json
 from ..db import get_conn
 from ..services.retreival import build_faiss_index
 from werkzeug.utils import secure_filename
@@ -470,6 +471,23 @@ def atualizar_chatbot(chatbot_id):
         mensagem_feedback_negativa = request.form.get("mensagem_feedback_negativa", "").strip()
         genero = request.form.get("genero") or None
         video_enabled = request.form.get("video_enabled") in ["true", "1", "on", "yes"]
+
+        regen_videos = None
+        if "regen_videos" in request.form:
+            raw_regen = (request.form.get("regen_videos") or "").strip().lower()
+            regen_videos = raw_regen in {"1", "true", "yes", "on"}
+
+        requested_video_kinds = None
+        if "video_kinds" in request.form:
+            raw_kinds = (request.form.get("video_kinds") or "").strip()
+            if raw_kinds:
+                try:
+                    parsed = json.loads(raw_kinds)
+                    if isinstance(parsed, list):
+                        requested_video_kinds = [str(x) for x in parsed]
+                except Exception:
+                    # allow comma-separated fallback
+                    requested_video_kinds = [k.strip() for k in raw_kinds.split(",") if k.strip()]
         icon_path = None
         new_icon_uploaded = False
         if 'icon' in request.files:
@@ -621,9 +639,45 @@ def atualizar_chatbot(chatbot_id):
                 or msg_pos_changed
                 or msg_neg_changed
             )
+
+            kinds_needed = []
             if should_queue:
+                if (not was_video_enabled) or nome_changed or icon_changed or genero_changed:
+                    kinds_needed = ["greeting", "idle", "positive", "negative", "no_answer"]
+                else:
+                    if greeting_text_changed:
+                        kinds_needed.append("greeting")
+                    if msg_pos_changed:
+                        kinds_needed.append("positive")
+                    if msg_neg_changed:
+                        kinds_needed.append("negative")
+                    if msg_no_answer_changed:
+                        kinds_needed.append("no_answer")
+
+            # Backwards-compatible behavior:
+            # - if regen_videos is not provided: auto-queue when needed
+            # - if regen_videos is explicitly false: never queue
+            # - if regen_videos is true: queue only requested/needed kinds
+            should_queue_now = False
+            if should_queue and regen_videos is None:
+                should_queue_now = True
+            elif should_queue and regen_videos is True:
+                should_queue_now = True
+            elif regen_videos is False:
+                should_queue_now = False
+
+            if should_queue_now and kinds_needed:
+                kinds_to_generate = kinds_needed
+                if requested_video_kinds is not None:
+                    allowed = {k.lower() for k in kinds_needed}
+                    req = {str(k).strip().lower() for k in requested_video_kinds if str(k).strip()}
+                    chosen = [k for k in kinds_needed if k.lower() in allowed.intersection(req)]
+                    if chosen:
+                        kinds_to_generate = chosen
+
                 from ..services.video_service import queue_videos_for_chatbot
-                video_queued = bool(queue_videos_for_chatbot(chatbot_id))
+
+                video_queued = bool(queue_videos_for_chatbot(chatbot_id, kinds=kinds_to_generate))
                 video_busy = not video_queued
 
         payload = {
@@ -635,7 +689,7 @@ def atualizar_chatbot(chatbot_id):
         if video_busy:
             payload["error"] = (
                 "Já existe um vídeo a ser gerado neste momento. "
-                "A geração (greeting + idle) deste chatbot terá de ser iniciada mais tarde."
+                "A geração de vídeos deste chatbot terá de ser iniciada mais tarde."
             )
         return jsonify(payload)
     except Exception as e:

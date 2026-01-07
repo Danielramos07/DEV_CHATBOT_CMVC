@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const publicarBtn = document.getElementById("publicarBtn");
   if (publicarBtn) {
     publicarBtn.addEventListener("click", () => {
@@ -18,31 +18,19 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const chatbotId = localStorage.getItem("chatbotSelecionado");
-  const chatbotAtivo = localStorage.getItem("chatbotAtivo");
 
-  if (chatbotAtivo) {
-    window.chatbotAtivo = parseInt(chatbotAtivo);
-    console.log("✅ Inicializando com chatbotAtivo:", chatbotAtivo);
-
-    const botAtivoBtn = document.querySelector(`.bot-ativo-btn[onclick*="${chatbotAtivo}"]`);
-    if (botAtivoBtn) {
-      botAtivoBtn.classList.add("ativo");
-      botAtivoBtn.textContent = "Ativo"; 
+  // Sync global active chatbot from server (avoid stale localStorage across admins).
+  try {
+    const res = await fetch("/chatbots");
+    const bots = await res.json();
+    if (Array.isArray(bots)) {
+      const activeBot = bots.find((b) => !!b.ativo);
+      if (activeBot && activeBot.chatbot_id != null) {
+        localStorage.setItem("chatbotAtivo", String(activeBot.chatbot_id));
+        window.chatbotAtivo = parseInt(activeBot.chatbot_id);
+      }
     }
-
-    document.querySelectorAll(".bot-ativo-btn").forEach(btn => {
-      if (btn !== botAtivoBtn) btn.textContent = "Ficar Ativo";
-    });
-
-    const indicador = document.getElementById("indicadorAtivo");
-    if (indicador) {
-      indicador.style.display = "block";
-      indicador.textContent = "";
-    }
-
-    const ativoLabel = document.querySelector(`.bot-item[data-chatbot-id="${chatbotAtivo}"] .ativo-label`);
-    if (ativoLabel) ativoLabel.style.display = "inline";
-  }
+  } catch (e) {}
 
   if (chatbotId) {
     window.chatbotSelecionado = parseInt(chatbotId);

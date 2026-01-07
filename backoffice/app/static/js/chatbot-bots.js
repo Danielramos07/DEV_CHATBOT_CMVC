@@ -9,6 +9,16 @@ async function carregarBots() {
       container.innerHTML = "<p>Nenhum bot encontrado.</p>";
       return;
     }
+
+    // Sync global active chatbot from server (avoid stale localStorage across admins).
+    try {
+      const activeBot = bots.find((b) => !!b.ativo);
+      if (activeBot && activeBot.chatbot_id != null) {
+        localStorage.setItem("chatbotAtivo", String(activeBot.chatbot_id));
+        window.chatbotAtivo = parseInt(activeBot.chatbot_id);
+      }
+    } catch (e) {}
+
     container.innerHTML = bots.map((bot) => criarBotHTML(bot, bots)).join("");
     if (typeof adicionarListenersFormulariosFAQ === "function")
       adicionarListenersFormulariosFAQ(bots);
@@ -138,6 +148,7 @@ function criarBotHTML(bot, allBots) {
     : "-";
   const optionsHtml = gerarOptionsChatbotSelect(allBots);
   const idiomaSelectHtml = gerarOptionsIdiomaSelect();
+  const isActive = !!bot.ativo;
   return `
     <div class="bot-wrapper">
       <div class="bot-item nao-publicado" data-chatbot-id="${bot.chatbot_id}" onclick="toggleBotDropdown(this)">
@@ -146,14 +157,14 @@ function criarBotHTML(bot, allBots) {
           <span class="status">
             Estado: Não Publicado - Município • ${dataCriacao}
           </span>
-          <span class="ativo-label" style="display: none; margin-left: 10px; color: #3c763d; font-weight: bold;">
+          <span class="ativo-label" style="display: ${isActive ? "inline" : "none"}; margin-left: 10px; color: #3c763d; font-weight: bold;">
             • Chatbot Ativo
           </span>
         </div>
         <span class="dropdown-icon">▼</span>
       </div>
       <div class="bot-dropdown" style="display: none;">
-        <button class="bot-ativo-btn" onclick="definirAtivo(event, ${bot.chatbot_id})">Ficar Ativo</button>
+        <button class="bot-ativo-btn ${isActive ? "ativo" : ""}" onclick="definirAtivo(event, ${bot.chatbot_id})">${isActive ? "Ativo" : "Ficar Ativo"}</button>
         <button class="bot-editar-btn" onclick="event.stopPropagation(); abrirModalEditarChatbot(${bot.chatbot_id});" style="margin-left: 10px;">Atualizar</button>
         <button class="bot-eliminar-btn" onclick="event.stopPropagation(); abrirModalEliminarBot(${bot.chatbot_id});" style="margin-left: 10px; background: #ea4d4d; color: #fff;">Eliminar</button>
         <h3>Escolha a fonte para as respostas do chatbot</h3>
@@ -321,7 +332,10 @@ async function definirAtivo(event, chatbotId) {
   window.chatbotAtivo = chatbotId;
   // Persist globally (server-side) so public users/new browsers inherit it.
   try {
-    await fetch(`/chatbots/${chatbotId}/active`, { method: "PUT" });
+    const r = await fetch(`/chatbots/${chatbotId}/active`, { method: "PUT" });
+    if (!r.ok) {
+      throw new Error("Falha ao ativar chatbot.");
+    }
   } catch (e) {}
   document.querySelectorAll(".bot-ativo-btn").forEach((btn) => {
     btn.classList.remove("ativo");

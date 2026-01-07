@@ -121,7 +121,7 @@ document.addEventListener("DOMContentLoaded", () => {
           mensagemNovoBot.textContent = "Chatbot criado com sucesso!";
           if (resp.video_busy && typeof mostrarModalVideoBusy === "function") {
             mostrarModalVideoBusy(
-              "O chatbot foi criado, mas já existe um vídeo a ser gerado neste momento. Os vídeos (greeting + idle) vão ter de ser gerados mais tarde."
+              "O chatbot foi criado, mas já existe um vídeo a ser gerado neste momento. A geração de vídeos deste chatbot vai ter de ser iniciada mais tarde."
             );
           }
           // Se o backend começou (ou vai começar) a geração dos vídeos do chatbot, ligar o polling do indicador.

@@ -32,9 +32,9 @@ async function atualizarIndicadorVideoJob() {
           const r = await fetch(`/chatbots/${job.chatbot_id}`);
           const d = await r.json().catch(() => ({}));
           const nome = d && d.success && d.nome ? d.nome : `Chatbot ${job.chatbot_id}`;
-          return `${nome} — Greeting + Idle`;
+          return `${nome} — Vídeos`;
         } catch (e) {
-          return `Chatbot ${job.chatbot_id} — Greeting + Idle`;
+          return `Chatbot ${job.chatbot_id} — Vídeos`;
         }
       }
       if (kind === "faq" && job.faq_id) {
@@ -170,7 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (kind === "chatbot") {
           pendingDeleteChatbot = true;
           abrirModalCancelVideoJob(
-            "Ao cancelar os vídeos (greeting + idle) este chatbot será eliminado. Confirmar?"
+            "Ao cancelar a geração de vídeos deste chatbot, este chatbot será eliminado. Confirmar?"
           );
         } else {
           abrirModalCancelVideoJob(

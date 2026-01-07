@@ -380,11 +380,14 @@ def _reset_job_state() -> None:
         )
 
 
-def queue_videos_for_chatbot(chatbot_id: int) -> bool:
-    """Queue generation of greeting and idle videos for the given chatbot.
+def queue_videos_for_chatbot(chatbot_id: int, kinds: Optional[list[str]] = None) -> bool:
+        """Queue generation of chatbot videos.
 
-    Returns False if another job is already running.
-    """
+        kinds: optional list of video kinds to generate.
+            Supported: greeting, idle, positive, negative, no_answer.
+
+        Returns False if another job is already running.
+        """
 
     if not _try_acquire_global_video_lock(
         "chatbot",
@@ -410,7 +413,7 @@ def queue_videos_for_chatbot(chatbot_id: int) -> bool:
 
     from flask import current_app
     app = current_app._get_current_object()
-    worker = Thread(target=_run_idle_video_job, args=(chatbot_id, app), daemon=True)
+    worker = Thread(target=_run_idle_video_job, args=(chatbot_id, app, kinds), daemon=True)
     worker.start()
     return True
 
@@ -804,11 +807,21 @@ def _run_video_job(faq_id: int, app) -> None:
             _reset_job_state()
 
 
-def _run_idle_video_job(chatbot_id: int, app) -> None:
+def _run_idle_video_job(chatbot_id: int, app, kinds: Optional[list[str]] = None) -> None:
     with app.app_context():
         conn = get_pool_conn()
         cur = conn.cursor()
         try:
+            allowed_kinds = {"greeting", "idle", "positive", "negative", "no_answer"}
+            kinds_set = (
+                {str(k).strip().lower() for k in (kinds or []) if str(k).strip()}
+                if kinds is not None
+                else set(allowed_kinds)
+            )
+            kinds_set = kinds_set.intersection(allowed_kinds)
+            if not kinds_set:
+                kinds_set = set(allowed_kinds)
+
             _set_job(status="processing", progress=10, message="A preparar dados do chatbot...")
 
             cur.execute(
@@ -860,45 +873,48 @@ def _run_idle_video_job(chatbot_id: int, app) -> None:
                 except Exception:
                     avatar_file = None
 
-            # Generate greeting video
-            _set_job(progress=25, message="A gerar vídeo de saudação...")
-            video_text = (greeting_video_text or "").strip() or f"Olá, sou o {nome}. Como posso ajudar?"
             base_dir = (RESULTS_DIR if RESULTS_DIR.is_absolute() else (ROOT / RESULTS_DIR)) / f"chatbot_{chatbot_id}"
-            greeting_path = _generate_video(
-                video_text,
-                genero,
-                avatar_file,
-                final_dir=base_dir,
-                final_filename="greeting.mp4",
-                is_idle=False,
-            )
-            
-            # Save greeting_path immediately (even if idle fails later)
-            cur.execute(
-                "UPDATE chatbot SET video_greeting_path=%s WHERE chatbot_id=%s",
-                (greeting_path, chatbot_id),
-            )
-            conn.commit()
 
-            # Generate idle video
-            _set_job(progress=60, message="A gerar vídeo idle...")
-            idle_path = None
-            try:
-                idle_path = _generate_video(
-                    "",
+            # Generate greeting video
+            greeting_path = old_greeting_path
+            if "greeting" in kinds_set:
+                _set_job(progress=25, message="A gerar vídeo de saudação...")
+                video_text = (greeting_video_text or "").strip() or f"Olá, sou o {nome}. Como posso ajudar?"
+                greeting_path = _generate_video(
+                    video_text,
                     genero,
                     avatar_file,
                     final_dir=base_dir,
-                    final_filename="idle.mp4",
-                    is_idle=True,
+                    final_filename="greeting.mp4",
+                    is_idle=False,
                 )
-            except Exception as idle_error:
-                # If idle generation fails, log but continue (greeting is already saved)
-                print(f"Erro ao gerar vídeo idle: {idle_error}")
-                _set_job(progress=90, message=f"Vídeo idle falhou, mas greeting foi gerado. Erro: {str(idle_error)}")
+
+                # Save greeting_path immediately (even if later steps fail)
+                cur.execute(
+                    "UPDATE chatbot SET video_greeting_path=%s WHERE chatbot_id=%s",
+                    (greeting_path, chatbot_id),
+                )
+                conn.commit()
+
+            # Generate idle video
+            idle_path = old_idle_path
+            if "idle" in kinds_set:
+                _set_job(progress=60, message="A gerar vídeo idle...")
+                try:
+                    idle_path = _generate_video(
+                        "",
+                        genero,
+                        avatar_file,
+                        final_dir=base_dir,
+                        final_filename="idle.mp4",
+                        is_idle=True,
+                    )
+                except Exception as idle_error:
+                    print(f"Erro ao gerar vídeo idle: {idle_error}")
+                    _set_job(progress=90, message=f"Vídeo idle falhou. Erro: {str(idle_error)}")
 
             # Generate feedback/no-answer videos (best-effort)
-            _set_job(progress=75, message="A gerar vídeos adicionais (feedback/sem resposta)...")
+            _set_job(progress=75, message="A gerar vídeos adicionais...")
             default_pos = "Fico contente por ter ajudado."
             default_neg = "Lamento não ter conseguido responder. Tente reformular a pergunta."
             default_no_answer = "Desculpe, não encontrei uma resposta para a sua pergunta. Pode reformular a pergunta?"
@@ -907,44 +923,51 @@ def _run_idle_video_job(chatbot_id: int, app) -> None:
             neg_text = (msg_neg or "").strip() or default_neg
             no_answer_text = (msg_no_answer or "").strip() or default_no_answer
 
-            positive_path = None
-            negative_path = None
-            no_answer_path = None
-            try:
-                positive_path = _generate_video(
-                    pos_text,
-                    genero,
-                    avatar_file,
-                    final_dir=base_dir,
-                    final_filename="positive.mp4",
-                    is_idle=False,
-                )
-            except Exception as e:
-                print(f"Erro ao gerar vídeo positivo: {e}")
+            positive_path = old_positive_path
+            negative_path = old_negative_path
+            no_answer_path = old_no_answer_path
 
-            try:
-                negative_path = _generate_video(
-                    neg_text,
-                    genero,
-                    avatar_file,
-                    final_dir=base_dir,
-                    final_filename="negative.mp4",
-                    is_idle=False,
-                )
-            except Exception as e:
-                print(f"Erro ao gerar vídeo negativo: {e}")
+            if "positive" in kinds_set:
+                try:
+                    _set_job(progress=78, message="A gerar vídeo Positivo...")
+                    positive_path = _generate_video(
+                        pos_text,
+                        genero,
+                        avatar_file,
+                        final_dir=base_dir,
+                        final_filename="positive.mp4",
+                        is_idle=False,
+                    )
+                except Exception as e:
+                    print(f"Erro ao gerar vídeo positivo: {e}")
 
-            try:
-                no_answer_path = _generate_video(
-                    no_answer_text,
-                    genero,
-                    avatar_file,
-                    final_dir=base_dir,
-                    final_filename="no_answer.mp4",
-                    is_idle=False,
-                )
-            except Exception as e:
-                print(f"Erro ao gerar vídeo sem resposta: {e}")
+            if "negative" in kinds_set:
+                try:
+                    _set_job(progress=82, message="A gerar vídeo Negativo...")
+                    negative_path = _generate_video(
+                        neg_text,
+                        genero,
+                        avatar_file,
+                        final_dir=base_dir,
+                        final_filename="negative.mp4",
+                        is_idle=False,
+                    )
+                except Exception as e:
+                    print(f"Erro ao gerar vídeo negativo: {e}")
+
+            if "no_answer" in kinds_set:
+                try:
+                    _set_job(progress=86, message="A gerar vídeo Sem resposta...")
+                    no_answer_path = _generate_video(
+                        no_answer_text,
+                        genero,
+                        avatar_file,
+                        final_dir=base_dir,
+                        final_filename="no_answer.mp4",
+                        is_idle=False,
+                    )
+                except Exception as e:
+                    print(f"Erro ao gerar vídeo sem resposta: {e}")
 
             _set_job(progress=90, message="A finalizar vídeos...")
             final_idle = idle_path or old_idle_path

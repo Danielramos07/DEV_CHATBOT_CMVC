@@ -217,6 +217,17 @@ async function carregarTabelaBots() {
       return;
     }
 
+    // Sync global active chatbot to localStorage so other components don't rely on stale cache.
+    try {
+      const activeBot = bots.find((b) => !!b.ativo);
+      if (activeBot && activeBot.chatbot_id != null) {
+        localStorage.setItem("chatbotAtivo", String(activeBot.chatbot_id));
+        try {
+          window.chatbotAtivo = parseInt(activeBot.chatbot_id);
+        } catch (e) {}
+      }
+    } catch (e) {}
+
     for (const bot of bots) {
       try {
         const fonteRes = await fetch(`/fonte/${bot.chatbot_id}`);
@@ -258,9 +269,9 @@ async function carregarTabelaBots() {
               <td>${formatarData(bot.data_criacao)}</td>
               <td>
                 <span class="estado-indicador ${
-                  isAtivo(bot.chatbot_id) ? "ativo" : "inativo"
+                  bot.ativo ? "ativo" : "inativo"
                 }">
-                  ${isAtivo(bot.chatbot_id) ? "Ativo" : "Não Publicado"}
+                  ${bot.ativo ? "Ativo" : "Não Publicado"}
                 </span>
               </td>
               <td>
@@ -282,7 +293,7 @@ async function carregarTabelaBots() {
                 <button class="btn-ativo" onclick="tornarBotAtivo(${
                   bot.chatbot_id
                 }, this)">
-                  ${isAtivo(bot.chatbot_id) ? "Ativo" : "Tornar Ativo"}
+                  ${bot.ativo ? "Ativo" : "Tornar Ativo"}
                 </button>
                 <button class="btn-editar" onclick="abrirModalAtualizar(${
                   bot.chatbot_id
@@ -320,7 +331,7 @@ function aplicarFiltrosBots(bots) {
   return bots.filter((bot) => {
     if (nomeFiltro && !(bot.nome || "").toLowerCase().includes(nomeFiltro))
       return false;
-    const ativo = isAtivo(bot.chatbot_id);
+    const ativo = !!bot.ativo;
     if (estadoFiltro === "ativo" && !ativo) return false;
     if (estadoFiltro === "nao_publicado" && ativo) return false;
     if (dataFiltro) {
@@ -353,10 +364,6 @@ function obterEstadoVideo(bot) {
   return "Vídeo OFF";
 }
 
-function isAtivo(chatbot_id) {
-  return String(localStorage.getItem("chatbotAtivo")) === String(chatbot_id);
-}
-
 window.tornarBotAtivo = async function (chatbot_id, btn) {
   localStorage.setItem("chatbotAtivo", chatbot_id);
   try {
@@ -365,7 +372,10 @@ window.tornarBotAtivo = async function (chatbot_id, btn) {
 
   // Persist globally (server-side) so public users/new browsers inherit it.
   try {
-    await fetch(`/chatbots/${chatbot_id}/active`, { method: "PUT" });
+    const r = await fetch(`/chatbots/${chatbot_id}/active`, { method: "PUT" });
+    if (!r.ok) {
+      throw new Error("Falha ao ativar chatbot.");
+    }
   } catch (e) {}
 
   // Garantir que localStorage tem o nome/icon/cor do bot ativo ANTES de reiniciar o chat
@@ -451,6 +461,15 @@ document.addEventListener("DOMContentLoaded", function () {
       const iconInput = document.getElementById("editarIconChatbot");
       const iconFile = iconInput.files[0];
 
+      const oldNome = (this.dataset.oldNome || "").trim();
+      const oldGenero = (this.dataset.oldGenero || "").trim();
+      const oldGreetingText = (this.dataset.oldGreetingVideoText || "").trim();
+      const oldMsgNoAnswer = (this.dataset.oldMensagemSemResposta || "").trim();
+      const oldMsgPos = (this.dataset.oldMensagemFeedbackPositiva || "").trim();
+      const oldMsgNeg = (this.dataset.oldMensagemFeedbackNegativa || "").trim();
+      const wasVideoEnabled =
+        String(this.dataset.oldVideoEnabled || "0") === "1";
+
       if (!nome) {
         alert("Nome obrigatório");
         return;
@@ -469,6 +488,113 @@ document.addEventListener("DOMContentLoaded", function () {
       formData.append("genero", genero);
       formData.append("video_enabled", video_enabled ? "true" : "false");
       if (iconFile) formData.append("icon", iconFile);
+
+      // Detect which videos are affected and ask whether to regenerate.
+      // If video was just enabled, regeneration is required to have usable videos.
+      const kindsNeeded = new Set();
+      const nomeChanged = oldNome !== nome;
+      const generoChanged = oldGenero !== (genero || "").trim();
+      const iconChanged = !!iconFile;
+      const greetingTextChanged =
+        oldGreetingText !== (greeting_video_text || "").trim();
+      const msgNoAnswerChanged =
+        oldMsgNoAnswer !== (mensagem_sem_resposta || "").trim();
+      const msgPosChanged =
+        oldMsgPos !== (mensagem_feedback_positiva || "").trim();
+      const msgNegChanged =
+        oldMsgNeg !== (mensagem_feedback_negativa || "").trim();
+
+      const avatarOrVoiceChanged = nomeChanged || generoChanged || iconChanged;
+
+      if (video_enabled) {
+        if (!wasVideoEnabled) {
+          ["greeting", "idle", "positive", "negative", "no_answer"].forEach(
+            (k) => kindsNeeded.add(k)
+          );
+          const ok = confirm(
+            "Ativou os vídeos deste chatbot. É necessário gerar os vídeos agora. Quer iniciar a geração?"
+          );
+          if (!ok) {
+            // Don't allow enabling video without generation, to avoid broken UI/404s.
+            const cb = document.getElementById("editarVideoEnabledChatbot");
+            if (cb) cb.checked = false;
+            alert("Operação cancelada. Os vídeos continuam desativados.");
+            return;
+          }
+          formData.append("regen_videos", "true");
+          formData.append(
+            "video_kinds",
+            JSON.stringify(Array.from(kindsNeeded.values()))
+          );
+        } else {
+          if (avatarOrVoiceChanged) {
+            ["greeting", "idle", "positive", "negative", "no_answer"].forEach(
+              (k) => kindsNeeded.add(k)
+            );
+          } else {
+            if (greetingTextChanged) kindsNeeded.add("greeting");
+            if (msgPosChanged) kindsNeeded.add("positive");
+            if (msgNegChanged) kindsNeeded.add("negative");
+            if (msgNoAnswerChanged) kindsNeeded.add("no_answer");
+          }
+
+          if (kindsNeeded.size > 0) {
+            const orderedKinds = [
+              "greeting",
+              "idle",
+              "positive",
+              "negative",
+              "no_answer",
+            ].filter((k) => kindsNeeded.has(k));
+
+            const kindLabels = {
+              greeting: "Saudação",
+              idle: "Idle",
+              positive: "Positivo",
+              negative: "Negativo",
+              no_answer: "Sem resposta",
+            };
+
+            const kindsText = orderedKinds
+              .map((k) => kindLabels[k] || k)
+              .join(" + ");
+
+            const notes = [];
+            if (msgPosChanged && !(mensagem_feedback_positiva || "").trim()) {
+              notes.push(
+                "O texto do vídeo Positivo ficou vazio e será usado o texto por defeito."
+              );
+            }
+            if (msgNegChanged && !(mensagem_feedback_negativa || "").trim()) {
+              notes.push(
+                "O texto do vídeo Negativo ficou vazio e será usado o texto por defeito."
+              );
+            }
+            if (msgNoAnswerChanged && !(mensagem_sem_resposta || "").trim()) {
+              notes.push(
+                "O texto do vídeo Sem resposta ficou vazio e será usado o texto por defeito."
+              );
+            }
+            if (greetingTextChanged && !(greeting_video_text || "").trim()) {
+              notes.push(
+                "O texto do vídeo de Saudação ficou vazio e será usado o texto por defeito."
+              );
+            }
+
+            const ok = confirm(
+              `Foram alterados campos que afetam vídeos (${kindsText}). Regenerar agora apenas estes vídeos?` +
+                (notes.length ? `\n\n${notes.join("\n")}` : "")
+            );
+            formData.append("regen_videos", ok ? "true" : "false");
+            if (ok) {
+              formData.append(
+                "video_kinds",
+                JSON.stringify(Array.from(kindsNeeded.values()))
+              );
+            }
+          }
+        }
+      }
 
       try {
         const res = await fetch(`/chatbots/${chatbot_id}`, {
@@ -701,6 +827,23 @@ window.abrirModalAtualizar = async function (chatbot_id) {
     const editarForm = document.getElementById("editarChatbotForm");
     if (editarForm) {
       editarForm.setAttribute("data-edit-id", chatbot_id);
+
+      // Track old values to detect video-relevant changes on submit
+      editarForm.dataset.oldNome = (bot.nome || "").trim();
+      editarForm.dataset.oldGenero = (bot.genero || "").trim();
+      editarForm.dataset.oldGreetingVideoText = (
+        bot.greeting_video_text || ""
+      ).trim();
+      editarForm.dataset.oldMensagemSemResposta = (
+        bot.mensagem_sem_resposta || ""
+      ).trim();
+      editarForm.dataset.oldMensagemFeedbackPositiva = (
+        bot.mensagem_feedback_positiva || ""
+      ).trim();
+      editarForm.dataset.oldMensagemFeedbackNegativa = (
+        bot.mensagem_feedback_negativa || ""
+      ).trim();
+      editarForm.dataset.oldVideoEnabled = bot.video_enabled ? "1" : "0";
     }
 
     await mostrarModalEditarChatbot(chatbot_id);
