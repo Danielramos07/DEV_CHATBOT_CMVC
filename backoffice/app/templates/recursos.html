@@ -63,10 +63,10 @@ content %}
             id="novaCorChatbot"
             value="#d4af37"
             style="
-              width: 38px;
-              height: 28px;
-              border-radius: 8px;
-              border: 1px solid #ccc;
+              width: 48px;
+              height: 48px;
+              min-width: 48px;
+              max-width: 48px;
             "
           />
         </label>
@@ -75,15 +75,17 @@ content %}
         <label for="novoIconChatbot">Ícone (avatar):</label>
         <input type="file" name="icon" id="novoIconChatbot" accept="image/*" />
         <input type="hidden" name="icon_preset" id="novoIconPreset" value="" />
-        <div
-          id="avatarPresets"
+        <div style="margin-top: 10px">Avatares pré-definidos:</div>
+                width: 48px;
+                height: 48px;
           style="
             display: flex;
             gap: 10px;
             flex-wrap: nowrap;
             overflow-x: auto;
-            margin-top: 10px;
-            padding-bottom: 6px;
+            margin-top: 8px;
+            padding: 8px 8px 10px 14px;
+            align-items: center;
           "
         >
           <button
@@ -97,10 +99,10 @@ content %}
               cursor: pointer;
               flex: 0 0 auto;
               display: inline-flex;
-              width: 52px;
-              height: 52px;
-              min-width: 52px;
-              max-width: 52px;
+              width: 48px;
+              height: 48px;
+              min-width: 48px;
+              max-width: 48px;
               align-items: center;
               justify-content: center;
               overflow: hidden;
@@ -110,8 +112,8 @@ content %}
               src="/static/images/avatars/face.jpg"
               alt="Avatar 1"
               style="
-                width: 52px;
-                height: 52px;
+                width: 48px;
+                height: 48px;
                 border-radius: 10px;
                 object-fit: cover;
               "
@@ -128,10 +130,10 @@ content %}
               cursor: pointer;
               flex: 0 0 auto;
               display: inline-flex;
-              width: 52px;
-              height: 52px;
-              min-width: 52px;
-              max-width: 52px;
+              width: 48px;
+              height: 48px;
+              min-width: 48px;
+              max-width: 48px;
               align-items: center;
               justify-content: center;
               overflow: hidden;
@@ -141,8 +143,8 @@ content %}
               src="/static/images/avatars/face2.png"
               alt="Avatar 2"
               style="
-                width: 52px;
-                height: 52px;
+                width: 48px;
+                height: 48px;
                 border-radius: 10px;
                 object-fit: cover;
               "
@@ -159,10 +161,10 @@ content %}
               cursor: pointer;
               flex: 0 0 auto;
               display: inline-flex;
-              width: 52px;
-              height: 52px;
-              min-width: 52px;
-              max-width: 52px;
+              width: 48px;
+              height: 48px;
+              min-width: 48px;
+              max-width: 48px;
               align-items: center;
               justify-content: center;
               overflow: hidden;
@@ -172,8 +174,8 @@ content %}
               src="/static/images/avatars/face3.png"
               alt="Avatar 3"
               style="
-                width: 52px;
-                height: 52px;
+                width: 48px;
+                height: 48px;
                 border-radius: 10px;
                 object-fit: cover;
               "
@@ -297,10 +299,10 @@ content %}
           <select name="fonte" id="editarFonteResposta" required>
             <option value="faq">Baseado em Regras (FAQ)</option>
             <option value="faiss">FAISS</option>
-            <option value="faq+raga">FAQ+RAG</option>
-          </select>
-        </div>
-      </div>
+                width: 48px;
+                height: 48px;
+                min-width: 48px;
+                max-width: 48px;
       <div class="grid-row">
         <div class="form-group">
           <label for="editarGeneroChatbot">Género do Bot:</label>
@@ -310,8 +312,8 @@ content %}
             <option value="f">Feminino</option>
           </select>
         </div>
-      </div>
-      <div class="grid-row">
+                  width: 48px;
+                  height: 48px;
         <div class="form-group">
           <label for="editarVideoEnabledChatbot">
             <input

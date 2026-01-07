@@ -546,6 +546,18 @@ async function mostrarVideoFaqNoAvatar(faqId) {
   videoEl.src = streamUrl || `/video/faq/${faqId}`;
   videoEl.style.display = "block";
   videoEl.loop = false;
+  // Ensure FAQ video keeps normal speed even after idle/restart changes
+  try {
+    videoEl.defaultPlaybackRate = 1.0;
+  } catch (e) {}
+  try {
+    const enforceRate = () => {
+      try {
+        videoEl.playbackRate = 1.0;
+      } catch (e) {}
+    };
+    videoEl.addEventListener("loadeddata", enforceRate, { once: true });
+  } catch (e) {}
   // Ensure FAQ video plays at normal speed
   try {
     videoEl.playbackRate = 1.0;
@@ -620,6 +632,10 @@ async function mostrarVideoFaqNoAvatar(faqId) {
   };
   videoEl.addEventListener("ended", onEnded);
 
+  try {
+    videoEl.load();
+  } catch (e) {}
+
   // Try to play with sound first, fallback to muted if autoplay policy blocks it
   videoEl.play().catch(() => {
     // Browser blocked autoplay with sound, try muted
@@ -657,6 +673,11 @@ async function reiniciarConversa() {
     try {
       avatarVideo.pause();
     } catch (e) {}
+    try {
+      avatarVideo.playbackRate = 1.0;
+      avatarVideo.defaultPlaybackRate = 1.0;
+      avatarVideo.currentTime = 0;
+    } catch (e) {}
     avatarVideo.style.display = "none";
   }
   const avatarImg = document.querySelector(".chat-avatar-image");
@@ -667,10 +688,22 @@ async function reiniciarConversa() {
   }
   currentFaqVideoId = null;
 
+  // Allow greeting to play again after restart
+  try {
+    hasPlayedGreeting = false;
+  } catch (e) {}
+
   initialMessageShown = false;
   limparTimersAutoChat();
   try {
     await apresentarMensagemInicial(true); // Force update when restarting conversation
+  } catch (e) {}
+
+  // Immediately restart avatar video flow (greeting -> idle)
+  try {
+    if (avatarAtivo && typeof tocarAvatarVideo === "function") {
+      tocarAvatarVideo();
+    }
   } catch (e) {}
   iniciarTimerAutoMensagem();
 }
