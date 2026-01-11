@@ -101,7 +101,13 @@ def obter_resposta():
                     "no_answer": True
                 })
             elif fonte == "faiss":
-                faiss_resultados = pesquisar_faiss(pergunta, chatbot_id=chatbot_id, k=1, min_sim=0.7)
+                faiss_resultados = pesquisar_faiss(
+                    pergunta,
+                    chatbot_id=chatbot_id,
+                    k=3,
+                    min_sim=0.6,
+                    relax_min_sim=0.5,
+                )
                 if faiss_resultados:
                     faq_id = faiss_resultados[0]['faq_id']
                     cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
@@ -116,7 +122,7 @@ def obter_resposta():
                         "documentos": docs
                     })
                 else:
-                    resultado = obter_faq_mais_semelhante(pergunta, chatbot_id, threshold=80)
+                    resultado = obter_faq_mais_semelhante(pergunta, chatbot_id, threshold=75)
                     if resultado:
                         cur.execute("""
                             SELECT faq_id, categoria_id, video_status FROM faq

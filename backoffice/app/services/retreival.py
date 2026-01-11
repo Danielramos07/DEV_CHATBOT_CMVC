@@ -15,6 +15,12 @@ os.makedirs(PDF_STORAGE_PATH, exist_ok=True)
 os.makedirs(ICON_STORAGE_PATH, exist_ok=True)
 
 
+def _faq_to_embedding_text(pergunta, resposta):
+    # Use question + answer to improve recall on varied user phrasing.
+    combined = f"{pergunta}\n{resposta}"
+    return preprocess_text(combined)
+
+
 def build_faiss_index(chatbot_id=None):
     conn = get_conn()
     cur = conn.cursor()
@@ -24,13 +30,13 @@ def build_faiss_index(chatbot_id=None):
         else:
             cur.execute("SELECT faq_id, pergunta, resposta, chatbot_id FROM faq")
         faqs = cur.fetchall()
-        perguntas = [f[1] for f in faqs]
-        if not perguntas:
+        textos = [_faq_to_embedding_text(f[1], f[2]) for f in faqs]
+        if not textos:
             emb_dim = embedding_model.get_sentence_embedding_dimension()
             embeddings = np.zeros((1, emb_dim), dtype=np.float32)
             index = faiss.IndexFlatIP(emb_dim)
         else:
-            embeddings = embedding_model.encode(perguntas, show_progress_bar=True)
+            embeddings = embedding_model.encode(textos, show_progress_bar=True)
             embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
             index = faiss.IndexFlatIP(embeddings.shape[1])
             index.add(np.array(embeddings, dtype=np.float32))
@@ -64,49 +70,62 @@ def load_faiss_index():
 
 faiss_index, faqs_db, faq_embeddings = load_faiss_index()
 
-def pesquisar_faiss(pergunta, chatbot_id=None, k=1, min_sim=0.7):
+def pesquisar_faiss(pergunta, chatbot_id=None, k=1, min_sim=0.7, relax_min_sim=None):
     pergunta = preprocess_text(pergunta)
     results = []
-    if chatbot_id:
-        faqs = [f for f in faqs_db if f[3] == int(chatbot_id)]
-        if not faqs:
-            return []
-        perguntas = [preprocess_text(f[1]) for f in faqs]
-        embeddings = embedding_model.encode(perguntas)
-        embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
-        index = faiss.IndexFlatIP(embeddings.shape[1])
-        index.add(np.array(embeddings, dtype=np.float32))
-        query_emb = embedding_model.encode([pergunta])
-        query_emb = query_emb / np.linalg.norm(query_emb, axis=1, keepdims=True)
-        D, I = index.search(np.array(query_emb, dtype=np.float32), min(k, len(faqs)))
+    if len(faqs_db) == 0:
+        return []
+
+    query_emb = embedding_model.encode([pergunta])
+    query_emb = query_emb / np.linalg.norm(query_emb, axis=1, keepdims=True)
+
+    max_results = len(faqs_db)
+    target_k = max(k, 1)
+    n = min(max(target_k * 5, 10), max_results)
+    seen = set()
+
+    while True:
+        D, I = faiss_index.search(np.array(query_emb, dtype=np.float32), n)
         for score, idx_faq in zip(D[0], I[0]):
-            if idx_faq == -1 or score < min_sim:
+            if idx_faq == -1 or idx_faq in seen:
                 continue
-            faq_id, pergunta_faq, resposta_faq, chatbot_id_faq = faqs[idx_faq]
-            results.append({
-                'faq_id': faq_id,
-                'pergunta': pergunta_faq,
-                'resposta': resposta_faq,
-                'score': float(score)
-            })
-        return results
-    else:
-        if len(faqs_db) == 0:
-            return []
-        query_emb = embedding_model.encode([pergunta])
-        query_emb = query_emb / np.linalg.norm(query_emb, axis=1, keepdims=True)
-        D, I = faiss_index.search(np.array(query_emb, dtype=np.float32), min(k, len(faqs_db)))
-        for score, idx_faq in zip(D[0], I[0]):
-            if idx_faq == -1 or score < min_sim:
+            seen.add(idx_faq)
+            if score < min_sim:
                 continue
             faq_id, pergunta_faq, resposta_faq, chatbot_id_faq = faqs_db[idx_faq]
+            if chatbot_id and int(chatbot_id_faq) != int(chatbot_id):
+                continue
             results.append({
                 'faq_id': faq_id,
                 'pergunta': pergunta_faq,
                 'resposta': resposta_faq,
                 'score': float(score)
             })
-        return results
+            if len(results) >= target_k:
+                break
+        if len(results) >= target_k or n >= max_results:
+            break
+        n = min(n * 2, max_results)
+
+    if not results and relax_min_sim is not None and relax_min_sim < min_sim:
+        # Relax threshold with the same FAISS candidates before returning empty.
+        D, I = faiss_index.search(np.array(query_emb, dtype=np.float32), n)
+        for score, idx_faq in zip(D[0], I[0]):
+            if idx_faq == -1 or score < relax_min_sim:
+                continue
+            faq_id, pergunta_faq, resposta_faq, chatbot_id_faq = faqs_db[idx_faq]
+            if chatbot_id and int(chatbot_id_faq) != int(chatbot_id):
+                continue
+            results.append({
+                'faq_id': faq_id,
+                'pergunta': pergunta_faq,
+                'resposta': resposta_faq,
+                'score': float(score)
+            })
+            if len(results) >= target_k:
+                break
+
+    return results
     
 def get_faqs_from_db(chatbot_id=None):
     conn = get_conn()
@@ -135,7 +154,10 @@ def obter_faq_mais_semelhante(pergunta, chatbot_id, threshold=70):
         melhor_faq = None
         for faq_id, pergunta_faq, resposta in faqs:
             pergunta_faq_processed = preprocess_text_for_matching(pergunta_faq)
-            score = fuzz.ratio(pergunta_processed, pergunta_faq_processed)
+            score = max(
+                fuzz.ratio(pergunta_processed, pergunta_faq_processed),
+                fuzz.token_set_ratio(pergunta_processed, pergunta_faq_processed),
+            )
             if score > melhor_score:
                 melhor_score = score
                 melhor_faq = {"faq_id": faq_id, "pergunta": pergunta_faq, "resposta": resposta, "score": score}
