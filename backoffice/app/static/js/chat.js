@@ -17,6 +17,17 @@ function shadeColor(color, percent) {
   return "#" + RR + GG + BB;
 }
 
+function atualizarIconesChatbot(iconBot) {
+  const elementos = document.querySelectorAll("[data-chatbot-icon]");
+  elementos.forEach((el) => {
+    if (el.tagName === "LINK") {
+      el.href = iconBot;
+    } else if (el.tagName === "IMG") {
+      el.src = iconBot;
+    }
+  });
+}
+
 function atualizarCorChatbot() {
   const corBot = localStorage.getItem("corChatbot") || "#d4af37";
   const btnToggle = document.getElementById("chatToggleBtn");
@@ -78,6 +89,9 @@ async function refreshChatbotVideoUrls(chatbotId) {
 
 document.addEventListener("DOMContentLoaded", function () {
   atualizarCorChatbot();
+  atualizarIconesChatbot(
+    localStorage.getItem("iconBot") || "/static/images/chatbot/chatbot-icon.png"
+  );
   try {
     updateAvatarSoundButton();
   } catch (e) {}
@@ -885,6 +899,7 @@ async function atualizarNomeChatHeader() {
     // keep inner avatar image in sync with chosen bot icon
     avatarImg.src = iconBot;
   }
+  atualizarIconesChatbot(iconBot);
   const chatHeader = document.querySelector(".chat-header");
   if (chatHeader) {
     chatHeader.style.background = corBot;
