@@ -21,6 +21,10 @@ def contexto():
 def projeto():
     return render_template("projeto.html")
 
+@app.route("/embed/chatbot/<int:chatbot_id>")
+def embed_chatbot(chatbot_id):
+    return render_template("embed_chatbot.html", chatbot_id=chatbot_id)
+
 @app.route("/respostas")
 @login_required
 def respostas():

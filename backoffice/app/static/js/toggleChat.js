@@ -3,6 +3,21 @@ document.addEventListener("DOMContentLoaded", () => {
   const chatSidebar = document.getElementById("chatSidebar");
   const chatCloseBtn = document.querySelector(".chat-close-btn");
 
+  if (window.EMBED_MODE) {
+    if (chatSidebar) {
+      chatSidebar.style.display = "flex";
+    }
+    if (chatToggleBtn) {
+      chatToggleBtn.style.display = "none";
+    }
+    if (chatCloseBtn) {
+      chatCloseBtn.style.display = "none";
+    }
+    if (typeof abrirChat === "function") {
+      abrirChat();
+    }
+  }
+
   if (chatToggleBtn) {
     chatToggleBtn.addEventListener("click", () => {
       chatSidebar.style.display = "flex";

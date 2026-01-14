@@ -1,6 +1,35 @@
 const TEXTO_RGPD =
   "Antes de iniciar a conversa, gostaria de informar que, de acordo com o Regulamento Geral de Proteção de Dados (RGPD), esta conversa está registada. Se não concordar com este registo, por favor utilize outro canal.";
 
+function getEmbedChatbotId() {
+  try {
+    if (
+      typeof window !== "undefined" &&
+      window.EMBED_CHATBOT_ID !== undefined &&
+      window.EMBED_CHATBOT_ID !== null
+    ) {
+      const id = parseInt(window.EMBED_CHATBOT_ID, 10);
+      if (!isNaN(id)) return id;
+    }
+  } catch (e) {}
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const raw = params.get("chatbot_id");
+    if (!raw) return null;
+    const id = parseInt(raw, 10);
+    return isNaN(id) ? null : id;
+  } catch (e) {
+    return null;
+  }
+}
+
+const EMBED_CHATBOT_ID = getEmbedChatbotId();
+if (EMBED_CHATBOT_ID) {
+  try {
+    localStorage.setItem("chatbotAtivo", String(EMBED_CHATBOT_ID));
+  } catch (e) {}
+}
+
 function shadeColor(color, percent) {
   let R = parseInt(color.substring(1, 3), 16);
   let G = parseInt(color.substring(3, 5), 16);
@@ -87,11 +116,26 @@ async function refreshChatbotVideoUrls(chatbotId) {
   }
 }
 
+function disableMicIfInsecure() {
+  const isLocalhost =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1";
+  const isSecure = window.location.protocol === "https:" || isLocalhost;
+  if (isSecure) return;
+  const micBtn = document.getElementById("chatMicBtn");
+  if (!micBtn) return;
+  micBtn.disabled = true;
+  micBtn.title = "Microfone requer HTTPS";
+  micBtn.style.opacity = "0.55";
+  micBtn.style.cursor = "not-allowed";
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   atualizarCorChatbot();
   atualizarIconesChatbot(
     localStorage.getItem("iconBot") || "/static/images/chatbot/chatbot-icon.png"
   );
+  disableMicIfInsecure();
   try {
     updateAvatarSoundButton();
   } catch (e) {}
@@ -2065,10 +2109,14 @@ async function ensureActiveChatbot() {
       localStorage.setItem("chatbotsData", JSON.stringify(bots));
     } catch (e) {}
 
+    const embedId = EMBED_CHATBOT_ID;
+    const embedBot = embedId
+      ? bots.find((b) => String(b.chatbot_id) === String(embedId))
+      : null;
     const serverActive = bots.find((b) => b && b.ativo);
     const localId = localStorage.getItem("chatbotAtivo");
     const localBot = bots.find((b) => String(b.chatbot_id) === String(localId));
-    const chosen = serverActive || localBot || bots[0];
+    const chosen = embedBot || serverActive || localBot || bots[0];
     if (!chosen) return false;
 
     localStorage.setItem("chatbotAtivo", String(chosen.chatbot_id));
