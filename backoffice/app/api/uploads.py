@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask import send_file
 from ..db import get_conn
 from ..services.retreival import build_faiss_index
+from ..services.rag import index_pdf_documents
 from ..services.text import normalizar_idioma
 from ..config import Config
 from ..services.video_service import can_start_new_video_job
@@ -64,7 +65,18 @@ def upload_pdf():
             pdf_id = cur.fetchone()[0]
             uploaded_pdf_ids.append(pdf_id)
         conn.commit()
-        return jsonify({"success": True, "pdf_ids": uploaded_pdf_ids, "message": "PDF(s) carregado(s) com sucesso."})
+        rag_indexed = False
+        try:
+            index_pdf_documents(chatbot_id=int(chatbot_id), pdf_ids=uploaded_pdf_ids)
+            rag_indexed = True
+        except Exception:
+            traceback.print_exc()
+        return jsonify({
+            "success": True,
+            "pdf_ids": uploaded_pdf_ids,
+            "rag_indexed": rag_indexed,
+            "message": "PDF(s) carregado(s) com sucesso."
+        })
     except PyPDF2.errors.PdfReadError:
         return jsonify({"success": False, "error": "Erro ao ler o PDF. Verifique se o arquivo não está corrompido."}), 400
     except Exception as e:
@@ -92,6 +104,20 @@ def get_pdf(pdf_id: int):
     finally:
         cur.close()
         conn.close()
+
+@app.route("/rebuild-rag", methods=["POST"])
+def rebuild_rag():
+    data = request.get_json(silent=True) or {}
+    chatbot_id = data.get("chatbot_id")
+    try:
+        if chatbot_id:
+            chunks = index_pdf_documents(chatbot_id=int(chatbot_id))
+        else:
+            chunks = index_pdf_documents()
+        return jsonify({"success": True, "chunks": chunks})
+    except Exception as exc:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(exc)}), 500
 
 @app.route("/upload-faq-docx", methods=["POST"])
 def upload_faq_docx():

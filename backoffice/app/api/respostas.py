@@ -1,9 +1,9 @@
-from flask import Blueprint, request, jsonify
+﻿from flask import Blueprint, request, jsonify
 from flask import url_for
 from ..db import get_conn
 from ..services.text import detectar_saudacao, registar_pergunta_nao_respondida
 from ..services.retreival import obter_faq_mais_semelhante, pesquisar_faiss, build_faiss_index
-from ..services.rag import pesquisar_pdf_ollama, get_pdfs_from_db, obter_mensagem_sem_resposta
+from ..services.rag import pesquisar_pdf_pgvector, obter_mensagem_sem_resposta
 import traceback
 
 app = Blueprint('respostas', __name__)
@@ -30,7 +30,7 @@ def obter_resposta():
         try:
             chatbot_id = int(chatbot_id)
         except Exception:
-            return jsonify({"success": False, "erro": "Chatbot ID inválido."}), 400
+            return jsonify({"success": False, "erro": "Chatbot ID invÃ¡lido."}), 400
         saudacao = detectar_saudacao(pergunta)
         if saudacao:
             return jsonify({
@@ -45,12 +45,12 @@ def obter_resposta():
         if not pergunta or (len(pergunta) < 4 and not any(char.isalpha() for char in pergunta)):
             return jsonify({
                 "success": False,
-                "erro": "Pergunta demasiado curta ou não reconhecida como válida."
+                "erro": "Pergunta demasiado curta ou nÃ£o reconhecida como vÃ¡lida."
             })
         if fonte == "faq+raga" and (feedback is None or feedback == "") and pergunta.lower() in ["sim", "yes"]:
             return jsonify({
                 "success": False,
-                "erro": "Por favor utilize os botões abaixo para confirmar.",
+                "erro": "Por favor utilize os botÃµes abaixo para confirmar.",
                 "prompt_rag": True
             })
         try:
@@ -64,7 +64,7 @@ def obter_resposta():
                     row = cur.fetchone()
                     faq_id, categoria_id, video_status = row if row else (None, None, None)
 
-                    # Se o chatbot tiver vídeo ativo e o vídeo ainda não estiver pronto, tentar enfileirar.
+                    # Se o chatbot tiver vÃ­deo ativo e o vÃ­deo ainda nÃ£o estiver pronto, tentar enfileirar.
                     video_enabled = False
                     try:
                         cur.execute("SELECT video_enabled FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
@@ -73,8 +73,8 @@ def obter_resposta():
                     except Exception:
                         video_enabled = False
 
-                    # IMPORTANT: não gerar vídeo automaticamente ao usar a FAQ no chat.
-                    # A geração deve ser manual (backoffice) e o chat apenas reflete estados.
+                    # IMPORTANT: nÃ£o gerar vÃ­deo automaticamente ao usar a FAQ no chat.
+                    # A geraÃ§Ã£o deve ser manual (backoffice) e o chat apenas reflete estados.
                     video_queued = False
                     video_busy = False
 
@@ -145,7 +145,7 @@ def obter_resposta():
                         })
                     return jsonify({
                         "success": False,
-                        "erro": "Não encontrei nenhuma resposta suficientemente semelhante na base de dados."
+                        "erro": "NÃ£o encontrei nenhuma resposta suficientemente semelhante na base de dados."
                     })
             elif fonte == "faq+raga":
                 resultado = obter_faq_mais_semelhante(pergunta, chatbot_id)
@@ -170,37 +170,38 @@ def obter_resposta():
                         "documentos": docs
                     })
                 elif feedback and feedback.strip().lower() == "try_rag":
-                    print("DEBUG: A tentar responder via RAG (PDF) via Ollama")
-                    resposta_ollama = pesquisar_pdf_ollama(pergunta, chatbot_id=chatbot_id)
-                    if resposta_ollama:
-                        pdfs = get_pdfs_from_db(chatbot_id)
-                        pdf_id = pdfs[0][0] if pdfs else None
-                        file_path = pdfs[0][1] if pdfs else None
+                    print("DEBUG: A tentar responder via RAG (PDF) via pgvector")
+                    resposta_rag, fontes = pesquisar_pdf_pgvector(pergunta, chatbot_id=chatbot_id)
+                    if resposta_rag:
+                        pdf_ids = []
+                        for f in fontes:
+                            if f["pdf_id"] not in pdf_ids:
+                                pdf_ids.append(f["pdf_id"])
                         return jsonify({
                             "success": True,
-                            "fonte": "RAG-OLLAMA",
-                            "resposta": resposta_ollama,
+                            "fonte": "RAG-PGVECTOR",
+                            "resposta": resposta_rag,
                             "faq_id": None,
                             "categoria_id": None,
                             "score": None,
                             "pergunta_faq": None,
-                            # Return a URL that is valid behind reverse-proxy (avoid leaking server paths)
-                            "documentos": [url_for("api.uploads.get_pdf", pdf_id=pdf_id)] if pdf_id else []
+                            # Return URLs that are valid behind reverse-proxy (avoid leaking server paths)
+                            "documentos": [url_for("api.uploads.get_pdf", pdf_id=pid) for pid in pdf_ids]
                         })
                     else:
                         return jsonify({
                             "success": False,
-                            "erro": "Não foi possível encontrar uma resposta nos documentos PDF usando Ollama."
+                            "erro": "Nao foi possivel encontrar uma resposta nos documentos PDF."
                         })
                 else:
                     print("DEBUG: feedback != 'try_rag' -> devolve prompt_rag")
                     return jsonify({
                         "success": False,
-                        "erro": "Pergunta não encontrada nas FAQs. Deseja tentar encontrar uma resposta nos documentos PDF? Isso pode levar alguns segundos.",
+                        "erro": "Pergunta nÃ£o encontrada nas FAQs. Deseja tentar encontrar uma resposta nos documentos PDF? Isso pode levar alguns segundos.",
                         "prompt_rag": True
                     })
             else:
-                return jsonify({"success": False, "erro": "Fonte inválida."}), 400
+                return jsonify({"success": False, "erro": "Fonte invÃ¡lida."}), 400
         except Exception as inner_e:
             print(traceback.format_exc())
             return jsonify({"success": False, "erro": str(inner_e)}), 500
@@ -299,7 +300,7 @@ def obter_faq_por_categoria(categoria):
     try:
         chatbot_id = request.args.get("chatbot_id")
         if not chatbot_id:
-            return jsonify({"success": False, "erro": "chatbot_id não fornecido."}), 400
+            return jsonify({"success": False, "erro": "chatbot_id nÃ£o fornecido."}), 400
         cur.execute("""
             SELECT f.faq_id, f.pergunta, f.resposta
             FROM faq f
@@ -370,8 +371,8 @@ def nao_respondidas():
 @app.route("/perguntas-nao-respondidas/metricas", methods=["GET"])
 def metricas_nao_respondidas():
     """
-    Devolve contagens agregadas de perguntas não respondidas por chatbot,
-    separadas por estado e incluindo o último registo.
+    Devolve contagens agregadas de perguntas nÃ£o respondidas por chatbot,
+    separadas por estado e incluindo o Ãºltimo registo.
     """
     conn = get_conn()
     cur = conn.cursor()
@@ -465,3 +466,4 @@ def update_pergunta_nao_respondida(pergunta_id):
     finally:
         cur.close()
         conn.close()                
+

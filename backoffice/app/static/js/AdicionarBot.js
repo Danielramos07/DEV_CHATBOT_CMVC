@@ -87,6 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
         : ""
     );
     fd.append("cor", this.cor ? this.cor.value : "#d4af37");
+    fd.append("fonte", this.fonte ? this.fonte.value : "faq");
     fd.append(
       "video_enabled",
       this.video_enabled && this.video_enabled.checked ? "true" : "false"

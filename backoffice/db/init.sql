@@ -1,4 +1,6 @@
 -- Tabela: categoria
+CREATE EXTENSION IF NOT EXISTS vector;
+
 CREATE TABLE IF NOT EXISTS categoria (
     categoria_id SERIAL PRIMARY KEY,
     nome VARCHAR(100) NOT NULL UNIQUE
@@ -128,3 +130,19 @@ CREATE TABLE IF NOT EXISTS pdf_documents (
     file_path TEXT NOT NULL,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Tabela: rag_chunks (pgvector)
+CREATE TABLE IF NOT EXISTS rag_chunks (
+    chunk_id SERIAL PRIMARY KEY,
+    chatbot_id INT REFERENCES chatbot(chatbot_id) ON DELETE CASCADE,
+    pdf_id INT REFERENCES pdf_documents(pdf_id) ON DELETE CASCADE,
+    page_num INT,
+    chunk_index INT,
+    content TEXT NOT NULL,
+    embedding vector(384),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS rag_chunks_chatbot_idx ON rag_chunks (chatbot_id);
+CREATE INDEX IF NOT EXISTS rag_chunks_pdf_idx ON rag_chunks (pdf_id);
+CREATE INDEX IF NOT EXISTS rag_chunks_embedding_idx
+    ON rag_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);

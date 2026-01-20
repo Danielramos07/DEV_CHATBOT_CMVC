@@ -197,6 +197,9 @@ def criar_chatbot():
     mensagem_feedback_positiva = (_get_field("mensagem_feedback_positiva", "") or "").strip()
     mensagem_feedback_negativa = (_get_field("mensagem_feedback_negativa", "") or "").strip()
     genero = _get_field("genero") or None
+    fonte = (_get_field("fonte", "faq") or "faq").strip()
+    if fonte not in ["faq", "faiss", "faq+raga"]:
+        return jsonify({"success": False, "error": "Fonte inválida."}), 400
 
     # video_enabled can come as bool (json) or string (form)
     raw_video_enabled = _get_field("video_enabled", False)
@@ -281,7 +284,7 @@ def criar_chatbot():
             )
         cur.execute(
             "INSERT INTO fonte_resposta (chatbot_id, fonte) VALUES (%s, %s)",
-            (chatbot_id, "faq")
+            (chatbot_id, fonte)
         )
         conn.commit()
 

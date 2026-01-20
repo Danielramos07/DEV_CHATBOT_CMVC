@@ -1,8 +1,11 @@
 import psycopg2
 from psycopg2.pool import SimpleConnectionPool
+from pgvector.psycopg2 import register_vector
+from .config import Config
 from flask import g
 
 _pool = None
+_pgvector_registered = set()
 
 def init_pool(app):
     global _pool
@@ -15,12 +18,23 @@ def init_pool(app):
         password=app.config["PG_PASS"],
     )
 
+def _ensure_pgvector(conn):
+    if conn is None:
+        return
+    conn_id = id(conn)
+    if conn_id in _pgvector_registered:
+        return
+    register_vector(conn)
+    _pgvector_registered.add(conn_id)
+
 def get_pool_conn():
     """Get a raw pooled connection (NOT bound to Flask request context)."""
     global _pool
     if _pool is None:
         raise RuntimeError("DB pool not initialized")
-    return _pool.getconn()
+    conn = _pool.getconn()
+    _ensure_pgvector(conn)
+    return conn
 
 def put_pool_conn(conn):
     """Return a raw pooled connection."""
@@ -32,6 +46,7 @@ def put_pool_conn(conn):
 def get_conn():
     if "db_conn" not in g:
         g.db_conn = _pool.getconn()
+        _ensure_pgvector(g.db_conn)
     return g.db_conn   
 
 def close_conn(e=None): 
@@ -55,7 +70,9 @@ def ensure_schema() -> None:
     cur = None
     try:
         conn = _pool.getconn()
+        _ensure_pgvector(conn)
         cur = conn.cursor()
+        cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
         # Add global active flag for chatbots (safe to run repeatedly)
         cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS ativo BOOLEAN NOT NULL DEFAULT FALSE;")
         # Customizable chatbot messages (safe to run repeatedly)
@@ -87,6 +104,40 @@ def ensure_schema() -> None:
                 started_at TIMESTAMPTZ,
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+            """
+        )
+        # RAG chunks stored in pgvector (safe to run repeatedly)
+        cur.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS rag_chunks (
+                chunk_id SERIAL PRIMARY KEY,
+                chatbot_id INT REFERENCES chatbot(chatbot_id) ON DELETE CASCADE,
+                pdf_id INT REFERENCES pdf_documents(pdf_id) ON DELETE CASCADE,
+                page_num INT,
+                chunk_index INT,
+                content TEXT NOT NULL,
+                embedding vector({Config.RAG_EMBEDDING_DIM}),
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS rag_chunks_chatbot_idx
+            ON rag_chunks (chatbot_id);
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS rag_chunks_pdf_idx
+            ON rag_chunks (pdf_id);
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS rag_chunks_embedding_idx
+            ON rag_chunks USING ivfflat (embedding vector_cosine_ops)
+            WITH (lists = 100);
             """
         )
         # Ensure singleton row exists

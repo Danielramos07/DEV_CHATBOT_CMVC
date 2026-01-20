@@ -179,7 +179,7 @@ function criarBotHTML(bot, allBots) {
           </div>
           <div class="card" data-fonte="faq+raga" onclick="selecionarFonte('faq+raga', this.closest('.bot-dropdown'))">
             <h4>FAQ + fallback RAG</h4>
-            <p>Tenta responder com regras e usa RAG se falhar (não implementado).</p>
+            <p>Tenta responder com regras e usa RAG se falhar.</p>
           </div>
         </div>
         <hr class="linha-separadora">

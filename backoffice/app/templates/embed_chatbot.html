@@ -32,6 +32,21 @@
       .chat-close-btn {
         display: none !important;
       }
+      @media (max-width: 768px) {
+        .chat-main {
+          flex-direction: row;
+        }
+        .chat-avatar-column {
+          width: 42%;
+          min-width: 260px;
+          border-right: 1px solid #e2e2e2;
+          border-bottom: none;
+          padding: 18px 20px 18px 24px;
+        }
+        #chatAvatarSuggestions {
+          display: block;
+        }
+      }
     </style>
   </head>
   <body>

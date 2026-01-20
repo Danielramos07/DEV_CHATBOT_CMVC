@@ -42,6 +42,14 @@ content %}
           <option value="f">Feminino</option>
         </select>
       </div>
+      <div class="form-group">
+        <label for="novoFonteResposta">Fonte de Resposta:</label>
+        <select name="fonte" id="novoFonteResposta" required>
+          <option value="faq">Baseado em Regras (FAQ)</option>
+          <option value="faiss">FAISS</option>
+          <option value="faq+raga">FAQ + fallback RAG</option>
+        </select>
+      </div>
 
       <h3 class="section-title" style="margin: 6px 0 10px 0">Mensagens</h3>
       <hr
