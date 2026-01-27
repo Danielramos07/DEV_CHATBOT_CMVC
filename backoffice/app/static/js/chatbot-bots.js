@@ -232,12 +232,12 @@ function criarBotHTML(bot, allBots) {
             <div id="mensagemFAQ"></div>
           </form>
           <div>
-            <label>Ou carregar ficheiro .docx</label>
+            <label>Ou carregar ficheiro .docx/.odt</label>
             <form id="uploadForm-${bot.chatbot_id}" class="uploadForm" enctype="multipart/form-data">
               <select name="chatbot_id" required>
                 ${optionsHtml}
               </select>
-              <input type="file" name="file" accept=".docx" required>
+              <input type="file" name="file" accept=".docx,.odt" required>
               <button type="submit">Adicionar Documento</button>
               <div class="uploadStatus"></div>
             </form>

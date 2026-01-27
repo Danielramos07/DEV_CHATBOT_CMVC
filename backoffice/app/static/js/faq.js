@@ -701,7 +701,7 @@ document.querySelectorAll(".uploadForm").forEach((uploadForm) => {
       'input[type="file"][accept=".pdf"]'
     );
     const docxInput = uploadForm.querySelector(
-      'input[type="file"][accept=".docx"]'
+      'input[type="file"][accept*=".docx"], input[type="file"][accept*=".odt"]'
     );
 
     if (pdfInput && pdfInput.files.length > 0) {

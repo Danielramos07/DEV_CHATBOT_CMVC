@@ -8,6 +8,11 @@ from ..config import Config
 from ..services.video_service import can_start_new_video_job
 import os
 import traceback
+import re
+import unicodedata
+import io
+import zipfile
+import xml.etree.ElementTree as ET
 
 # Importações opcionais para evitar erros se os pacotes não estiverem instalados
 try:
@@ -23,6 +28,155 @@ except ImportError:
     PDF_AVAILABLE = False
 
 app = Blueprint('uploads', __name__)
+
+_FAQ_KEY_MAP = {
+    "designacao da faq": "designacao",
+    "designacao faq": "designacao",
+    "designacao": "designacao",
+    "titulo da faq": "designacao",
+    "titulo faq": "designacao",
+    "titulo": "designacao",
+    "pergunta": "pergunta",
+    "questao": "pergunta",
+    "resposta": "resposta",
+    "categoria": "categoria",
+    "idioma": "idioma",
+    "identificador": "identificador",
+    "id": "identificador",
+    "documentos associados": "links_documentos",
+    "links de documentos": "links_documentos",
+    "links documentos": "links_documentos",
+    "documentos": "links_documentos",
+    "links": "links_documentos",
+    "a quem se destina": "serve_text",
+    "para que serve": "serve_text",
+    "serve": "serve_text",
+    "identificador codigo da faq": "identificador",
+    "codigo da faq": "identificador",
+    "identificador da faq": "identificador",
+    "o que tem que fazer e quais os documentos necessarios": "resposta",
+    "a quem se destina e para que serve este procedimento": "serve_text",
+}
+
+_REQUIRED_FAQ_FIELDS = ("designacao", "pergunta", "resposta")
+
+
+def _normalize_faq_key(raw: str) -> str:
+    value = (raw or "").strip().lower().replace("\u2019", "'").replace("\u2018", "'")
+    value = unicodedata.normalize("NFKD", value)
+    value = "".join(ch for ch in value if not unicodedata.combining(ch))
+    value = value.replace(":", " ")
+    value = value.replace("/", " ")
+    value = re.sub(r"\s+", " ", value)
+    return value.strip()
+
+
+def _extract_docx_pairs(doc):
+    pairs = []
+    for table in doc.tables:
+        for row in table.rows:
+            if len(row.cells) >= 2:
+                key = row.cells[0].text
+                value = row.cells[1].text
+                pairs.append((key, value))
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if ":" in text:
+            key, value = text.split(":", 1)
+            if key.strip() and value.strip():
+                pairs.append((key, value))
+    return pairs
+
+
+def _parse_faq_pairs(pairs):
+    data = {}
+    last_canonical = None
+    for key, value in pairs:
+        raw_value = (value or "").strip()
+        normalized_key = _normalize_faq_key(key or "")
+        if not normalized_key:
+            if last_canonical and raw_value:
+                existing = data.get(last_canonical, "")
+                data[last_canonical] = (existing + "\n" + raw_value).strip()
+            continue
+        canonical = _FAQ_KEY_MAP.get(normalized_key)
+        if not canonical:
+            if normalized_key.startswith("designacao"):
+                canonical = "designacao"
+            elif normalized_key.startswith("pergunta"):
+                canonical = "pergunta"
+            elif normalized_key.startswith("questao"):
+                canonical = "pergunta"
+            elif normalized_key.startswith("resposta"):
+                canonical = "resposta"
+            elif normalized_key.startswith("identificador"):
+                canonical = "identificador"
+        if not canonical or not raw_value:
+            continue
+        last_canonical = canonical
+        existing = data.get(canonical)
+        data[canonical] = raw_value if not existing else (existing + "\n" + raw_value).strip()
+    return data
+
+
+def _parse_docx_faq_data(file_obj):
+    doc = docx.Document(file_obj)
+    return _parse_faq_pairs(_extract_docx_pairs(doc))
+
+
+def _extract_odt_pairs(xml_bytes: bytes):
+    ns = {
+        "office": "urn:oasis:names:tc:opendocument:xmlns:office:1.0",
+        "table": "urn:oasis:names:tc:opendocument:xmlns:table:1.0",
+        "text": "urn:oasis:names:tc:opendocument:xmlns:text:1.0",
+    }
+    root = ET.fromstring(xml_bytes)
+    pairs = []
+    for table in root.findall(".//table:table", ns):
+        for row in table.findall("table:table-row", ns):
+            cells = []
+            for cell in row.findall("table:table-cell", ns):
+                parts = []
+                for p in cell.findall(".//text:p", ns):
+                    chunk = "".join(p.itertext()).strip()
+                    if chunk:
+                        parts.append(chunk)
+                cells.append("\n".join(parts).strip())
+            if len(cells) >= 2 and any(cells[:2]):
+                pairs.append((cells[0], cells[1]))
+    # Fallback to paragraphs with "key: value" style.
+    for para in root.findall(".//text:p", ns):
+        text = "".join(para.itertext()).strip()
+        if ":" in text:
+            key, value = text.split(":", 1)
+            if key.strip() and value.strip():
+                pairs.append((key, value))
+    return pairs
+
+
+def _parse_odt_faq_data(file_bytes: bytes):
+    with zipfile.ZipFile(io.BytesIO(file_bytes)) as zf:
+        if "content.xml" not in zf.namelist():
+            return {}
+        xml_bytes = zf.read("content.xml")
+    return _parse_faq_pairs(_extract_odt_pairs(xml_bytes))
+
+
+def _parse_faq_upload(file_storage):
+    file_bytes = file_storage.read()
+    if not file_bytes:
+        return {}
+    filename = (file_storage.filename or "").lower()
+    if filename.endswith(".odt"):
+        return _parse_odt_faq_data(file_bytes)
+    try:
+        with zipfile.ZipFile(io.BytesIO(file_bytes)) as zf:
+            names = set(zf.namelist())
+        if "content.xml" in names:
+            return _parse_odt_faq_data(file_bytes)
+    except zipfile.BadZipFile:
+        pass
+    return _parse_docx_faq_data(io.BytesIO(file_bytes))
 
 
 @app.route("/upload-pdf", methods=["POST"])
@@ -154,30 +308,19 @@ def upload_faq_docx():
         except Exception:
             return jsonify({"success": False, "busy": True, "error": "Já existe um vídeo a ser gerado. Aguarde que termine."}), 409
     try:
-        doc = docx.Document(file)
-        dados = {}
-        for table in doc.tables:
-            for row in table.rows:
-                if len(row.cells) >= 2:
-                    chave_raw = row.cells[0].text.strip().lower().replace("\u2019", "'")
-                    valor = row.cells[1].text.strip()
-                    chave = chave_raw.replace(":", "").strip()
-                    if chave and valor:
-                        dados[chave] = valor
-        if not dados.get("designação da faq") or not dados.get("questão") or not dados.get("resposta"):
+        dados = _parse_faq_upload(file)
+        missing = [f for f in _REQUIRED_FAQ_FIELDS if not dados.get(f)]
+        if missing:
             raise Exception("Faltam campos obrigatórios: designação, questão ou resposta.")
-        designacao = dados.get("designação da faq")
-        identificador = dados.get("identificador") or dados.get("id") or ""
-        pergunta = dados.get("questão")
+        designacao = dados.get("designacao")
+        identificador = dados.get("identificador") or ""
+        pergunta = dados.get("pergunta")
         resposta = dados.get("resposta")
         categoria = dados.get("categoria")
         idioma_lido = dados.get("idioma", "Português")
         idioma = normalizar_idioma(idioma_lido)
-        links_documentos = ""
-        for key in ["documentos associados", "links de documentos"]:
-            if key in dados:
-                links_documentos = dados[key]
-                break
+        links_documentos = dados.get("links_documentos", "")
+        serve_text = dados.get("serve_text")
         chatbot_ids = []
         if chatbot_id_raw == "todos":
             cur.execute("SELECT chatbot_id FROM chatbot")
@@ -192,10 +335,19 @@ def upload_faq_docx():
             if cur.fetchone():
                 continue
             cur.execute("""
-                INSERT INTO faq (chatbot_id, designacao, identificador, pergunta, resposta, idioma, links_documentos)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO faq (chatbot_id, designacao, identificador, pergunta, resposta, idioma, links_documentos, serve_text)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING faq_id
-            """, (chatbot_id, designacao, (identificador or "").strip() or None, pergunta, resposta, idioma, links_documentos))
+            """, (
+                chatbot_id,
+                designacao,
+                (identificador or "").strip() or None,
+                pergunta,
+                resposta,
+                idioma,
+                links_documentos,
+                (serve_text or "").strip() or None,
+            ))
             faq_id = cur.fetchone()[0]
             if categoria:
                 cur.execute("SELECT categoria_id FROM categoria WHERE nome ILIKE %s", (categoria,))
@@ -203,7 +355,7 @@ def upload_faq_docx():
                 if result:
                     cur.execute("UPDATE faq SET categoria_id = %s WHERE faq_id = %s", (result[0], faq_id))
             if links_documentos:
-                for link in links_documentos.split(','):
+                for link in re.split(r"[,\n]+", links_documentos):
                     link = link.strip()
                     if link:
                         cur.execute(
@@ -253,30 +405,19 @@ def upload_faq_docx_multiplos():
     erros = []
     for file in files:
         try:
-            doc = docx.Document(file)
-            dados = {}
-            for table in doc.tables:
-                for row in table.rows:
-                    if len(row.cells) >= 2:
-                        chave_raw = row.cells[0].text.strip().lower().replace("\u2019", "'")
-                        valor = row.cells[1].text.strip()
-                        chave = chave_raw.replace(":", "").strip()
-                        if chave and valor:
-                            dados[chave] = valor
-            if not dados.get("designação da faq") or not dados.get("questão") or not dados.get("resposta"):
+            dados = _parse_faq_upload(file)
+            missing = [f for f in _REQUIRED_FAQ_FIELDS if not dados.get(f)]
+            if missing:
                 raise Exception("Faltam campos obrigatórios: designação, questão ou resposta.")
-            designacao = dados.get("designação da faq")
-            identificador = dados.get("identificador") or dados.get("id") or ""
-            pergunta = dados.get("questão")
+            designacao = dados.get("designacao")
+            identificador = dados.get("identificador") or ""
+            pergunta = dados.get("pergunta")
             resposta = dados.get("resposta")
             categoria = dados.get("categoria")
             idioma_lido = dados.get("idioma", "Português")
             idioma = normalizar_idioma(idioma_lido)
-            links_documentos = ""
-            for key in ["documentos associados", "links de documentos"]:
-                if key in dados:
-                    links_documentos = dados[key]
-                    break
+            links_documentos = dados.get("links_documentos", "")
+            serve_text = dados.get("serve_text")
             chatbot_ids = []
             if chatbot_id_raw == "todos":
                 cur.execute("SELECT chatbot_id FROM chatbot")
@@ -291,10 +432,19 @@ def upload_faq_docx_multiplos():
                 if cur.fetchone():
                     continue
                 cur.execute("""
-                    INSERT INTO faq (chatbot_id, designacao, identificador, pergunta, resposta, idioma, links_documentos)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    INSERT INTO faq (chatbot_id, designacao, identificador, pergunta, resposta, idioma, links_documentos, serve_text)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING faq_id
-                """, (chatbot_id, designacao, (identificador or "").strip() or None, pergunta, resposta, idioma, links_documentos))
+                """, (
+                    chatbot_id,
+                    designacao,
+                    (identificador or "").strip() or None,
+                    pergunta,
+                    resposta,
+                    idioma,
+                    links_documentos,
+                    (serve_text or "").strip() or None,
+                ))
                 faq_id = cur.fetchone()[0]
                 if categoria:
                     cur.execute("SELECT categoria_id FROM categoria WHERE nome ILIKE %s", (categoria,))
@@ -302,7 +452,7 @@ def upload_faq_docx_multiplos():
                     if result:
                         cur.execute("UPDATE faq SET categoria_id = %s WHERE faq_id = %s", (result[0], faq_id))
                 if links_documentos:
-                    for link in links_documentos.split(','):
+                    for link in re.split(r"[,\n]+", links_documentos):
                         link = link.strip()
                         if link:
                             cur.execute(
