@@ -178,7 +178,7 @@ function criarBotHTML(bot, allBots) {
             <p>Respostas aproximadas com base vetorial.</p>
           </div>
           <div class="card" data-fonte="faq+raga" onclick="selecionarFonte('faq+raga', this.closest('.bot-dropdown'))">
-            <h4>FAQ + fallback RAG</h4>
+            <h4>FAQ + GenAI</h4>
             <p>Tenta responder com regras e usa RAG se falhar.</p>
           </div>
         </div>

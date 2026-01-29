@@ -353,7 +353,7 @@ function formatarData(dataStr) {
 function obterNomeFonte(fonte) {
   if (fonte === "faq") return "Baseado em Regras (FAQ)";
   if (fonte === "faiss") return "Só FAISS";
-  if (fonte === "faq+raga") return "FAQ + fallback RAG";
+  if (fonte === "faq+raga") return "FAQ + GenAI";
   return fonte;
 }
 
