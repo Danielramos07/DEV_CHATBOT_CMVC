@@ -42,7 +42,7 @@ async function renderizarCategoriasChatbot(chatbot_id) {
 
   try {
     const associadas = await fetch(`/chatbots/${chatbot_id}/categorias`).then(
-      (r) => r.json()
+      (r) => r.json(),
     );
 
     let categoriasHtml = "";
@@ -54,7 +54,7 @@ async function renderizarCategoriasChatbot(chatbot_id) {
           <span>${cat.nome}</span>
           <button class="btn-eliminar-cat" onclick="removerAssociacaoCategoria(${chatbot_id}, ${cat.categoria_id})" title="Remover">Eliminar</button>
         </div>
-      `
+      `,
         )
         .join("");
     } else {
@@ -77,7 +77,7 @@ async function renderizarCategoriasChatbot(chatbot_id) {
 window.toggleAssociacaoCategoria = async function (
   chatbot_id,
   categoria_id,
-  checked
+  checked,
 ) {
   try {
     if (checked) {
@@ -196,7 +196,7 @@ async function eliminarChatbotConfirmado(chatbot_id) {
       const result = await res.json();
       alert(
         "Erro ao eliminar o chatbot: " +
-          (result.error || result.erro || res.statusText)
+          (result.error || result.erro || res.statusText),
       );
     }
   } catch (err) {
@@ -276,7 +276,7 @@ async function carregarTabelaBots() {
               </td>
               <td>
                 <span class="fonte-indicador">${obterNomeFonte(
-                  bot.fonte
+                  bot.fonte,
                 )}</span>
               </td>
               <td class="cor">
@@ -309,7 +309,7 @@ async function carregarTabelaBots() {
                 })">Adicionar FAQ</button>
               </td>
             </tr>
-          `
+          `,
             )
             .join("")}
         </tbody>
@@ -431,26 +431,34 @@ document.addEventListener("DOMContentLoaded", function () {
       const descricao = document
         .getElementById("editarDescricaoChatbot")
         .value.trim();
+      const idioma = document.getElementById("editarIdiomaChatbot")
+        ? document.getElementById("editarIdiomaChatbot").value.trim()
+        : "pt";
       const fonte = document.getElementById("editarFonteResposta").value;
       const cor = document.getElementById("editarCorChatbot").value.trim();
       const mensagem_sem_resposta = document
         .getElementById("editarMensagemSemResposta")
         .value.trim();
       const greeting_video_text = document.getElementById(
-        "editarGreetingVideoText"
+        "editarGreetingVideoText",
       )
         ? document.getElementById("editarGreetingVideoText").value.trim()
         : "";
       const mensagem_inicial = document.getElementById("editarMensagemInicial")
         ? document.getElementById("editarMensagemInicial").value.trim()
         : "";
+      const mensagem_gerada_ai = document.getElementById(
+        "editarMensagemGeradaAI",
+      )
+        ? document.getElementById("editarMensagemGeradaAI").value.trim()
+        : "";
       const mensagem_feedback_positiva = document.getElementById(
-        "editarMensagemFeedbackPositiva"
+        "editarMensagemFeedbackPositiva",
       )
         ? document.getElementById("editarMensagemFeedbackPositiva").value.trim()
         : "";
       const mensagem_feedback_negativa = document.getElementById(
-        "editarMensagemFeedbackNegativa"
+        "editarMensagemFeedbackNegativa",
       )
         ? document.getElementById("editarMensagemFeedbackNegativa").value.trim()
         : "";
@@ -462,6 +470,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const iconFile = iconInput.files[0];
 
       const oldNome = (this.dataset.oldNome || "").trim();
+      const oldIdioma = (this.dataset.oldIdioma || "pt").trim().toLowerCase();
       const oldGenero = (this.dataset.oldGenero || "").trim();
       const oldGreetingText = (this.dataset.oldGreetingVideoText || "").trim();
       const oldMsgNoAnswer = (this.dataset.oldMensagemSemResposta || "").trim();
@@ -477,12 +486,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
       const formData = new FormData();
       formData.append("nome", nome);
+      formData.append("idioma", (idioma || "pt").trim());
       formData.append("descricao", descricao);
       formData.append("fonte", fonte);
       formData.append("cor", cor);
       formData.append("mensagem_sem_resposta", mensagem_sem_resposta);
       formData.append("greeting_video_text", greeting_video_text);
       formData.append("mensagem_inicial", mensagem_inicial);
+      formData.append("mensagem_gerada_ai", mensagem_gerada_ai);
       formData.append("mensagem_feedback_positiva", mensagem_feedback_positiva);
       formData.append("mensagem_feedback_negativa", mensagem_feedback_negativa);
       formData.append("genero", genero);
@@ -493,6 +504,8 @@ document.addEventListener("DOMContentLoaded", function () {
       // If video was just enabled, regeneration is required to have usable videos.
       const kindsNeeded = new Set();
       const nomeChanged = oldNome !== nome;
+      const idiomaChanged =
+        (oldIdioma || "pt") !== ((idioma || "pt").trim().toLowerCase() || "pt");
       const generoChanged = oldGenero !== (genero || "").trim();
       const iconChanged = !!iconFile;
       const greetingTextChanged =
@@ -504,15 +517,42 @@ document.addEventListener("DOMContentLoaded", function () {
       const msgNegChanged =
         oldMsgNeg !== (mensagem_feedback_negativa || "").trim();
 
-      const avatarOrVoiceChanged = nomeChanged || generoChanged || iconChanged;
+      const avatarOrVoiceChanged =
+        nomeChanged || generoChanged || iconChanged || idiomaChanged;
+
+      // Special warning when changing avatar: initial chatbot videos will be regenerated,
+      // but FAQ videos are not regenerated automatically.
+      if (iconChanged && video_enabled) {
+        // Pre-check if a video job is already running (same rule as other video actions).
+        try {
+          const st = await fetch("/video/status").then((r) => r.json());
+          const job = st && st.job ? st.job : null;
+          const status = job && job.status ? String(job.status) : "";
+          if (status === "queued" || status === "processing") {
+            if (typeof mostrarModalVideoBusy === "function") {
+              mostrarModalVideoBusy(
+                "Já existe um vídeo a ser gerado neste momento. Aguarde que termine antes de atualizar o avatar (isso requer regenerar vídeos do chatbot).",
+              );
+            }
+            return;
+          }
+        } catch (e) {
+          // If status check fails, keep going; backend will still protect queuing.
+        }
+
+        const ok = confirm(
+          "Detetámos que alterou o avatar. Os vídeos do chatbot (saudação/idle/feedback) serão regenerados automaticamente.\n\nOs vídeos das FAQs NÃO serão regenerados automaticamente — se quiser, terá de os regenerar manualmente no backoffice.\n\nContinuar?",
+        );
+        if (!ok) return;
+      }
 
       if (video_enabled) {
         if (!wasVideoEnabled) {
           ["greeting", "idle", "positive", "negative", "no_answer"].forEach(
-            (k) => kindsNeeded.add(k)
+            (k) => kindsNeeded.add(k),
           );
           const ok = confirm(
-            "Ativou os vídeos deste chatbot. É necessário gerar os vídeos agora. Quer iniciar a geração?"
+            "Ativou os vídeos deste chatbot. É necessário gerar os vídeos agora. Quer iniciar a geração?",
           );
           if (!ok) {
             // Don't allow enabling video without generation, to avoid broken UI/404s.
@@ -524,12 +564,12 @@ document.addEventListener("DOMContentLoaded", function () {
           formData.append("regen_videos", "true");
           formData.append(
             "video_kinds",
-            JSON.stringify(Array.from(kindsNeeded.values()))
+            JSON.stringify(Array.from(kindsNeeded.values())),
           );
         } else {
           if (avatarOrVoiceChanged) {
             ["greeting", "idle", "positive", "negative", "no_answer"].forEach(
-              (k) => kindsNeeded.add(k)
+              (k) => kindsNeeded.add(k),
             );
           } else {
             if (greetingTextChanged) kindsNeeded.add("greeting");
@@ -562,34 +602,34 @@ document.addEventListener("DOMContentLoaded", function () {
             const notes = [];
             if (msgPosChanged && !(mensagem_feedback_positiva || "").trim()) {
               notes.push(
-                "O texto do vídeo Positivo ficou vazio e será usado o texto por defeito."
+                "O texto do vídeo Positivo ficou vazio e será usado o texto por defeito.",
               );
             }
             if (msgNegChanged && !(mensagem_feedback_negativa || "").trim()) {
               notes.push(
-                "O texto do vídeo Negativo ficou vazio e será usado o texto por defeito."
+                "O texto do vídeo Negativo ficou vazio e será usado o texto por defeito.",
               );
             }
             if (msgNoAnswerChanged && !(mensagem_sem_resposta || "").trim()) {
               notes.push(
-                "O texto do vídeo Sem resposta ficou vazio e será usado o texto por defeito."
+                "O texto do vídeo Sem resposta ficou vazio e será usado o texto por defeito.",
               );
             }
             if (greetingTextChanged && !(greeting_video_text || "").trim()) {
               notes.push(
-                "O texto do vídeo de Saudação ficou vazio e será usado o texto por defeito."
+                "O texto do vídeo de Saudação ficou vazio e será usado o texto por defeito.",
               );
             }
 
             const ok = confirm(
               `Foram alterados campos que afetam vídeos (${kindsText}). Regenerar agora apenas estes vídeos?` +
-                (notes.length ? `\n\n${notes.join("\n")}` : "")
+                (notes.length ? `\n\n${notes.join("\n")}` : ""),
             );
             formData.append("regen_videos", ok ? "true" : "false");
             if (ok) {
               formData.append(
                 "video_kinds",
-                JSON.stringify(Array.from(kindsNeeded.values()))
+                JSON.stringify(Array.from(kindsNeeded.values())),
               );
             }
           }
@@ -628,7 +668,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (typeof mostrarModalVideoBusy === "function") {
               mostrarModalVideoBusy(
                 result.error ||
-                  "Já existe um vídeo a ser gerado neste momento. Aguarde que termine."
+                  "Já existe um vídeo a ser gerado neste momento. Aguarde que termine.",
               );
             } else {
               const m = document.getElementById("modalVideoBusy");
@@ -665,7 +705,7 @@ document.addEventListener("DOMContentLoaded", function () {
           const result = await res.json().catch(() => ({}));
           alert(
             "Erro ao atualizar chatbot: " +
-              (result.error || result.erro || res.statusText)
+              (result.error || result.erro || res.statusText),
           );
         }
       } catch (err) {
@@ -717,7 +757,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Handle video_enabled checkbox to block/unblock nome, icon, genero fields
   const videoEnabledCheckbox = document.getElementById(
-    "editarVideoEnabledChatbot"
+    "editarVideoEnabledChatbot",
   );
   if (videoEnabledCheckbox) {
     const toggleFieldsBasedOnVideoEnabled = () => {
@@ -732,9 +772,10 @@ document.addEventListener("DOMContentLoaded", function () {
         nomeInput.style.cursor = isVideoEnabled ? "not-allowed" : "text";
       }
       if (iconInput) {
-        iconInput.disabled = isVideoEnabled;
-        iconInput.style.opacity = isVideoEnabled ? "0.6" : "1";
-        iconInput.style.cursor = isVideoEnabled ? "not-allowed" : "pointer";
+        // Allow avatar updates even when video is enabled (frontend will warn + regenerate videos).
+        iconInput.disabled = false;
+        iconInput.style.opacity = "1";
+        iconInput.style.cursor = "pointer";
       }
       if (generoSelect) {
         generoSelect.disabled = isVideoEnabled;
@@ -745,7 +786,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     videoEnabledCheckbox.addEventListener(
       "change",
-      toggleFieldsBasedOnVideoEnabled
+      toggleFieldsBasedOnVideoEnabled,
     );
     // Also call on modal open (handled in abrirModalAtualizar)
   }
@@ -771,25 +812,27 @@ window.abrirModalAtualizar = async function (chatbot_id) {
     };
 
     setValueById("editarNomeChatbot", bot.nome || "");
+    setValueById("editarIdiomaChatbot", (bot.idioma || "pt").toLowerCase());
     setValueById("editarDescricaoChatbot", bot.descricao || "");
     setValueById(
       "editarDataCriacao",
       bot.data_criacao
         ? new Date(bot.data_criacao).toLocaleDateString("pt-PT")
-        : ""
+        : "",
     );
     setValueById("editarFonteResposta", bot.fonte || "faq");
     setValueById("editarCorChatbot", bot.cor || "#d4af37");
     setValueById("editarMensagemSemResposta", bot.mensagem_sem_resposta || "");
     setValueById("editarGreetingVideoText", bot.greeting_video_text || "");
     setValueById("editarMensagemInicial", bot.mensagem_inicial || "");
+    setValueById("editarMensagemGeradaAI", bot.mensagem_gerada_ai || "");
     setValueById(
       "editarMensagemFeedbackPositiva",
-      bot.mensagem_feedback_positiva || ""
+      bot.mensagem_feedback_positiva || "",
     );
     setValueById(
       "editarMensagemFeedbackNegativa",
-      bot.mensagem_feedback_negativa || ""
+      bot.mensagem_feedback_negativa || "",
     );
     setValueById("editarGeneroChatbot", bot.genero || "");
     const cbVideo = document.getElementById("editarVideoEnabledChatbot");
@@ -807,9 +850,10 @@ window.abrirModalAtualizar = async function (chatbot_id) {
       nomeInput.style.cursor = isVideoEnabled ? "not-allowed" : "text";
     }
     if (iconInput) {
-      iconInput.disabled = isVideoEnabled;
-      iconInput.style.opacity = isVideoEnabled ? "0.6" : "1";
-      iconInput.style.cursor = isVideoEnabled ? "not-allowed" : "pointer";
+      // Allow avatar updates even when video is enabled.
+      iconInput.disabled = false;
+      iconInput.style.opacity = "1";
+      iconInput.style.cursor = "pointer";
     }
     if (generoSelect) {
       generoSelect.disabled = isVideoEnabled;
@@ -830,6 +874,7 @@ window.abrirModalAtualizar = async function (chatbot_id) {
 
       // Track old values to detect video-relevant changes on submit
       editarForm.dataset.oldNome = (bot.nome || "").trim();
+      editarForm.dataset.oldIdioma = (bot.idioma || "pt").trim().toLowerCase();
       editarForm.dataset.oldGenero = (bot.genero || "").trim();
       editarForm.dataset.oldGreetingVideoText = (
         bot.greeting_video_text || ""
@@ -859,7 +904,7 @@ async function mostrarModalEditarChatbot(chatbot_id) {
 
   try {
     const categoriasAssociadas = await fetch(
-      `/chatbots/${chatbot_id}/categorias`
+      `/chatbots/${chatbot_id}/categorias`,
     ).then((r) => r.json());
     if (!categoriasAssociadas || categoriasAssociadas.length === 0) {
       catView.innerHTML =
@@ -915,7 +960,7 @@ async function atualizarCategoriasFAQForm(chatbot_id) {
   try {
     if (!chatbot_id) return;
     const cats = await fetch(`/chatbots/${chatbot_id}/categorias`).then((r) =>
-      r.json()
+      r.json(),
     );
     cats.forEach((cat) => {
       const opt = document.createElement("option");
@@ -1091,7 +1136,7 @@ if (formAdicionarFAQ) {
     const categoria_id = this.elements["categoria_id"].value;
     const idioma = this.elements["idioma"].value;
     const links_documentos = Array.from(
-      this.querySelectorAll('input[name="links_documentos[]"]')
+      this.querySelectorAll('input[name="links_documentos[]"]'),
     )
       .map((input) => input.value.trim())
       .filter(Boolean)
@@ -1102,7 +1147,7 @@ if (formAdicionarFAQ) {
     let relacionadas = "";
     if (relacionadasSelect && relacionadasSelect.selectedOptions) {
       const selectedValues = Array.from(relacionadasSelect.selectedOptions).map(
-        (opt) => opt.value
+        (opt) => opt.value,
       );
       relacionadas = selectedValues.join(",");
     }
@@ -1185,7 +1230,7 @@ if (formUploadDocxFAQ) {
         if (typeof mostrarModalVideoBusy === "function") {
           mostrarModalVideoBusy(
             result.error ||
-              "Já existe um vídeo a ser gerado neste momento. Aguarde que termine."
+              "Já existe um vídeo a ser gerado neste momento. Aguarde que termine.",
           );
         } else {
           const m = document.getElementById("modalVideoBusy");
@@ -1221,18 +1266,18 @@ if (formUploadPDFFAQ) {
       const result = await res.json();
       if (res.ok) {
         document.querySelector(
-          "#formUploadPDFFAQ .uploadStatusPDF"
+          "#formUploadPDFFAQ .uploadStatusPDF",
         ).textContent = "Upload bem-sucedido!";
         document.querySelector(
-          "#formUploadPDFFAQ .uploadStatusPDF"
+          "#formUploadPDFFAQ .uploadStatusPDF",
         ).style.color = "green";
         this.reset();
       } else {
         document.querySelector(
-          "#formUploadPDFFAQ .uploadStatusPDF"
+          "#formUploadPDFFAQ .uploadStatusPDF",
         ).textContent = "Erro: " + (result.error || result.erro);
         document.querySelector(
-          "#formUploadPDFFAQ .uploadStatusPDF"
+          "#formUploadPDFFAQ .uploadStatusPDF",
         ).style.color = "red";
       }
     } catch (err) {

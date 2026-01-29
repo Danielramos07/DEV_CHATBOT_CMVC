@@ -26,9 +26,12 @@ def build_faiss_index(chatbot_id=None):
     cur = conn.cursor()
     try:
         if chatbot_id:
-            cur.execute("SELECT faq_id, pergunta, resposta, chatbot_id FROM faq WHERE chatbot_id = %s", (chatbot_id,))
+            cur.execute(
+                "SELECT faq_id, pergunta, resposta, chatbot_id, idioma FROM faq WHERE chatbot_id = %s",
+                (chatbot_id,),
+            )
         else:
-            cur.execute("SELECT faq_id, pergunta, resposta, chatbot_id FROM faq")
+            cur.execute("SELECT faq_id, pergunta, resposta, chatbot_id, idioma FROM faq")
         faqs = cur.fetchall()
         textos = [_faq_to_embedding_text(f[1], f[2]) for f in faqs]
         if not textos:
@@ -70,11 +73,15 @@ def load_faiss_index():
 
 faiss_index, faqs_db, faq_embeddings = load_faiss_index()
 
-def pesquisar_faiss(pergunta, chatbot_id=None, k=1, min_sim=0.7, relax_min_sim=None):
+def pesquisar_faiss(pergunta, chatbot_id=None, idioma=None, k=1, min_sim=0.7, relax_min_sim=None):
     pergunta = preprocess_text(pergunta)
     results = []
     if len(faqs_db) == 0:
         return []
+
+    idioma_norm = (idioma or "").strip().lower()[:2] if idioma else None
+    if idioma_norm and idioma_norm not in {"pt", "en"}:
+        idioma_norm = None
 
     query_emb = embedding_model.encode([pergunta])
     query_emb = query_emb / np.linalg.norm(query_emb, axis=1, keepdims=True)
@@ -92,8 +99,18 @@ def pesquisar_faiss(pergunta, chatbot_id=None, k=1, min_sim=0.7, relax_min_sim=N
             seen.add(idx_faq)
             if score < min_sim:
                 continue
-            faq_id, pergunta_faq, resposta_faq, chatbot_id_faq = faqs_db[idx_faq]
+            row = faqs_db[idx_faq]
+            if row is None:
+                continue
+            # Backwards compatibility: old cache may not have idioma
+            if len(row) >= 5:
+                faq_id, pergunta_faq, resposta_faq, chatbot_id_faq, faq_idioma = row[:5]
+            else:
+                faq_id, pergunta_faq, resposta_faq, chatbot_id_faq = row[:4]
+                faq_idioma = None
             if chatbot_id and int(chatbot_id_faq) != int(chatbot_id):
+                continue
+            if idioma_norm and (faq_idioma or "").strip().lower()[:2] != idioma_norm:
                 continue
             results.append({
                 'faq_id': faq_id,
@@ -113,8 +130,17 @@ def pesquisar_faiss(pergunta, chatbot_id=None, k=1, min_sim=0.7, relax_min_sim=N
         for score, idx_faq in zip(D[0], I[0]):
             if idx_faq == -1 or score < relax_min_sim:
                 continue
-            faq_id, pergunta_faq, resposta_faq, chatbot_id_faq = faqs_db[idx_faq]
+            row = faqs_db[idx_faq]
+            if row is None:
+                continue
+            if len(row) >= 5:
+                faq_id, pergunta_faq, resposta_faq, chatbot_id_faq, faq_idioma = row[:5]
+            else:
+                faq_id, pergunta_faq, resposta_faq, chatbot_id_faq = row[:4]
+                faq_idioma = None
             if chatbot_id and int(chatbot_id_faq) != int(chatbot_id):
+                continue
+            if idioma_norm and (faq_idioma or "").strip().lower()[:2] != idioma_norm:
                 continue
             results.append({
                 'faq_id': faq_id,
@@ -127,25 +153,41 @@ def pesquisar_faiss(pergunta, chatbot_id=None, k=1, min_sim=0.7, relax_min_sim=N
 
     return results
     
-def get_faqs_from_db(chatbot_id=None):
+def get_faqs_from_db(chatbot_id=None, idioma=None):
     conn = get_conn()
     cur = conn.cursor()
     try:
-        if chatbot_id:
-            cur.execute("SELECT faq_id, pergunta, resposta, chatbot_id FROM faq WHERE chatbot_id = %s", (chatbot_id,))
+        idioma_norm = (idioma or "").strip().lower()[:2] if idioma else None
+        if chatbot_id and idioma_norm:
+            cur.execute(
+                "SELECT faq_id, pergunta, resposta, chatbot_id, idioma FROM faq WHERE chatbot_id = %s AND idioma = %s",
+                (chatbot_id, idioma_norm),
+            )
+        elif chatbot_id:
+            cur.execute(
+                "SELECT faq_id, pergunta, resposta, chatbot_id, idioma FROM faq WHERE chatbot_id = %s",
+                (chatbot_id,),
+            )
         else:
-            cur.execute("SELECT faq_id, pergunta, resposta, chatbot_id FROM faq")
+            cur.execute("SELECT faq_id, pergunta, resposta, chatbot_id, idioma FROM faq")
         return cur.fetchall()
     finally:
         cur.close()
 
-def obter_faq_mais_semelhante(pergunta, chatbot_id, threshold=70):
+def obter_faq_mais_semelhante(pergunta, chatbot_id, idioma=None, threshold=70):
     from rapidfuzz import fuzz
     from .text import preprocess_text_for_matching
     conn = get_conn()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT faq_id, pergunta, resposta FROM faq WHERE chatbot_id = %s", (chatbot_id,))
+        idioma_norm = (idioma or "").strip().lower()[:2] if idioma else None
+        if idioma_norm and idioma_norm in {"pt", "en"}:
+            cur.execute(
+                "SELECT faq_id, pergunta, resposta FROM faq WHERE chatbot_id = %s AND idioma = %s",
+                (chatbot_id, idioma_norm),
+            )
+        else:
+            cur.execute("SELECT faq_id, pergunta, resposta FROM faq WHERE chatbot_id = %s", (chatbot_id,))
         faqs = cur.fetchall()
         if not faqs:
             return None

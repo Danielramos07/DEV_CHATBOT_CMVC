@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Avatar presets (static/images/avatars)
   const presetHidden = document.getElementById("novoIconPreset");
   const presetButtons = Array.from(
-    document.querySelectorAll("#avatarPresets .avatar-preset")
+    document.querySelectorAll("#avatarPresets .avatar-preset"),
   );
 
   function selecionarPreset(btn) {
@@ -60,37 +60,42 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const fd = new FormData();
     fd.append("nome", (this.nome?.value || "").trim());
+    fd.append("idioma", this.idioma ? this.idioma.value : "pt");
     fd.append("descricao", (this.descricao?.value || "").trim());
     fd.append("genero", this.genero ? this.genero.value : "");
     fd.append(
       "mensagem_sem_resposta",
-      this.mensagem_sem_resposta ? this.mensagem_sem_resposta.value.trim() : ""
+      this.mensagem_sem_resposta ? this.mensagem_sem_resposta.value.trim() : "",
     );
     fd.append(
       "greeting_video_text",
-      this.greeting_video_text ? this.greeting_video_text.value.trim() : ""
+      this.greeting_video_text ? this.greeting_video_text.value.trim() : "",
     );
     fd.append(
       "mensagem_inicial",
-      this.mensagem_inicial ? this.mensagem_inicial.value.trim() : ""
+      this.mensagem_inicial ? this.mensagem_inicial.value.trim() : "",
+    );
+    fd.append(
+      "mensagem_gerada_ai",
+      this.mensagem_gerada_ai ? this.mensagem_gerada_ai.value.trim() : "",
     );
     fd.append(
       "mensagem_feedback_positiva",
       this.mensagem_feedback_positiva
         ? this.mensagem_feedback_positiva.value.trim()
-        : ""
+        : "",
     );
     fd.append(
       "mensagem_feedback_negativa",
       this.mensagem_feedback_negativa
         ? this.mensagem_feedback_negativa.value.trim()
-        : ""
+        : "",
     );
     fd.append("cor", this.cor ? this.cor.value : "#d4af37");
     fd.append("fonte", this.fonte ? this.fonte.value : "faq");
     fd.append(
       "video_enabled",
-      this.video_enabled && this.video_enabled.checked ? "true" : "false"
+      this.video_enabled && this.video_enabled.checked ? "true" : "false",
     );
     const iconInput = this.querySelector('input[type="file"][name="icon"]');
     if (iconInput && iconInput.files && iconInput.files.length > 0) {
@@ -122,7 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
           mensagemNovoBot.textContent = "Chatbot criado com sucesso!";
           if (resp.video_busy && typeof mostrarModalVideoBusy === "function") {
             mostrarModalVideoBusy(
-              "O chatbot foi criado, mas já existe um vídeo a ser gerado neste momento. A geração de vídeos deste chatbot vai ter de ser iniciada mais tarde."
+              "O chatbot foi criado, mas já existe um vídeo a ser gerado neste momento. A geração de vídeos deste chatbot vai ter de ser iniciada mais tarde.",
             );
           }
           // Se o backend começou (ou vai começar) a geração dos vídeos do chatbot, ligar o polling do indicador.

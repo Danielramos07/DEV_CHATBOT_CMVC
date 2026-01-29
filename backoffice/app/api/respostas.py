@@ -1,7 +1,7 @@
 ﻿from flask import Blueprint, request, jsonify
 from flask import url_for
 from ..db import get_conn
-from ..services.text import detectar_saudacao, registar_pergunta_nao_respondida
+from ..services.text import detectar_saudacao, registar_pergunta_nao_respondida, normalizar_idioma
 from ..services.retreival import obter_faq_mais_semelhante, pesquisar_faiss, build_faiss_index
 from ..services.rag import pesquisar_pdf_pgvector, obter_mensagem_sem_resposta
 import traceback
@@ -18,7 +18,7 @@ def obter_resposta():
         pergunta = dados.get("pergunta", "").strip()
         chatbot_id = dados.get("chatbot_id")
         fonte = dados.get("fonte", "faq")
-        idioma = dados.get("idioma", "pt")
+        idioma = normalizar_idioma(dados.get("idioma", "pt"))
         feedback = dados.get("feedback", None)
         print("DEBUG /obter-resposta:", {
             "pergunta": pergunta,
@@ -55,12 +55,12 @@ def obter_resposta():
             })
         try:
             if fonte == "faq":
-                resultado = obter_faq_mais_semelhante(pergunta, chatbot_id)
+                resultado = obter_faq_mais_semelhante(pergunta, chatbot_id, idioma=idioma)
                 if resultado:
                     cur.execute("""
                         SELECT faq_id, categoria_id, video_status FROM faq
-                        WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
-                    """, (resultado["pergunta"], chatbot_id))
+                        WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s AND idioma = %s
+                    """, (resultado["pergunta"], chatbot_id, idioma))
                     row = cur.fetchone()
                     faq_id, categoria_id, video_status = row if row else (None, None, None)
 
@@ -85,6 +85,7 @@ def obter_resposta():
                         "fonte": "FAQ",
                         "resposta": resultado["resposta"],
                         "faq_id": faq_id,
+                        "faq_idioma": idioma,
                         "categoria_id": categoria_id,
                         "video_status": video_status,
                         "video_enabled": video_enabled,
@@ -104,6 +105,7 @@ def obter_resposta():
                 faiss_resultados = pesquisar_faiss(
                     pergunta,
                     chatbot_id=chatbot_id,
+                    idioma=idioma,
                     k=3,
                     min_sim=0.6,
                     relax_min_sim=0.5,
@@ -117,17 +119,18 @@ def obter_resposta():
                         "fonte": "FAISS",
                         "resposta": faiss_resultados[0]['resposta'],
                         "faq_id": faq_id,
+                        "faq_idioma": idioma,
                         "score": faiss_resultados[0]['score'],
                         "pergunta_faq": faiss_resultados[0]['pergunta'],
                         "documentos": docs
                     })
                 else:
-                    resultado = obter_faq_mais_semelhante(pergunta, chatbot_id, threshold=75)
+                    resultado = obter_faq_mais_semelhante(pergunta, chatbot_id, idioma=idioma, threshold=75)
                     if resultado:
                         cur.execute("""
                             SELECT faq_id, categoria_id, video_status FROM faq
-                            WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
-                        """, (resultado["pergunta"], chatbot_id))
+                            WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s AND idioma = %s
+                        """, (resultado["pergunta"], chatbot_id, idioma))
                         row = cur.fetchone()
                         faq_id, categoria_id, video_status = row if row else (None, None, None)
                         cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
@@ -137,6 +140,7 @@ def obter_resposta():
                             "fonte": "FUZZY",
                             "resposta": resultado["resposta"],
                             "faq_id": faq_id,
+                            "faq_idioma": idioma,
                             "categoria_id": categoria_id,
                             "video_status": video_status,
                             "score": resultado["score"],
@@ -148,12 +152,12 @@ def obter_resposta():
                         "erro": "NÃ£o encontrei nenhuma resposta suficientemente semelhante na base de dados."
                     })
             elif fonte == "faq+raga":
-                resultado = obter_faq_mais_semelhante(pergunta, chatbot_id)
+                resultado = obter_faq_mais_semelhante(pergunta, chatbot_id, idioma=idioma)
                 if resultado:
                     cur.execute("""
                         SELECT faq_id, categoria_id, video_status FROM faq
-                        WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s
-                    """, (resultado["pergunta"], chatbot_id))
+                        WHERE LOWER(pergunta) = LOWER(%s) AND chatbot_id = %s AND idioma = %s
+                    """, (resultado["pergunta"], chatbot_id, idioma))
                     row = cur.fetchone()
                     faq_id, categoria_id, video_status = row if row else (None, None, None)
                     cur.execute("SELECT link FROM faq_documento WHERE faq_id = %s", (faq_id,))
@@ -163,6 +167,7 @@ def obter_resposta():
                         "fonte": "FAQ",
                         "resposta": resultado["resposta"],
                         "faq_id": faq_id,
+                        "faq_idioma": idioma,
                         "categoria_id": categoria_id,
                         "video_status": video_status,
                         "score": resultado["score"],
@@ -173,6 +178,17 @@ def obter_resposta():
                     print("DEBUG: A tentar responder via RAG (PDF) via pgvector")
                     resposta_rag, fontes = pesquisar_pdf_pgvector(pergunta, chatbot_id=chatbot_id)
                     if resposta_rag:
+                        # Optional AI warning message configured per chatbot
+                        ai_notice = ""
+                        try:
+                            cur.execute(
+                                "SELECT mensagem_gerada_ai FROM chatbot WHERE chatbot_id = %s",
+                                (chatbot_id,),
+                            )
+                            r = cur.fetchone()
+                            ai_notice = (r[0] or "").strip() if r else ""
+                        except Exception:
+                            ai_notice = ""
                         pdf_ids = []
                         for f in fontes:
                             if f["pdf_id"] not in pdf_ids:
@@ -181,6 +197,8 @@ def obter_resposta():
                             "success": True,
                             "fonte": "RAG-PGVECTOR",
                             "resposta": resposta_rag,
+                            "ai_generated": True,
+                            "ai_notice": ai_notice,
                             "faq_id": None,
                             "categoria_id": None,
                             "score": None,

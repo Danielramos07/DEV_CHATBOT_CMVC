@@ -30,15 +30,46 @@ ICON_DIR = Path(os.getenv("ICON_PATH", "backoffice/app/static/icons"))
 PIPER_VOICES_DIR = Path(
     os.getenv("PIPER_VOICES_DIR", "backoffice/app/video/models/voices")
 )
-PIPER_VOICE_MALE = Path(
-    os.getenv("PIPER_VOICE_MALE", str(PIPER_VOICES_DIR / "pt_PT-tugao-medium.onnx"))
+
+
+def _getenv_any(*keys: str) -> Optional[str]:
+    for key in keys:
+        val = os.getenv(key)
+        if val is not None and str(val).strip() != "":
+            return val
+    return None
+
+
+PIPER_VOICE_MALE_PT = Path(
+    _getenv_any("PIPER_VOICE_MALE_PT", "PIPER_VOICE_MALE_pt", "PIPER_VOICE_MALE")
+    or str(PIPER_VOICES_DIR / "pt_PT-tugao-medium.onnx")
 )
-PIPER_VOICE_FEMALE = Path(
-    os.getenv("PIPER_VOICE_FEMALE", str(PIPER_VOICES_DIR / "dii_pt-PT.onnx"))
+PIPER_VOICE_FEMALE_PT = Path(
+    _getenv_any("PIPER_VOICE_FEMALE_PT", "PIPER_VOICE_FEMALE_pt", "PIPER_VOICE_FEMALE")
+    or str(PIPER_VOICES_DIR / "dii_pt-PT.onnx")
 )
-PIPER_VOICE_DEFAULT = Path(
-    os.getenv("PIPER_VOICE_DEFAULT", str(PIPER_VOICE_FEMALE))
+PIPER_VOICE_DEFAULT_PT = Path(
+    _getenv_any("PIPER_VOICE_DEFAULT_PT", "PIPER_VOICE_DEFAULT_pt", "PIPER_VOICE_DEFAULT")
+    or str(PIPER_VOICE_FEMALE_PT)
 )
+
+PIPER_VOICE_MALE_EN = Path(
+    _getenv_any("PIPER_VOICE_MALE_EN", "PIPER_VOICE_MALE_en")
+    or str(PIPER_VOICES_DIR / "en_US-john-medium.onnx")
+)
+PIPER_VOICE_FEMALE_EN = Path(
+    _getenv_any("PIPER_VOICE_FEMALE_EN", "PIPER_VOICE_FEMALE_en")
+    or str(PIPER_VOICES_DIR / "en_US-amy-medium.onnx")
+)
+PIPER_VOICE_DEFAULT_EN = Path(
+    _getenv_any("PIPER_VOICE_DEFAULT_EN", "PIPER_VOICE_DEFAULT_en")
+    or str(PIPER_VOICE_FEMALE_EN)
+)
+
+# Backward-compatible aliases (existing code paths)
+PIPER_VOICE_MALE = PIPER_VOICE_MALE_PT
+PIPER_VOICE_FEMALE = PIPER_VOICE_FEMALE_PT
+PIPER_VOICE_DEFAULT = PIPER_VOICE_DEFAULT_PT
 
 SADTALKER_PREPROCESS_DEFAULT = os.getenv("SADTALKER_PREPROCESS_DEFAULT", "crop")
 SADTALKER_SIZE_DEFAULT = os.getenv("SADTALKER_SIZE_DEFAULT", "256")
@@ -502,6 +533,7 @@ class VideoJobCancelled(RuntimeError):
 def _generate_video(
     text: str,
     genero: Optional[str],
+    idioma: Optional[str],
     avatar_path: Optional[Path],
     *,
     final_dir: Path,
@@ -517,12 +549,24 @@ def _generate_video(
         raise FileNotFoundError("Avatar image file not provided for video generation.")
 
     genero = (genero or "").strip().lower()
-    if genero == "m":
-        voice_model = PIPER_VOICE_MALE
-    elif genero == "f":
-        voice_model = PIPER_VOICE_FEMALE
+    idioma_norm = (idioma or "").strip().lower()
+    if idioma_norm not in {"pt", "en"}:
+        idioma_norm = "pt"
+
+    if idioma_norm == "en":
+        if genero == "m":
+            voice_model = PIPER_VOICE_MALE_EN
+        elif genero == "f":
+            voice_model = PIPER_VOICE_FEMALE_EN
+        else:
+            voice_model = PIPER_VOICE_DEFAULT_EN
     else:
-        voice_model = PIPER_VOICE_DEFAULT
+        if genero == "m":
+            voice_model = PIPER_VOICE_MALE_PT
+        elif genero == "f":
+            voice_model = PIPER_VOICE_FEMALE_PT
+        else:
+            voice_model = PIPER_VOICE_DEFAULT_PT
 
     # Resolve paths relative to project root when necessary
     avatar_path = avatar_path if avatar_path.is_absolute() else (ROOT / avatar_path)
@@ -705,6 +749,7 @@ def _run_video_job(faq_id: int, app) -> None:
                 SELECT f.resposta,
                        f.serve_text,
                        c.genero,
+                      c.idioma,
                        c.icon_path,
                        c.chatbot_id
                 FROM faq f
@@ -717,7 +762,7 @@ def _run_video_job(faq_id: int, app) -> None:
             if not row:
                 raise ValueError(f"FAQ com id {faq_id} não encontrada.")
 
-            resposta, serve_text, genero, icon_path, chatbot_id = row
+            resposta, serve_text, genero, idioma, icon_path, chatbot_id = row
             # Expose chatbot_id in job status for UI label (best-effort)
             _set_job(chatbot_id=chatbot_id)
             base_text = (serve_text or "").strip() or (resposta or "").strip()
@@ -762,6 +807,7 @@ def _run_video_job(faq_id: int, app) -> None:
             video_path = _generate_video(
                 video_text,
                 genero,
+                idioma,
                 avatar_file,
                 final_dir=base_dir / f"faq_{faq_id}",
                 final_filename="final.mp4",
@@ -830,6 +876,7 @@ def _run_idle_video_job(chatbot_id: int, app, kinds: Optional[list[str]] = None)
                 """
                 SELECT nome,
                        genero,
+                      idioma,
                        icon_path,
                        greeting_video_text,
                        mensagem_sem_resposta,
@@ -851,6 +898,7 @@ def _run_idle_video_job(chatbot_id: int, app, kinds: Optional[list[str]] = None)
             (
                 nome,
                 genero,
+                idioma,
                 icon_path,
                 greeting_video_text,
                 msg_no_answer,
@@ -881,10 +929,16 @@ def _run_idle_video_job(chatbot_id: int, app, kinds: Optional[list[str]] = None)
             greeting_path = old_greeting_path
             if "greeting" in kinds_set:
                 _set_job(progress=25, message="A gerar vídeo de saudação...")
-                video_text = (greeting_video_text or "").strip() or f"Olá, sou o {nome}. Como posso ajudar?"
+                idioma_norm = (idioma or "").strip().lower()
+                if idioma_norm == "en":
+                    default_greeting = f"Hello, I'm {nome}. How can I help?"
+                else:
+                    default_greeting = f"Olá, sou o {nome}. Como posso ajudar?"
+                video_text = (greeting_video_text or "").strip() or default_greeting
                 greeting_path = _generate_video(
                     video_text,
                     genero,
+                    idioma,
                     avatar_file,
                     final_dir=base_dir,
                     final_filename="greeting.mp4",
@@ -906,6 +960,7 @@ def _run_idle_video_job(chatbot_id: int, app, kinds: Optional[list[str]] = None)
                     idle_path = _generate_video(
                         "",
                         genero,
+                        idioma,
                         avatar_file,
                         final_dir=base_dir,
                         final_filename="idle.mp4",
@@ -917,9 +972,15 @@ def _run_idle_video_job(chatbot_id: int, app, kinds: Optional[list[str]] = None)
 
             # Generate feedback/no-answer videos (best-effort)
             _set_job(progress=75, message="A gerar vídeos adicionais...")
-            default_pos = "Fico contente por ter ajudado."
-            default_neg = "Lamento não ter conseguido responder. Tente reformular a pergunta."
-            default_no_answer = "Desculpe, não encontrei uma resposta para a sua pergunta. Pode reformular a pergunta?"
+            idioma_norm = (idioma or "").strip().lower()
+            if idioma_norm == "en":
+                default_pos = "I'm glad I could help."
+                default_neg = "Sorry I couldn't answer. Please try rephrasing your question."
+                default_no_answer = "Sorry, I couldn't find an answer to your question. Can you rephrase it?"
+            else:
+                default_pos = "Fico contente por ter ajudado."
+                default_neg = "Lamento não ter conseguido responder. Tente reformular a pergunta."
+                default_no_answer = "Desculpe, não encontrei uma resposta para a sua pergunta. Pode reformular a pergunta?"
 
             pos_text = (msg_pos or "").strip() or default_pos
             neg_text = (msg_neg or "").strip() or default_neg
@@ -935,6 +996,7 @@ def _run_idle_video_job(chatbot_id: int, app, kinds: Optional[list[str]] = None)
                     positive_path = _generate_video(
                         pos_text,
                         genero,
+                        idioma,
                         avatar_file,
                         final_dir=base_dir,
                         final_filename="positive.mp4",
@@ -949,6 +1011,7 @@ def _run_idle_video_job(chatbot_id: int, app, kinds: Optional[list[str]] = None)
                     negative_path = _generate_video(
                         neg_text,
                         genero,
+                        idioma,
                         avatar_file,
                         final_dir=base_dir,
                         final_filename="negative.mp4",
@@ -963,6 +1026,7 @@ def _run_idle_video_job(chatbot_id: int, app, kinds: Optional[list[str]] = None)
                     no_answer_path = _generate_video(
                         no_answer_text,
                         genero,
+                        idioma,
                         avatar_file,
                         final_dir=base_dir,
                         final_filename="no_answer.mp4",

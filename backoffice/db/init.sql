@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS categoria (
 CREATE TABLE IF NOT EXISTS chatbot (
     chatbot_id SERIAL PRIMARY KEY,
     nome VARCHAR(100) NOT NULL UNIQUE,
+    idioma VARCHAR(20) NOT NULL DEFAULT 'pt',
     descricao TEXT,
     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     cor VARCHAR(16) NOT NULL DEFAULT '#d4af37',
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS chatbot (
     mensagem_inicial TEXT,
     mensagem_feedback_positiva TEXT,
     mensagem_feedback_negativa TEXT,
+    mensagem_gerada_ai TEXT,
     genero VARCHAR(20),
     video_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     video_idle_path TEXT,
@@ -26,6 +28,7 @@ CREATE TABLE IF NOT EXISTS chatbot (
     video_positive_path TEXT,
     video_negative_path TEXT,
     video_no_answer_path TEXT,
+    video_generated_path TEXT,
     ativo BOOLEAN NOT NULL DEFAULT FALSE
 );
 
