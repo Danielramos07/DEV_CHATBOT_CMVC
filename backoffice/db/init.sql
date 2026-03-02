@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS chatbot (
     mensagem_inicial TEXT,
     mensagem_feedback_positiva TEXT,
     mensagem_feedback_negativa TEXT,
+    endereco TEXT,
     genero VARCHAR(20),
     video_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     video_idle_path TEXT,
@@ -26,7 +27,8 @@ CREATE TABLE IF NOT EXISTS chatbot (
     video_positive_path TEXT,
     video_negative_path TEXT,
     video_no_answer_path TEXT,
-    ativo BOOLEAN NOT NULL DEFAULT FALSE
+    ativo BOOLEAN NOT NULL DEFAULT FALSE,
+    publicado BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- Tabela: video_job (singleton global status for cross-worker video generation)

@@ -35,6 +35,11 @@ content %}
     <form id="novoBotForm" enctype="multipart/form-data">
       <input type="text" name="nome" placeholder="Nome do Chatbot" required />
       <textarea name="descricao" placeholder="Descrição"></textarea>
+      <input
+        type="text"
+        name="endereco"
+        placeholder="Endereço do chatbot (embedding)"
+      />
       <div class="form-group">
         <label for="novoGeneroChatbot">Género do Bot:</label>
         <select name="genero" id="novoGeneroChatbot">
@@ -343,6 +348,12 @@ content %}
       </div>
       <div class="grid-row">
         <div class="form-group">
+          <label for="editarEnderecoChatbot">Endereço de Publicação:</label>
+          <input type="text" name="endereco" id="editarEnderecoChatbot" />
+        </div>
+      </div>
+      <div class="grid-row">
+        <div class="form-group">
           <label for="editarDataCriacao">Data de Criação:</label>
           <input
             type="text"
@@ -356,6 +367,7 @@ content %}
           <select name="fonte" id="editarFonteResposta" required>
             <option value="faq">Baseado em Regras (FAQ)</option>
             <option value="faiss">FAISS</option>
+            <option value="faq+raga">IA: FAQ + fallback RAG</option>
           </select>
         </div>
       </div>

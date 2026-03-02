@@ -98,13 +98,15 @@ def get_chatbots():
                    c.genero,
                    c.video_enabled,
                    c.ativo,
+                   c.publicado,
                    fr.fonte,
                    array_remove(array_agg(cc.categoria_id), NULL) as categorias,
                    c.mensagem_sem_resposta,
                    c.greeting_video_text,
                    c.mensagem_inicial,
                    c.mensagem_feedback_positiva,
-                   c.mensagem_feedback_negativa
+                   c.mensagem_feedback_negativa,
+                   c.endereco
             FROM chatbot c
             LEFT JOIN fonte_resposta fr ON fr.chatbot_id = c.chatbot_id
             LEFT JOIN chatbot_categoria cc ON cc.chatbot_id = c.chatbot_id
@@ -117,12 +119,14 @@ def get_chatbots():
                      c.genero,
                      c.video_enabled,
                      c.ativo,
+                     c.publicado,
                      fr.fonte,
                      c.mensagem_sem_resposta,
                      c.greeting_video_text,
                      c.mensagem_inicial,
                      c.mensagem_feedback_positiva,
-                     c.mensagem_feedback_negativa
+                     c.mensagem_feedback_negativa,
+                     c.endereco
             ORDER BY c.chatbot_id ASC
         """)
         data = cur.fetchall()
@@ -137,13 +141,15 @@ def get_chatbots():
                 "genero": row[6] if row[6] else None,
                 "video_enabled": bool(row[7]) if len(row) > 7 else False,
                 "ativo": bool(row[8]) if len(row) > 8 else False,
-                "fonte": row[9] if row[9] else "faq",
-                "categorias": row[10] if row[10] is not None else [],
-                "mensagem_sem_resposta": row[11] if len(row) > 11 else "",
-                "greeting_video_text": row[12] if len(row) > 12 else "",
-                "mensagem_inicial": row[13] if len(row) > 13 else "",
-                "mensagem_feedback_positiva": row[14] if len(row) > 14 else "",
-                "mensagem_feedback_negativa": row[15] if len(row) > 15 else "",
+                "publicado": bool(row[9]) if len(row) > 9 else False,
+                "fonte": row[10] if row[10] else "faq",
+                "categorias": row[11] if row[11] is not None else [],
+                "mensagem_sem_resposta": row[12] if len(row) > 12 else "",
+                "greeting_video_text": row[13] if len(row) > 13 else "",
+                "mensagem_inicial": row[14] if len(row) > 14 else "",
+                "mensagem_feedback_positiva": row[15] if len(row) > 15 else "",
+                "mensagem_feedback_negativa": row[16] if len(row) > 16 else "",
+                "endereco": row[17] if len(row) > 17 else "",
             }
             for row in data
         ])
@@ -166,7 +172,7 @@ def set_active_chatbot(chatbot_id: int):
         if not cur.fetchone():
             return jsonify({"success": False, "error": "Chatbot não encontrado."}), 404
         cur.execute("UPDATE chatbot SET ativo = FALSE WHERE ativo = TRUE")
-        cur.execute("UPDATE chatbot SET ativo = TRUE WHERE chatbot_id = %s", (chatbot_id,))
+        cur.execute("UPDATE chatbot SET ativo = TRUE, publicado = TRUE WHERE chatbot_id = %s", (chatbot_id,))
         conn.commit()
         return jsonify({"success": True, "chatbot_id": chatbot_id})
     except Exception as e:
@@ -175,6 +181,27 @@ def set_active_chatbot(chatbot_id: int):
     finally:
         cur.close()
         conn.close()
+
+@app.route("/chatbots/<int:chatbot_id>/publish", methods=["PUT"])
+@login_required
+def publish_chatbot(chatbot_id: int):
+    """Publish chatbot without making it active."""
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT 1 FROM chatbot WHERE chatbot_id = %s", (chatbot_id,))
+        if not cur.fetchone():
+            return jsonify({"success": False, "error": "Chatbot não encontrado."}), 404
+        cur.execute("UPDATE chatbot SET publicado = TRUE WHERE chatbot_id = %s", (chatbot_id,))
+        conn.commit()
+        return jsonify({"success": True, "chatbot_id": chatbot_id})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
 
 @app.route("/chatbots", methods=["POST"])
 def criar_chatbot():
@@ -196,6 +223,7 @@ def criar_chatbot():
     mensagem_inicial = (_get_field("mensagem_inicial", "") or "").strip()
     mensagem_feedback_positiva = (_get_field("mensagem_feedback_positiva", "") or "").strip()
     mensagem_feedback_negativa = (_get_field("mensagem_feedback_negativa", "") or "").strip()
+    endereco = (_get_field("endereco", "") or "").strip()
     genero = _get_field("genero") or None
     fonte = (_get_field("fonte", "faq") or "faq").strip()
     if fonte not in ["faq", "faiss", "faq+raga"]:
@@ -228,10 +256,11 @@ def criar_chatbot():
                 mensagem_inicial,
                 mensagem_feedback_positiva,
                 mensagem_feedback_negativa,
+                endereco,
                 genero,
                 video_enabled
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (nome) DO NOTHING
             RETURNING chatbot_id
             """,
@@ -245,6 +274,7 @@ def criar_chatbot():
                 mensagem_inicial,
                 mensagem_feedback_positiva,
                 mensagem_feedback_negativa,
+                endereco,
                 genero,
                 video_enabled,
             )
@@ -333,7 +363,8 @@ def obter_nome_chatbot(chatbot_id):
                    greeting_video_text,
                    mensagem_inicial,
                    mensagem_feedback_positiva,
-                   mensagem_feedback_negativa
+                   mensagem_feedback_negativa,
+                   endereco
             FROM chatbot
             WHERE chatbot_id = %s
             """,
@@ -427,6 +458,7 @@ def obter_nome_chatbot(chatbot_id):
                 "mensagem_inicial": row[11] or "",
                 "mensagem_feedback_positiva": row[12] or "",
                 "mensagem_feedback_negativa": row[13] or "",
+                "endereco": row[14] or "",
             })
         return jsonify({"success": False, "erro": "Chatbot não encontrado."}), 404
     except Exception as e:
@@ -472,6 +504,7 @@ def atualizar_chatbot(chatbot_id):
         mensagem_inicial = request.form.get("mensagem_inicial", "").strip()
         mensagem_feedback_positiva = request.form.get("mensagem_feedback_positiva", "").strip()
         mensagem_feedback_negativa = request.form.get("mensagem_feedback_negativa", "").strip()
+        endereco = request.form.get("endereco", "").strip()
         genero = request.form.get("genero") or None
         video_enabled = request.form.get("video_enabled") in ["true", "1", "on", "yes"]
 
@@ -517,7 +550,8 @@ def atualizar_chatbot(chatbot_id):
                    mensagem_inicial,
                    mensagem_feedback_positiva,
                    mensagem_feedback_negativa,
-                   mensagem_sem_resposta
+                   mensagem_sem_resposta,
+                   endereco
             FROM chatbot
             WHERE chatbot_id = %s
             """,
@@ -535,7 +569,6 @@ def atualizar_chatbot(chatbot_id):
         old_msg_pos = old_row[8] if old_row and len(old_row) > 8 else None
         old_msg_neg = old_row[9] if old_row and len(old_row) > 9 else None
         old_msg_no_answer = old_row[10] if old_row and len(old_row) > 10 else None
-        
         # If icon_path is None (no new icon uploaded), keep the old one
         if not icon_path and old_icon_path:
             icon_path = old_icon_path
@@ -552,6 +585,7 @@ def atualizar_chatbot(chatbot_id):
                     mensagem_inicial=%s,
                     mensagem_feedback_positiva=%s,
                     mensagem_feedback_negativa=%s,
+                    endereco=%s,
                     icon_path=%s,
                     genero=%s,
                     video_enabled=%s
@@ -566,6 +600,7 @@ def atualizar_chatbot(chatbot_id):
                     mensagem_inicial,
                     mensagem_feedback_positiva,
                     mensagem_feedback_negativa,
+                    endereco,
                     icon_path,
                     genero,
                     video_enabled,
@@ -584,6 +619,7 @@ def atualizar_chatbot(chatbot_id):
                     mensagem_inicial=%s,
                     mensagem_feedback_positiva=%s,
                     mensagem_feedback_negativa=%s,
+                    endereco=%s,
                     genero=%s,
                     video_enabled=%s
                 WHERE chatbot_id=%s
@@ -597,6 +633,7 @@ def atualizar_chatbot(chatbot_id):
                     mensagem_inicial,
                     mensagem_feedback_positiva,
                     mensagem_feedback_negativa,
+                    endereco,
                     genero,
                     video_enabled,
                     chatbot_id,
@@ -734,7 +771,7 @@ def eliminar_chatbot(chatbot_id):
                 r = cur.fetchone()
                 if r:
                     cur.execute("UPDATE chatbot SET ativo = FALSE WHERE ativo = TRUE")
-                    cur.execute("UPDATE chatbot SET ativo = TRUE WHERE chatbot_id = %s", (r[0],))
+                    cur.execute("UPDATE chatbot SET ativo = TRUE, publicado = TRUE WHERE chatbot_id = %s", (r[0],))
                     conn.commit()
             except Exception:
                 conn.rollback()

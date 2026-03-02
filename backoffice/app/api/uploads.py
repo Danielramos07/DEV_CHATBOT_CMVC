@@ -60,6 +60,21 @@ _FAQ_KEY_MAP = {
 
 _REQUIRED_FAQ_FIELDS = ("designacao", "pergunta", "resposta")
 
+def _try_decrypt_pdf(reader) -> bool:
+    """Attempt to open PDFs flagged as encrypted but with no password."""
+    if not reader.is_encrypted:
+        return True
+    try:
+        if reader.decrypt(""):
+            return True
+    except Exception:
+        pass
+    try:
+        if reader.decrypt(None):
+            return True
+    except Exception:
+        pass
+    return False
 
 def _normalize_faq_key(raw: str) -> str:
     value = (raw or "").strip().lower().replace("\u2019", "'").replace("\u2018", "'")
@@ -208,7 +223,7 @@ def upload_pdf():
             file.close()
             with open(file_path, 'rb') as f:
                 reader = PyPDF2.PdfReader(f)
-                if reader.is_encrypted:
+                if not _try_decrypt_pdf(reader):
                     return jsonify({"success": False, "error": f"O PDF '{filename}' está protegido por senha."}), 400
                 if not reader.pages:
                     return jsonify({"success": False, "error": f"O PDF '{filename}' está vazio ou corrompido."}), 400

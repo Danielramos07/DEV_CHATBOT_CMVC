@@ -75,11 +75,17 @@ def ensure_schema() -> None:
         cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
         # Add global active flag for chatbots (safe to run repeatedly)
         cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS ativo BOOLEAN NOT NULL DEFAULT FALSE;")
+        # Add publish flag for chatbots (safe to run repeatedly)
+        cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS publicado BOOLEAN NOT NULL DEFAULT FALSE;")
+        # Any active chatbot must always be considered published
+        cur.execute("UPDATE chatbot SET publicado = TRUE WHERE ativo = TRUE AND publicado = FALSE;")
         # Customizable chatbot messages (safe to run repeatedly)
         cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS greeting_video_text TEXT;")
         cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS mensagem_inicial TEXT;")
         cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS mensagem_feedback_positiva TEXT;")
         cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS mensagem_feedback_negativa TEXT;")
+        # Embedding endpoint/address (safe to run repeatedly)
+        cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS endereco TEXT;")
         # Extra chatbot video paths (safe to run repeatedly)
         cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS video_positive_path TEXT;")
         cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS video_negative_path TEXT;")
@@ -151,7 +157,8 @@ def ensure_schema() -> None:
             cur.execute(
                 """
                 UPDATE chatbot
-                SET ativo = TRUE
+                SET ativo = TRUE,
+                    publicado = TRUE
                 WHERE chatbot_id = (
                     SELECT chatbot_id FROM chatbot ORDER BY chatbot_id ASC LIMIT 1
                 );

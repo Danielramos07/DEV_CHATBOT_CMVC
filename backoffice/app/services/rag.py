@@ -10,6 +10,22 @@ from ..db import get_conn
 
 embedding_model = SentenceTransformer(Config.RAG_EMBEDDING_MODEL)
 
+def _try_decrypt_pdf(reader) -> bool:
+    """Attempt to open PDFs flagged as encrypted but with no password."""
+    if not reader.is_encrypted:
+        return True
+    try:
+        if reader.decrypt(""):
+            return True
+    except Exception:
+        pass
+    try:
+        if reader.decrypt(None):
+            return True
+    except Exception:
+        pass
+    return False
+
 
 def get_pdfs_from_db(chatbot_id=None, pdf_ids=None):
     conn = get_conn()
@@ -69,7 +85,7 @@ def _extract_pdf_pages(file_path):
     pages = []
     with open(file_path, "rb") as f:
         reader = PyPDF2.PdfReader(f)
-        if reader.is_encrypted:
+        if not _try_decrypt_pdf(reader):
             raise ValueError("PDF is encrypted")
         for idx, page in enumerate(reader.pages, start=1):
             text = page.extract_text()

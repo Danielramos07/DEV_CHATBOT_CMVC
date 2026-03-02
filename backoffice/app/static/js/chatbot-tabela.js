@@ -251,6 +251,7 @@ async function carregarTabelaBots() {
           <tr>
             <th>Nome</th>
             <th>Descrição</th>
+            <th>Endereço de Publicação</th>
             <th>Data de Criação</th>
             <th>Estado</th>
             <th>Fonte</th>
@@ -266,12 +267,11 @@ async function carregarTabelaBots() {
             <tr data-chatbot-id="${bot.chatbot_id}">
               <td>${bot.nome || "-"}</td>
               <td>${bot.descricao || "-"}</td>
+              <td>${bot.endereco || "-"}</td>
               <td>${formatarData(bot.data_criacao)}</td>
               <td>
-                <span class="estado-indicador ${
-                  bot.ativo ? "ativo" : "inativo"
-                }">
-                  ${bot.ativo ? "Ativo" : "Não Publicado"}
+                <span class="estado-indicador ${obterClasseEstadoBot(bot)}">
+                  ${obterLabelEstadoBot(bot)}
                 </span>
               </td>
               <td>
@@ -290,6 +290,13 @@ async function carregarTabelaBots() {
                 }" alt="Ícone do Bot" style="width:24px; height:24px; border-radius:4px; object-fit:cover;">
               </td>
               <td>
+                <button
+                  class="btn-publicar ${bot.ativo || bot.publicado ? "ativo" : ""}"
+                  onclick="publicarBot(${bot.chatbot_id})"
+                  ${bot.ativo || bot.publicado ? "disabled" : ""}
+                >
+                  ${bot.ativo || bot.publicado ? "Publicado" : "Publicar"}
+                </button>
                 <button class="btn-ativo" onclick="tornarBotAtivo(${
                   bot.chatbot_id
                 }, this)">
@@ -332,8 +339,9 @@ function aplicarFiltrosBots(bots) {
     if (nomeFiltro && !(bot.nome || "").toLowerCase().includes(nomeFiltro))
       return false;
     const ativo = !!bot.ativo;
+    const publicado = !!bot.publicado || ativo;
     if (estadoFiltro === "ativo" && !ativo) return false;
-    if (estadoFiltro === "nao_publicado" && ativo) return false;
+    if (estadoFiltro === "nao_publicado" && publicado) return false;
     if (dataFiltro) {
       const dataBot = bot.data_criacao ? new Date(bot.data_criacao) : null;
       const dataSelecionada = new Date(dataFiltro + "T00:00:00");
@@ -348,6 +356,17 @@ function formatarData(dataStr) {
   const data = new Date(dataStr);
   if (isNaN(data.getTime())) return "-";
   return data.toLocaleDateString("pt-PT");
+}
+
+function obterClasseEstadoBot(bot) {
+  if (bot.ativo || bot.publicado) return "ativo";
+  return "inativo";
+}
+
+function obterLabelEstadoBot(bot) {
+  if (bot.ativo) return "Ativo";
+  if (bot.publicado) return "Publicado";
+  return "Não Publicado";
 }
 
 function obterNomeFonte(fonte) {
@@ -418,6 +437,18 @@ window.tornarBotAtivo = async function (chatbot_id, btn) {
   carregarTabelaBots();
 };
 
+window.publicarBot = async function (chatbot_id) {
+  try {
+    const r = await fetch(`/chatbots/${chatbot_id}/publish`, { method: "PUT" });
+    if (!r.ok) {
+      throw new Error("Falha ao publicar chatbot.");
+    }
+    carregarTabelaBots();
+  } catch (e) {
+    alert("Erro ao publicar chatbot: " + e.message);
+  }
+};
+
 document.addEventListener("DOMContentLoaded", function () {
   // NOTE: criação de chatbot (modal Novo Bot) é tratada por `AdicionarBot.js`
   // para suportar upload de icon + video_enabled via multipart/form-data.
@@ -430,6 +461,9 @@ document.addEventListener("DOMContentLoaded", function () {
       const nome = document.getElementById("editarNomeChatbot").value.trim();
       const descricao = document
         .getElementById("editarDescricaoChatbot")
+        .value.trim();
+      const endereco = document
+        .getElementById("editarEnderecoChatbot")
         .value.trim();
       const fonte = document.getElementById("editarFonteResposta").value;
       const cor = document.getElementById("editarCorChatbot").value.trim();
@@ -478,6 +512,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const formData = new FormData();
       formData.append("nome", nome);
       formData.append("descricao", descricao);
+      formData.append("endereco", endereco);
       formData.append("fonte", fonte);
       formData.append("cor", cor);
       formData.append("mensagem_sem_resposta", mensagem_sem_resposta);
@@ -772,6 +807,7 @@ window.abrirModalAtualizar = async function (chatbot_id) {
 
     setValueById("editarNomeChatbot", bot.nome || "");
     setValueById("editarDescricaoChatbot", bot.descricao || "");
+    setValueById("editarEnderecoChatbot", bot.endereco || "");
     setValueById(
       "editarDataCriacao",
       bot.data_criacao

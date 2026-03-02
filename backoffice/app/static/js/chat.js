@@ -427,6 +427,8 @@ let avatarAtivo = true;
 let currentFaqVideoId = null;
 
 const AVATAR_SOUND_MUTED_KEY = "avatarSoundMuted";
+let pendingSoundUnlock = false;
+let soundUnlockListenerAttached = false;
 
 function isAvatarSoundMuted() {
   try {
@@ -443,6 +445,40 @@ function updateAvatarSoundButton() {
   btn.textContent = muted ? "🔇 Som" : "🔊 Som";
 }
 
+function tryUnmuteAndPlayCurrentVideo() {
+  if (isAvatarSoundMuted()) return;
+  const videoEl = document.querySelector(".chat-avatar-video");
+  if (!videoEl) return;
+  try {
+    videoEl.muted = false;
+    const playPromise = videoEl.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {
+        videoEl.muted = true;
+        pendingSoundUnlock = true;
+        ensureSoundUnlockListener();
+      });
+    }
+  } catch (e) {
+    pendingSoundUnlock = true;
+    ensureSoundUnlockListener();
+  }
+}
+
+function ensureSoundUnlockListener() {
+  if (soundUnlockListenerAttached) return;
+  const handler = () => {
+    soundUnlockListenerAttached = false;
+    if (!pendingSoundUnlock) return;
+    pendingSoundUnlock = false;
+    tryUnmuteAndPlayCurrentVideo();
+  };
+  document.addEventListener("pointerdown", handler, { once: true, capture: true });
+  document.addEventListener("keydown", handler, { once: true, capture: true });
+  document.addEventListener("touchstart", handler, { once: true, capture: true });
+  soundUnlockListenerAttached = true;
+}
+
 function setAvatarSoundMuted(muted) {
   try {
     localStorage.setItem(AVATAR_SOUND_MUTED_KEY, muted ? "1" : "0");
@@ -452,8 +488,12 @@ function setAvatarSoundMuted(muted) {
   // Apply immediately to current video
   try {
     const videoEl = document.querySelector(".chat-avatar-video");
-    if (videoEl && muted) {
-      videoEl.muted = true;
+    if (videoEl) {
+      if (muted) {
+        videoEl.muted = true;
+      } else {
+        tryUnmuteAndPlayCurrentVideo();
+      }
     }
   } catch (e) {}
 }
@@ -502,6 +542,10 @@ function toggleAvatarAtivo() {
       if (videoEl.src) {
         videoEl.play().catch(() => {
           // Se falhar, tentar muted
+          if (!isAvatarSoundMuted()) {
+            pendingSoundUnlock = true;
+            ensureSoundUnlockListener();
+          }
           videoEl.muted = true;
           videoEl.play().catch(() => {});
         });
@@ -759,6 +803,10 @@ async function mostrarVideoFaqNoAvatar(faqId) {
   // Try to play with sound first, fallback to muted if autoplay policy blocks it
   videoEl.play().catch(() => {
     // Browser blocked autoplay with sound, try muted
+    if (!isAvatarSoundMuted()) {
+      pendingSoundUnlock = true;
+      ensureSoundUnlockListener();
+    }
     videoEl.muted = true;
     videoEl.play().catch(() => {
       // If even muted fails, show static image
@@ -2233,6 +2281,10 @@ function setupAvatarVideo() {
       // Try to play with sound first
       currentVideoEl.play().catch(() => {
         // Browser blocked autoplay with sound, try muted
+        if (!isAvatarSoundMuted()) {
+          pendingSoundUnlock = true;
+          ensureSoundUnlockListener();
+        }
         currentVideoEl.muted = true;
         currentVideoEl.play().catch(() => {
           // Fallback to idle or image

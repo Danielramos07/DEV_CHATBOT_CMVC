@@ -61,6 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const fd = new FormData();
     fd.append("nome", (this.nome?.value || "").trim());
     fd.append("descricao", (this.descricao?.value || "").trim());
+    fd.append("endereco", (this.endereco?.value || "").trim());
     fd.append("genero", this.genero ? this.genero.value : "");
     fd.append(
       "mensagem_sem_resposta",

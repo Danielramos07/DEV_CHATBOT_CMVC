@@ -149,6 +149,7 @@ form button:hover,
 .fonte-indicador { font-size: 0.97em; }
 
 .btn-ativo,
+.btn-publicar,
 .btn-editar,
 .btn-eliminar {
   padding: 7px 15px;
@@ -176,6 +177,20 @@ form button:hover,
   color: #2c2a2a;
 }
 
+.btn-publicar {
+  background: #ffe082;
+  color: #4e4a2d;
+}
+.btn-publicar.ativo,
+.btn-publicar:active {
+  background: #218838;
+  color: #fff;
+}
+.btn-publicar:hover {
+  background: #f1cf63;
+  color: #2c2a2a;
+}
+
 .btn-editar {
   background: #1976d2; 
   color: #fff;
@@ -191,6 +206,11 @@ form button:hover,
 }
 .btn-eliminar:hover {
   background: #e03939;
+}
+
+.btn-publicar:disabled {
+  cursor: not-allowed;
+  opacity: 0.95;
 }
 
 .btn-novo-bot-main, .btn-novo-bot {
