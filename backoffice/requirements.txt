@@ -73,7 +73,7 @@ regex==2025.11.3
 requests==2.32.5
 resampy==0.3.1
 safetensors==0.7.0
-scikit-image==0.25.2
+scikit-image==0.19.3
 scikit-learn==1.4.2
 scipy==1.11.4
 sentence-transformers==5.1.2

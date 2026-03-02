@@ -133,7 +133,8 @@ function disableMicIfInsecure() {
 document.addEventListener("DOMContentLoaded", function () {
   atualizarCorChatbot();
   atualizarIconesChatbot(
-    localStorage.getItem("iconBot") || "/static/images/chatbot/chatbot-icon.png"
+    localStorage.getItem("iconBot") ||
+      "/static/images/chatbot/chatbot-icon.png",
   );
   disableMicIfInsecure();
   try {
@@ -325,7 +326,7 @@ async function toggleMic() {
   } catch (err) {
     console.error("Erro ao obter acesso ao microfone:", err);
     alert(
-      "Não foi possível aceder ao microfone. Verifique as permissões do navegador."
+      "Não foi possível aceder ao microfone. Verifique as permissões do navegador.",
     );
     micAtivo = false;
     if (micBtn) {
@@ -939,7 +940,7 @@ async function atualizarNomeChatHeader() {
       // If fetch failed (404, network error, etc.), check if chatbot still exists in local data
       const botsData = JSON.parse(localStorage.getItem("chatbotsData") || "[]");
       const bot = botsData.find(
-        (b) => b.chatbot_id === chatbotId || b.chatbot_id === String(chatbotId)
+        (b) => b.chatbot_id === chatbotId || b.chatbot_id === String(chatbotId),
       );
       if (bot && bot.nome) {
         nomeBot = bot.nome;
@@ -1072,7 +1073,7 @@ function adicionarMensagem(
   avatarUrl = null,
   autor = null,
   timestamp = null,
-  isRgpd = false
+  isRgpd = false,
 ) {
   const chat = document.getElementById("chatBody");
   let wrapper = document.createElement("div");
@@ -1217,7 +1218,7 @@ function adicionarMensagem(
 function adicionarFeedbackResolvido(
   onClick,
   idioma = "pt",
-  isSaudacaoMsg = false
+  isSaudacaoMsg = false,
 ) {
   if (isSaudacaoMsg) return;
   const chat = document.getElementById("chatBody");
@@ -1282,7 +1283,7 @@ function enviarMensagemAutomatica() {
     "Se precisar de ajuda, basta escrever a sua pergunta!",
     localStorage.getItem("iconBot") ||
       "/static/images/chatbot/chatbot-icon.png",
-    localStorage.getItem("nomeBot") || "Assistente Municipal"
+    localStorage.getItem("nomeBot") || "Assistente Municipal",
   );
   autoFecharTimeout = setTimeout(() => {
     fecharChat();
@@ -1412,20 +1413,36 @@ async function apresentarMensagemInicial(forceUpdate = false) {
         try {
           localStorage.setItem(
             "mensagemSemResposta",
-            (data.mensagem_sem_resposta || "").trim()
+            (data.mensagem_sem_resposta || "").trim(),
           );
           localStorage.setItem(
             "mensagemInicial",
-            (data.mensagem_inicial || "").trim()
+            (data.mensagem_inicial || "").trim(),
           );
           localStorage.setItem(
             "mensagemFeedbackPositiva",
-            (data.mensagem_feedback_positiva || "").trim()
+            (data.mensagem_feedback_positiva || "").trim(),
           );
           localStorage.setItem(
             "mensagemFeedbackNegativa",
-            (data.mensagem_feedback_negativa || "").trim()
+            (data.mensagem_feedback_negativa || "").trim(),
           );
+          localStorage.setItem(
+            "mensagemGeradaAI",
+            (data.mensagem_gerada_ai || "").trim(),
+          );
+        } catch (e) {}
+
+        // Make chat language follow the chatbot language by default.
+        try {
+          const botIdioma = (data.idioma || "").trim().toLowerCase();
+          if (botIdioma) {
+            if (typeof window.setIdiomaAtivo === "function") {
+              window.setIdiomaAtivo(botIdioma);
+            } else {
+              localStorage.setItem("idiomaAtivo", botIdioma);
+            }
+          }
         } catch (e) {}
       }
       localStorage.setItem("nomeBot", nomeBot);
@@ -1441,7 +1458,7 @@ async function apresentarMensagemInicial(forceUpdate = false) {
     } catch (e) {
       const botsData = JSON.parse(localStorage.getItem("chatbotsData") || "[]");
       const bot = botsData.find(
-        (b) => b.chatbot_id === chatbotId || b.chatbot_id === String(chatbotId)
+        (b) => b.chatbot_id === chatbotId || b.chatbot_id === String(chatbotId),
       );
       nomeBot = bot && bot.nome ? bot.nome : "Assistente Municipal";
       corBot = bot && bot.cor ? bot.cor : "#d4af37";
@@ -1486,7 +1503,7 @@ async function apresentarMensagemInicial(forceUpdate = false) {
   // Store the chatbot ID that was used for this initial message
   localStorage.setItem(
     "lastPresentedChatbotId",
-    chatbotId ? String(chatbotId) : ""
+    chatbotId ? String(chatbotId) : "",
   );
 
   adicionarMensagem("bot", TEXTO_RGPD, null, null, null, true);
@@ -1551,13 +1568,13 @@ function responderPergunta(pergunta) {
       "⚠️ Nenhum chatbot está ativo neste momento. Tente novamente dentro de instantes.",
       localStorage.getItem("iconBot") ||
         "/static/images/chatbot/chatbot-icon.png",
-      localStorage.getItem("nomeBot") || "Assistente Municipal"
+      localStorage.getItem("nomeBot") || "Assistente Municipal",
     );
   }
   if (window.awaitingRagConfirmation) {
     adicionarMensagem(
       "bot",
-      "Por favor, utilize o link acima para confirmar se pretende pesquisar nos documentos PDF."
+      "Por favor, utilize o link acima para confirmar se pretende pesquisar nos documentos PDF.",
     );
     return;
   }
@@ -1584,6 +1601,18 @@ function responderPergunta(pergunta) {
       let faqIdioma = (data.faq_idioma || idioma || "pt").toLowerCase();
       if (data.success) {
         let resposta = data.resposta || "";
+
+        // If backend signals this answer was generated by AI, show the admin-configured notice.
+        try {
+          const aiNotice = (data.ai_notice || "").trim();
+          if (aiNotice && data.ai_generated) {
+            resposta += `
+              <div class="ai-notice" style="margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.35);">
+                <span style="font-size: 13px; opacity: 0.95;">${aiNotice}</span>
+              </div>
+            `;
+          }
+        } catch (e) {}
         if (
           data.documentos &&
           Array.isArray(data.documentos) &&
@@ -1613,7 +1642,7 @@ function responderPergunta(pergunta) {
             "bot",
             resposta,
             iconBot,
-            localStorage.getItem("nomeBot")
+            localStorage.getItem("nomeBot"),
           );
           if (data.faq_id) {
             try {
@@ -1661,7 +1690,7 @@ function responderPergunta(pergunta) {
                   "bot",
                   posMsg,
                   iconBot,
-                  localStorage.getItem("nomeBot")
+                  localStorage.getItem("nomeBot"),
                 );
                 try {
                   if (data.video_enabled) playChatbotAuxVideo("positive");
@@ -1672,7 +1701,7 @@ function responderPergunta(pergunta) {
                   "bot",
                   negMsg,
                   iconBot,
-                  localStorage.getItem("nomeBot")
+                  localStorage.getItem("nomeBot"),
                 );
                 try {
                   if (data.video_enabled) playChatbotAuxVideo("negative");
@@ -1681,7 +1710,7 @@ function responderPergunta(pergunta) {
               }
             },
             faqIdioma,
-            saudacao
+            saudacao,
           );
         }
         window.awaitingRagConfirmation = false;
@@ -1691,7 +1720,7 @@ function responderPergunta(pergunta) {
           data.erro
             .toLowerCase()
             .includes(
-              "deseja tentar encontrar uma resposta nos documentos pdf"
+              "deseja tentar encontrar uma resposta nos documentos pdf",
             ))
       ) {
         window.awaitingRagConfirmation = true;
@@ -1757,7 +1786,7 @@ function responderPergunta(pergunta) {
                       "bot",
                       ragData.resposta || "",
                       iconBot,
-                      localStorage.getItem("nomeBot")
+                      localStorage.getItem("nomeBot"),
                     );
                   } else {
                     adicionarMensagem(
@@ -1765,7 +1794,7 @@ function responderPergunta(pergunta) {
                       ragData.erro ||
                         "❌ Nenhuma resposta encontrada nos documentos PDF.",
                       iconBot,
-                      localStorage.getItem("nomeBot")
+                      localStorage.getItem("nomeBot"),
                     );
                   }
                 })
@@ -1774,7 +1803,7 @@ function responderPergunta(pergunta) {
                     "bot",
                     "❌ Erro ao comunicar com o servidor (RAG).",
                     iconBot,
-                    localStorage.getItem("nomeBot")
+                    localStorage.getItem("nomeBot"),
                   );
                 });
             };
@@ -1786,7 +1815,7 @@ function responderPergunta(pergunta) {
           data.erro ||
             "❌ Nenhuma resposta encontrada para a pergunta fornecida.",
           iconBot,
-          localStorage.getItem("nomeBot")
+          localStorage.getItem("nomeBot"),
         );
 
         // Play no-answer video when backend marks it as such (if available)
@@ -1801,7 +1830,7 @@ function responderPergunta(pergunta) {
         "bot",
         "❌ Erro ao comunicar com o servidor. Verifique se o servidor está ativo.",
         iconBot,
-        localStorage.getItem("nomeBot")
+        localStorage.getItem("nomeBot"),
       );
       window.awaitingRagConfirmation = false;
     });
@@ -1881,7 +1910,7 @@ function adicionarMensagemComHTML(
   html,
   avatarUrl = null,
   autor = null,
-  timestamp = null
+  timestamp = null,
 ) {
   const chat = document.getElementById("chatBody");
   let wrapper = document.createElement("div");
@@ -2112,7 +2141,7 @@ async function mostrarPerguntasSugestivasDB() {
           responderPergunta(faq.pergunta);
           btn.remove();
           const aindaTemBotoes = btnContainer.querySelector(
-            ".suggested-question-btn"
+            ".suggested-question-btn",
           );
           if (!aindaTemBotoes) {
             title.remove();
@@ -2177,13 +2206,13 @@ async function ensureActiveChatbot() {
     localStorage.setItem("corChatbot", chosen.cor || "#d4af37");
     localStorage.setItem(
       "iconBot",
-      chosen.icon_path || "/static/images/chatbot/chatbot-icon.png"
+      chosen.icon_path || "/static/images/chatbot/chatbot-icon.png",
     );
     localStorage.setItem("generoBot", chosen.genero || "");
     if (chosen.fonte) {
       localStorage.setItem(
         `fonteSelecionada_bot${chosen.chatbot_id}`,
-        chosen.fonte
+        chosen.fonte,
       );
     }
     return true;

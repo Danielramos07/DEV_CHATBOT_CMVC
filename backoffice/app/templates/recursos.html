@@ -34,6 +34,13 @@ content %}
     <h2>Novo Chatbot</h2>
     <form id="novoBotForm" enctype="multipart/form-data">
       <input type="text" name="nome" placeholder="Nome do Chatbot" required />
+      <div class="form-group">
+        <label for="novoIdiomaChatbot">Idioma do Chatbot:</label>
+        <select name="idioma" id="novoIdiomaChatbot" required>
+          <option value="pt" selected>Português</option>
+          <option value="en">Inglês</option>
+        </select>
+      </div>
       <textarea name="descricao" placeholder="Descrição"></textarea>
       <input
         type="text"
@@ -52,7 +59,7 @@ content %}
         <select name="fonte" id="novoFonteResposta" required>
           <option value="faq">Baseado em Regras (FAQ)</option>
           <option value="faiss">FAISS</option>
-          <option value="faq+raga">FAQ + fallback RAG</option>
+          <option value="faq+raga">FAQ + GenAI</option>
         </select>
       </div>
 
@@ -90,6 +97,17 @@ content %}
           id="novaMensagemInicial"
           placeholder="Mensagem apresentada como primeira mensagem no chat..."
           rows="3"
+        ></textarea>
+      </div>
+      <div class="form-group">
+        <label for="novaMensagemGeradaAI">
+          Mensagem de aviso (quando a resposta foi gerada por IA):
+        </label>
+        <textarea
+          name="mensagem_gerada_ai"
+          id="novaMensagemGeradaAI"
+          placeholder='Ex: "Nota: esta resposta foi gerada por IA e pode conter imprecisões."'
+          rows="2"
         ></textarea>
       </div>
       <div class="form-group">
@@ -341,6 +359,13 @@ content %}
           <label for="editarNomeChatbot">Nome:</label>
           <input type="text" name="nome" id="editarNomeChatbot" required />
         </div>
+        <div class="form-group">
+          <label for="editarIdiomaChatbot">Idioma:</label>
+          <select name="idioma" id="editarIdiomaChatbot" required>
+            <option value="pt">Português</option>
+            <option value="en">Inglês</option>
+          </select>
+        </div>
         <div class="form-group form-group-descricao">
           <label for="editarDescricaoChatbot">Descrição:</label>
           <input type="text" name="descricao" id="editarDescricaoChatbot" />
@@ -421,6 +446,17 @@ content %}
           id="editarMensagemInicial"
           placeholder="Mensagem apresentada como primeira mensagem no chat..."
           rows="3"
+        ></textarea>
+      </div>
+      <div class="form-group">
+        <label for="editarMensagemGeradaAI">
+          Mensagem de aviso (quando a resposta foi gerada por IA):
+        </label>
+        <textarea
+          name="mensagem_gerada_ai"
+          id="editarMensagemGeradaAI"
+          placeholder='Ex: "Nota: esta resposta foi gerada por IA e pode conter imprecisões."'
+          rows="2"
         ></textarea>
       </div>
       <div class="form-group">

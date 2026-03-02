@@ -215,6 +215,10 @@ def criar_chatbot():
         return request.form.get(key, default)
 
     nome = (_get_field("nome", "") or "").strip()
+    idioma = (_get_field("idioma", "pt") or "pt").strip().lower()
+    idioma = idioma[:2] if idioma else "pt"
+    if idioma not in {"pt", "en"}:
+        idioma = "pt"
     descricao = (_get_field("descricao", "") or "").strip()
     categorias = _get_field("categorias", []) or []
     cor = (_get_field("cor", "") or "").strip() or "#d4af37"
@@ -248,6 +252,7 @@ def criar_chatbot():
             """
             INSERT INTO chatbot (
                 nome,
+                idioma,
                 descricao,
                 cor,
                 icon_path,
@@ -266,6 +271,7 @@ def criar_chatbot():
             """,
             (
                 nome,
+                idioma,
                 descricao,
                 cor,
                 icon_path,
@@ -354,6 +360,7 @@ def obter_nome_chatbot(chatbot_id):
                    cor,
                    icon_path,
                    genero,
+                     idioma,
                    video_greeting_path,
                    video_idle_path,
                    video_positive_path,
@@ -377,7 +384,7 @@ def obter_nome_chatbot(chatbot_id):
             video_positive_url = None
             video_negative_url = None
             video_no_answer_url = None
-            if row[4]:
+            if row[5]:
                 import time
                 from ..services.signed_media import sign_media
                 exp = int(time.time()) + 3600
@@ -390,7 +397,7 @@ def obter_nome_chatbot(chatbot_id):
                     nonce=nonce,
                     sig=sig,
                 )
-            if row[5]:
+            if row[6]:
                 import time
                 from ..services.signed_media import sign_media
                 exp = int(time.time()) + 3600
@@ -403,7 +410,7 @@ def obter_nome_chatbot(chatbot_id):
                     nonce=nonce,
                     sig=sig,
                 )
-            if row[6]:
+            if row[7]:
                 import time
                 from ..services.signed_media import sign_media
                 exp = int(time.time()) + 3600
@@ -416,7 +423,7 @@ def obter_nome_chatbot(chatbot_id):
                     nonce=nonce,
                     sig=sig,
                 )
-            if row[7]:
+            if row[8]:
                 import time
                 from ..services.signed_media import sign_media
                 exp = int(time.time()) + 3600
@@ -429,7 +436,7 @@ def obter_nome_chatbot(chatbot_id):
                     nonce=nonce,
                     sig=sig,
                 )
-            if row[8]:
+            if row[9]:
                 import time
                 from ..services.signed_media import sign_media
                 exp = int(time.time()) + 3600
@@ -448,6 +455,7 @@ def obter_nome_chatbot(chatbot_id):
                 "cor": row[1] or "#d4af37",
                 "icon": row[2] or "/static/images/chatbot/chatbot-icon.png",
                 "genero": row[3],
+                "idioma": (row[4] or "pt").strip().lower()[:2],
                 "video_greeting_path": video_greeting_url or None,
                 "video_idle_path": video_idle_url or None,
                 "video_positive_path": video_positive_url or None,
@@ -492,6 +500,9 @@ def atualizar_chatbot(chatbot_id):
                 pass
         print("Dados recebidos:", dict(request.form))
         nome = request.form.get("nome", "").strip()
+        idioma = (request.form.get("idioma", "") or "").strip().lower()
+        if idioma:
+            idioma = idioma[:2]
         descricao = request.form.get("descricao", "").strip()
         fonte = request.form.get("fonte", "faq")
         # Categories are managed via the dedicated endpoints (/chatbots/<id>/categorias)
@@ -543,6 +554,7 @@ def atualizar_chatbot(chatbot_id):
             SELECT nome,
                    icon_path,
                    genero,
+                     idioma,
                    video_greeting_path,
                    video_idle_path,
                    video_enabled,
@@ -578,6 +590,7 @@ def atualizar_chatbot(chatbot_id):
                 """
                 UPDATE chatbot
                 SET nome=%s,
+                    idioma=%s,
                     descricao=%s,
                     cor=%s,
                     mensagem_sem_resposta=%s,
@@ -593,6 +606,7 @@ def atualizar_chatbot(chatbot_id):
                 """,
                 (
                     nome,
+                    idioma,
                     descricao,
                     cor,
                     mensagem_sem_resposta,
@@ -612,6 +626,7 @@ def atualizar_chatbot(chatbot_id):
                 """
                 UPDATE chatbot
                 SET nome=%s,
+                    idioma=%s,
                     descricao=%s,
                     cor=%s,
                     mensagem_sem_resposta=%s,
@@ -626,6 +641,7 @@ def atualizar_chatbot(chatbot_id):
                 """,
                 (
                     nome,
+                    idioma,
                     descricao,
                     cor,
                     mensagem_sem_resposta,
@@ -663,10 +679,12 @@ def atualizar_chatbot(chatbot_id):
             nome_changed = (old_nome or "").strip() != (nome or "").strip()
             icon_changed = bool(new_icon_uploaded)
             genero_changed = (old_genero or "").strip() != (genero or "").strip()
+            idioma_changed = (old_idioma or "pt").strip().lower()[:2] != (idioma or "pt").strip().lower()[:2]
             greeting_text_changed = (old_greeting_text or "").strip() != (greeting_video_text or "").strip()
             msg_no_answer_changed = (old_msg_no_answer or "").strip() != (mensagem_sem_resposta or "").strip()
             msg_pos_changed = (old_msg_pos or "").strip() != (mensagem_feedback_positiva or "").strip()
             msg_neg_changed = (old_msg_neg or "").strip() != (mensagem_feedback_negativa or "").strip()
+            ai_notice_changed = (old_ai_notice or "").strip() != (mensagem_gerada_ai or "").strip()
 
             # Only queue if video was just enabled OR one of the video-relevant fields changed.
             should_queue = (
@@ -674,6 +692,7 @@ def atualizar_chatbot(chatbot_id):
                 or nome_changed
                 or icon_changed
                 or genero_changed
+                or idioma_changed
                 or greeting_text_changed
                 or msg_no_answer_changed
                 or msg_pos_changed
@@ -682,7 +701,7 @@ def atualizar_chatbot(chatbot_id):
 
             kinds_needed = []
             if should_queue:
-                if (not was_video_enabled) or nome_changed or icon_changed or genero_changed:
+                if (not was_video_enabled) or nome_changed or icon_changed or genero_changed or idioma_changed:
                     kinds_needed = ["greeting", "idle", "positive", "negative", "no_answer"]
                 else:
                     if greeting_text_changed:
@@ -725,6 +744,7 @@ def atualizar_chatbot(chatbot_id):
             "video_enabled": bool(video_enabled),
             "video_queued": bool(video_queued),
             "video_busy": bool(video_busy),
+            "idioma": idioma,
         }
         if video_busy:
             payload["error"] = (

@@ -90,6 +90,8 @@ def ensure_schema() -> None:
         cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS video_positive_path TEXT;")
         cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS video_negative_path TEXT;")
         cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS video_no_answer_path TEXT;")
+        # Optional: store last generated AI video path (reserved for future use)
+        cur.execute("ALTER TABLE chatbot ADD COLUMN IF NOT EXISTS video_generated_path TEXT;")
         # Add FAQ identifier (safe to run repeatedly)
         cur.execute("ALTER TABLE faq ADD COLUMN IF NOT EXISTS identificador VARCHAR(120);")
         # Add FAQ 'serve' field (A quem se destina / para que serve)

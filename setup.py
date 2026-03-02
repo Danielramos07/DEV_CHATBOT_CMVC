@@ -288,8 +288,25 @@ class SadTalkerSetup:
         dii_onnx = voices_dir / "dii_pt-PT.onnx"
         dii_json = voices_dir / "dii_pt-PT.onnx.json"
 
-        if all(p.exists() for p in [tuga_onnx, tuga_json, dii_onnx, dii_json]):
-            print("Piper voice models already present (Tuga + Dii).")
+        en_female_onnx = voices_dir / "en_US-amy-medium.onnx"
+        en_female_json = voices_dir / "en_US-amy-medium.onnx.json"
+        en_male_onnx = voices_dir / "en_US-john-medium.onnx"
+        en_male_json = voices_dir / "en_US-john-medium.onnx.json"
+
+        if all(
+            p.exists()
+            for p in [
+                tuga_onnx,
+                tuga_json,
+                dii_onnx,
+                dii_json,
+                en_female_onnx,
+                en_female_json,
+                en_male_onnx,
+                en_male_json,
+            ]
+        ):
+            print("Piper voice models already present (PT + EN).")
             return True
 
         tuga_onnx_url = (
@@ -305,12 +322,26 @@ class SadTalkerSetup:
             "dii_pt-PT.onnx?download=true"
         )
 
+        en_female_onnx_url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx"
+        en_female_json_url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx.json"
+        en_male_onnx_url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/john/medium/en_US-john-medium.onnx"
+        en_male_json_url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/john/medium/en_US-john-medium.onnx.json"
+
         ok = True
         if not self._download_file(tuga_onnx_url, tuga_onnx):
             ok = False
         if not self._download_file(tuga_json_url, tuga_json):
             ok = False
         if not self._download_file(dii_onnx_url, dii_onnx):
+            ok = False
+
+        if not self._download_file(en_female_onnx_url, en_female_onnx):
+            ok = False
+        if not self._download_file(en_female_json_url, en_female_json):
+            ok = False
+        if not self._download_file(en_male_onnx_url, en_male_onnx):
+            ok = False
+        if not self._download_file(en_male_json_url, en_male_json):
             ok = False
 
         if tuga_json.exists() and not dii_json.exists():
@@ -321,7 +352,19 @@ class SadTalkerSetup:
                 print(f"Warning: could not copy {tuga_json.name} to {dii_json.name}: {exc}")
                 ok = False
 
-        if ok and all(p.exists() for p in [tuga_onnx, tuga_json, dii_onnx, dii_json]):
+        if ok and all(
+            p.exists()
+            for p in [
+                tuga_onnx,
+                tuga_json,
+                dii_onnx,
+                dii_json,
+                en_female_onnx,
+                en_female_json,
+                en_male_onnx,
+                en_male_json,
+            ]
+        ):
             print("Piper voice models downloaded successfully.")
             return True
 
@@ -397,6 +440,10 @@ class SadTalkerSetup:
             self.piper_voices_dir / "pt_PT-tugao-medium.onnx.json",
             self.piper_voices_dir / "dii_pt-PT.onnx",
             self.piper_voices_dir / "dii_pt-PT.onnx.json",
+            self.piper_voices_dir / "en_US-amy-medium.onnx",
+            self.piper_voices_dir / "en_US-amy-medium.onnx.json",
+            self.piper_voices_dir / "en_US-john-medium.onnx",
+            self.piper_voices_dir / "en_US-john-medium.onnx.json",
         ]
         for f in key_files:
             label = f.name
