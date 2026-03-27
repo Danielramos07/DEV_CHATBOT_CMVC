@@ -134,13 +134,24 @@
               <div class="bot-subtext">Chatbot Municipal</div>
             </div>
           </div>
-          <button
-            id="publicarBtn"
-            data-href="{{ url_for('auth.logout') }}"
-            onclick="window.location.href=this.dataset.href;"
-          >
-            Sair
-          </button>
+          <div class="header-actions">
+            <button
+              id="changePasswordBtn"
+              class="header-action-btn secondary"
+              type="button"
+              onclick="abrirModalMudarPassword()"
+            >
+              Mudar password
+            </button>
+            <button
+              id="logoutBtn"
+              class="header-action-btn"
+              data-href="{{ url_for('auth.logout') }}"
+              onclick="window.location.href=this.dataset.href;"
+            >
+              Sair
+            </button>
+          </div>
         </header>
         <div
           id="indicadorVideoJob"
@@ -220,6 +231,48 @@
               <button id="btnConfirmarCancelVideoJob">Confirmar</button>
               <button onclick="fecharModalCancelVideoJob()">Voltar</button>
             </div>
+          </div>
+        </div>
+        <div
+          id="modalMudarPassword"
+          class="modal-overlay"
+          style="display: none"
+        >
+          <div class="modal-box modal-box-confirmacao" style="max-width: 520px">
+            <h2>Mudar password</h2>
+            <div id="changePasswordFeedback" class="auth-modal-feedback"></div>
+            <form id="changePasswordForm">
+              <label for="currentPasswordInput">Password atual</label>
+              <input
+                id="currentPasswordInput"
+                name="current_password"
+                type="password"
+                autocomplete="current-password"
+                required
+              />
+              <label for="newPasswordInput">Nova password</label>
+              <input
+                id="newPasswordInput"
+                name="new_password"
+                type="password"
+                autocomplete="new-password"
+                required
+              />
+              <label for="confirmPasswordInput">Confirmar nova password</label>
+              <input
+                id="confirmPasswordInput"
+                name="confirm_password"
+                type="password"
+                autocomplete="new-password"
+                required
+              />
+              <div class="auth-modal-actions">
+                <button type="button" onclick="fecharModalMudarPassword()">
+                  Cancelar
+                </button>
+                <button type="submit">Guardar</button>
+              </div>
+            </form>
           </div>
         </div>
         {% block content %}{% endblock %}
@@ -390,6 +443,87 @@
     <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
     <script src="{{ url_for('static', filename='js/toggleChat.js') }}"></script>
     <script src="{{ url_for('static', filename='js/video-status.js') }}"></script>
+    <script>
+      function abrirModalMudarPassword() {
+        const modal = document.getElementById("modalMudarPassword");
+        const form = document.getElementById("changePasswordForm");
+        const feedback = document.getElementById("changePasswordFeedback");
+        if (feedback) {
+          feedback.textContent = "";
+          feedback.className = "auth-modal-feedback";
+        }
+        if (form) form.reset();
+        if (modal) modal.style.display = "flex";
+        const currentInput = document.getElementById("currentPasswordInput");
+        if (currentInput) window.setTimeout(() => currentInput.focus(), 0);
+      }
+
+      function fecharModalMudarPassword() {
+        const modal = document.getElementById("modalMudarPassword");
+        if (modal) modal.style.display = "none";
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const form = document.getElementById("changePasswordForm");
+        const modal = document.getElementById("modalMudarPassword");
+        const feedback = document.getElementById("changePasswordFeedback");
+
+        function setFeedback(kind, message) {
+          if (!feedback) return;
+          feedback.textContent = message || "";
+          feedback.className = "auth-modal-feedback" + (kind ? ` ${kind}` : "");
+        }
+
+        if (modal) {
+          modal.addEventListener("click", function (event) {
+            if (event.target === modal) fecharModalMudarPassword();
+          });
+        }
+
+        document.addEventListener("keydown", function (event) {
+          if (event.key === "Escape" && modal && modal.style.display !== "none") {
+            fecharModalMudarPassword();
+          }
+        });
+
+        if (!form) return;
+
+        form.addEventListener("submit", async function (event) {
+          event.preventDefault();
+          setFeedback("", "");
+
+          const submitBtn = form.querySelector('button[type="submit"]');
+          if (submitBtn) submitBtn.disabled = true;
+
+          try {
+            const res = await fetch("{{ url_for('auth.change_password') }}", {
+              method: "POST",
+              body: new FormData(form),
+            });
+            const data = await res.json();
+
+            if (!res.ok || !data.success) {
+              setFeedback(
+                "error",
+                data.error || "Não foi possível alterar a password.",
+              );
+              return;
+            }
+
+            setFeedback(
+              "success",
+              data.message || "Password alterada com sucesso.",
+            );
+            form.reset();
+            window.setTimeout(fecharModalMudarPassword, 1200);
+          } catch (error) {
+            setFeedback("error", "Erro ao comunicar com o servidor.");
+          } finally {
+            if (submitBtn) submitBtn.disabled = false;
+          }
+        });
+      });
+    </script>
     {% block extra_scripts %}{% endblock %}
   </body>
 </html>

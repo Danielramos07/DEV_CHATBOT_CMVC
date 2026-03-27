@@ -86,7 +86,6 @@ def _extract_pdf_pages(file_path):
     with open(file_path, "rb") as f:
         reader = PyPDF2.PdfReader(f)
         if not _try_decrypt_pdf(reader):
-        if not _try_decrypt_pdf(reader):
             raise ValueError("PDF is encrypted")
         for idx, page in enumerate(reader.pages, start=1):
             text = page.extract_text()

@@ -249,6 +249,7 @@ async function carregarTabelaBots() {
       <table class="bots-tabela">
         <thead>
           <tr>
+            <th>ID</th>
             <th>Nome</th>
             <th>Descrição</th>
             <th>Endereço de Publicação</th>
@@ -265,6 +266,7 @@ async function carregarTabelaBots() {
             .map(
               (bot) => `
             <tr data-chatbot-id="${bot.chatbot_id}">
+              <td>${bot.chatbot_id ?? "-"}</td>
               <td>${bot.nome || "-"}</td>
               <td>${bot.descricao || "-"}</td>
               <td>${bot.endereco || "-"}</td>

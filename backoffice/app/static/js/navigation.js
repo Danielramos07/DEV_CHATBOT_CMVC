@@ -1,22 +1,4 @@
 document.addEventListener("DOMContentLoaded", async () => {
-  const publicarBtn = document.getElementById("publicarBtn");
-  if (publicarBtn) {
-    publicarBtn.addEventListener("click", () => {
-      const botItem = document.querySelector(".bot-item.expanded");
-      if (!botItem) return;
-
-      const statusSpan = botItem.querySelector(".status");
-      const dataAtual = new Date().toLocaleDateString('pt-PT', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-      });
-
-      statusSpan.textContent = `Estado: Publicado - Município • ${dataAtual}`;
-      botItem.classList.remove("nao-publicado");
-    });
-  }
-
   const chatbotId = localStorage.getItem("chatbotSelecionado");
 
   // Sync global active chatbot from server (avoid stale localStorage across admins).
@@ -34,10 +16,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (chatbotId) {
     window.chatbotSelecionado = parseInt(chatbotId);
-    const fonte = localStorage.getItem(`fonteSelecionada_bot${chatbotId}`) || "faq";
+    const fonte =
+      localStorage.getItem(`fonteSelecionada_bot${chatbotId}`) || "faq";
     window.fonteSelecionada = fonte;
 
-    const dropdown = document.querySelector(`.bot-item[data-chatbot-id="${chatbotId}"]`)
+    const dropdown = document
+      .querySelector(`.bot-item[data-chatbot-id="${chatbotId}"]`)
       ?.parentElement?.querySelector(".bot-dropdown");
     if (dropdown) {
       selecionarFonte(fonte, dropdown);
@@ -57,11 +41,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     carregarChatbots();
   }
 
-  if (window.location.pathname.includes("respostas.html") && typeof mostrarRespostas === "function") {
+  if (
+    window.location.pathname.includes("respostas.html") &&
+    typeof mostrarRespostas === "function"
+  ) {
     mostrarRespostas();
   }
-  
-  if (window.location.pathname.includes("recursos.html") && chatbotId && typeof mostrarRespostas === "function") {
+
+  if (
+    window.location.pathname.includes("recursos.html") &&
+    chatbotId &&
+    typeof mostrarRespostas === "function"
+  ) {
     mostrarRespostas();
   }
 });
